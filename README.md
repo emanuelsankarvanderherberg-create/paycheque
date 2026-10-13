@@ -4,6 +4,10 @@ A small budgeting app for people paid by the hour. Log the hours you work and wh
 
 It's a single HTML page that installs to your phone's home screen and works offline. All your data stays on your device; nothing is sent to a server.
 
+**Use it here: https://emanuelsankarvanderherberg-create.github.io/paycheque/**
+
+To install it, open the link on your phone, then choose **Add to Home screen** (Chrome: ⋮ menu; Safari: Share button).
+
 ## Features
 
 - **Today** – a daily spending amount, worked out from what you've earned minus subscriptions, savings and spending so far
@@ -23,7 +27,7 @@ python -m http.server 8000
 
 Then open http://localhost:8000. The service worker (needed for offline use and installing) only runs over `http://localhost` or HTTPS, not when opening `index.html` directly from disk.
 
-To put it online, enable GitHub Pages for this repo (Settings → Pages → deploy from the `main` branch).
+The live site is published with GitHub Pages from the `main` branch, so anything merged into `main` goes live within a minute or two.
 
 ## Files
 
