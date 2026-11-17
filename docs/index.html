@@ -6,6 +6,11 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#ffffff" id="themeMeta">
 <link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="My Closet">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Inter:wght@400;500;600;700&display=swap">
 <style>
 [hidden] { display: none !important; }
@@ -131,6 +136,9 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 .pc:has(img[data-cut]) { border-color: transparent; background: transparent; }
 .pc img[data-cut] { filter: drop-shadow(0 4px 5px rgba(0,0,0,.28)); padding: 0; }
 .hrow .th img[data-cut] { background: var(--surface); padding: 2px; }
+.install { background: var(--soft); border: 3px solid var(--fg); border-radius: 22px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.install b { font-family: var(--font-display); font-size: 18px; }
+.install p { margin: 0; line-height: 1.45; }
 .chip[disabled] { opacity: .45; cursor: default; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; z-index: 15; max-width: 90vw; text-align: center; }
 .dh { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
@@ -166,6 +174,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
   <div class="seasons" id="seasons" role="group" aria-label="Season"></div>
 
   <section id="viewToday" class="stack">
+    <div id="installBanner"></div>
     <div class="readout" id="readout"></div>
     <div class="stagewrap"><div class="stage" id="stage"></div></div>
     <div id="styleNote"></div>
@@ -1162,6 +1171,32 @@ $("city").addEventListener("keydown", (e) => { if (e.key === "Enter") findCity()
 $("geoGo").addEventListener("click", useLocation);
 for (const [id, f] of [["unitC", false], ["unitF", true]]) $(id).addEventListener("click", () => { unitF = f; lsSet("closet-unitF", f); renderMore(); renderToday(); });
 
+/* ---------- Install prompt (only when opened in a browser) ---------- */
+let deferredPrompt = null;
+function platformInfo() {
+  const ua = navigator.userAgent || "";
+  const ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const safari = ios && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|FBAN|FBAV|Instagram|Line\//.test(ua);
+  const android = /Android/.test(ua);
+  return { ios, safari, android, mobile: ios || android };
+}
+function isInstalled() {
+  try { return window.matchMedia("(display-mode: standalone)").matches || window.matchMedia("(display-mode: fullscreen)").matches || navigator.standalone === true || lsGet("closet-installed") === true; } catch { return false; }
+}
+function renderInstall() {
+  const el = $("installBanner"); if (!el) return;
+  const d = lsGet("closet-installDismiss"), P = platformInfo();
+  if (isInstalled() || (d && Date.now() - d < 7 * 864e5) || (!P.mobile && !deferredPrompt)) { el.innerHTML = ""; return; }
+  let body;
+  if (deferredPrompt) body = `<p>Install My Closet so it opens full screen from your home screen, like a normal app.</p><div class="actions"><button class="chip" id="installGo" style="background:var(--accent);color:var(--accent-fg)">Install app</button><button class="chip" id="installNo">Not now</button></div>`;
+  else if (P.ios && P.safari) body = `<p>Add it to your home screen so it opens like an app and keeps your closet safe: tap the <b style="font-family:var(--font-body)">Share</b> button (the square with an arrow), then <b style="font-family:var(--font-body)">Add to Home Screen</b>.</p><div class="actions"><button class="chip" id="installNo">Got it</button></div>`;
+  else if (P.ios) body = `<p>To install it, open this page in <b style="font-family:var(--font-body)">Safari</b>, tap Share, then Add to Home Screen. Other browsers on iPhone can't install apps.</p><div class="actions"><button class="chip" id="installNo">Not now</button></div>`;
+  else body = `<p>Make it an app: tap the <b style="font-family:var(--font-body)">⋮ menu</b> in Chrome, then <b style="font-family:var(--font-body)">Install app</b> (or Add to Home screen). If you opened this from another app, open it in Chrome first.</p><div class="actions"><button class="chip" id="installNo">Got it</button></div>`;
+  el.innerHTML = `<div class="install"><b>Use it as an app</b>${body}</div>`;
+}
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredPrompt = e; renderInstall(); });
+window.addEventListener("appinstalled", () => { lsSet("closet-installed", true); deferredPrompt = null; renderInstall(); });
+
 /* ---------- Tabs and clicks ---------- */
 function showTab(name) {
   tab = name; if (tab !== "capture") stopCam();
@@ -1175,7 +1210,9 @@ function showTab(name) {
 }
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("button"); if (!t) return;
-  if (t.dataset.dayshuf !== undefined) {
+  if (t.id === "installGo" && deferredPrompt) { deferredPrompt.prompt(); try { await deferredPrompt.userChoice; } catch {} deferredPrompt = null; renderInstall(); }
+  else if (t.id === "installNo") { lsSet("closet-installDismiss", Date.now()); renderInstall(); }
+  else if (t.dataset.dayshuf !== undefined) {
     const k = +t.dataset.dayshuf;
     if (k === 0) { generate(); renderToday(); buildPlan(1); } else buildPlan(k);
     renderWeek();
@@ -1220,7 +1257,7 @@ document.addEventListener("click", async (e) => {
 });
 
 /* ---------- Start ---------- */
-applySkin(); render();
+applySkin(); render(); renderInstall();
 (async () => {
   db = makeDb(); ready = true;
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
