@@ -304,6 +304,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
     <label>Category<select id="edCat"></select></label>
     <label>Color<select id="edColor"><option value="">Not set</option></select></label>
     <label>Pattern<select id="edPattern"><option value="solid">Solid</option><option value="patterned">Patterned or graphic</option></select></label>
+    <label>Dress level<select id="edForm"><option value="">Automatic</option><option value="0.5">Lounge</option><option value="1.5">Casual</option><option value="2.5">Smart casual</option><option value="3.5">Work</option><option value="4">Dressy</option></select></label>
     <div><div class="tip" style="margin-bottom:6px">Good for (pick any)</div><div class="cats" id="edTags"></div></div>
     <label>Wears before washing
       <select id="edMax"><option value="">Automatic</option><option value="0">Never (shoes, coats, accessories)</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="7">7</option><option value="10">10</option></select>
@@ -597,6 +598,7 @@ function openEditor(id) {
   const it = byId(id); if (!it) return;
   editId = id; delArm = false; refreshCnt();
   $("edImg").src = pic(it); $("edName").value = it.name || ""; $("edColor").value = it.color || "";
+  $("edForm").value = it.formality === undefined || it.formality === null ? "" : String(it.formality);
   $("edCat").value = it.category; $("edPattern").value = it.pattern || "solid"; $("edFav").checked = !!it.favorite;
   $("edMax").value = it.maxWears === undefined || it.maxWears === null ? "" : String(it.maxWears);
   const m = maxWears(it); $("edWear").textContent = m === 0 ? "Not tracked for washing." : `Worn ${wearsOf(it)} of ${m} since the last wash${isDirty(it) ? ". It's in the hamper." : "."}`;
@@ -616,6 +618,7 @@ async function closeEditor() {
   if ($("edPattern").value !== (it.pattern || "solid")) { upd.pattern = $("edPattern").value; a.pattern = false; }
   if ($("edCat").value !== it.category) { upd.category = $("edCat").value; a.category = false; }
   if (tags.slice().sort().join() !== (it.tags || []).slice().sort().join()) { upd.tags = tags; a.tags = false; }
+  const fm = $("edForm").value === "" ? null : +$("edForm").value; if (fm !== (it.formality === undefined ? null : it.formality)) upd.formality = fm;
   if ($("edFav").checked !== !!it.favorite) upd.favorite = $("edFav").checked;
   const mw = mx === "" ? null : +mx; if (mw !== (it.maxWears === undefined ? null : it.maxWears)) upd.maxWears = mw;
   if (price !== (it.price === undefined ? null : it.price)) upd.price = price;
@@ -712,6 +715,51 @@ function ctxOf(ids) {
   const its = ids.map(byId).filter(Boolean);
   return { ids, patterned: its.some(i => i.pattern === "patterned"), accent: its.some(isAccent) };
 }
+const FORMAL_TAG = { Lounge: 0.5, Active: 0.5, Casual: 1.5, Work: 3.5, Dressy: 4 };
+function formalityOf(i) {
+  if (i.formality !== undefined && i.formality !== null && i.formality !== "") return +i.formality;
+  const T = i.typeLabel && TYPES.find(t => t[0] === i.typeLabel); if (T && T[4] !== undefined) return T[4];
+  const tg = (i.tags || []).map(t => FORMAL_TAG[t]).filter(v => v !== undefined);
+  if (tg.length) return tg.reduce((a, b) => a + b, 0) / tg.length;
+  const n = (i.name || "").toLowerCase();
+  if (/sweatpant|jogger|legging|pajama|slipper|hoodie|sweatshirt|tank/.test(n)) return 0.8;
+  if (/\bdress\b|heel|\btie\b|suit|blazer|gown/.test(n)) return 3.8;
+  if (/slack|dress pant|dress shirt|button|oxford|peacoat|wool coat|trench|loafer/.test(n)) return 3.3;
+  if (/sweater|cardigan|chino|polo|boot|turtleneck|blouse/.test(n)) return 2.5;
+  if (/tee|t-shirt|jean|denim|sneaker|flannel|short|puffer|beanie|cap\b|bomber|fleece/.test(n)) return 1.5;
+  return null;
+}
+const EVENT_FORMAL = { Lounge: 0.5, Active: 0.5, Casual: 1.5, Work: 3.5, Dressy: 4 };
+function formalFactor(i, ctx) {
+  const f = formalityOf(i); if (f === null || i.category === "accessories") return 1;
+  const forms = [];
+  if (ctx && ctx.ids) for (const id of ctx.ids) { const o = byId(id); if (o && o.category !== "accessories") { const v = formalityOf(o); if (v !== null) forms.push(v); } }
+  if (mood.event && EVENT_FORMAL[mood.event] !== undefined) forms.push(EVENT_FORMAL[mood.event]);
+  if (!forms.length) return 1;
+  const m = forms.reduce((a, b) => a + b, 0) / forms.length, d = Math.abs(f - m);
+  return d <= 0.7 ? 1.15 : d <= 1.3 ? 1 : d <= 2 ? 0.5 : 0.15;
+}
+const HUES = { Red: 0, Orange: 28, Yellow: 48, Green: 140, Blue: 214, Purple: 269, Pink: 346 };
+const NEUTRAL_PAIRS = { "Beige|Black": 1.0, "Beige|Brown": 1.3, "Beige|Gray": 0.85, "Beige|Navy": 1.35, "Beige|White": 1.15, "Black|Brown": 0.6, "Black|Gray": 1.15, "Black|Navy": 0.8, "Black|White": 1.3, "Brown|Gray": 0.8, "Brown|Navy": 1.25, "Brown|White": 1.15, "Gray|Navy": 1.15, "Gray|White": 1.15, "Navy|White": 1.25 };
+const ACCENT_NEUTRAL = { "Red|Brown": 0.7, "Purple|Brown": 0.65, "Pink|Brown": 0.8, "Green|Brown": 1.2, "Orange|Brown": 1.1, "Red|Navy": 1.15, "Blue|Navy": 0.85, "Green|Navy": 1.1, "Yellow|Navy": 1.2, "Orange|Navy": 1.25, "Pink|Navy": 1.2, "Purple|Beige": 0.9, "Yellow|Beige": 0.9, "Red|Beige": 1.1, "Blue|Beige": 1.2, "Green|Beige": 1.15, "Orange|Beige": 1.0 };
+function colorPair(a, b) {
+  if (!a || !b) return 1;
+  if (a === b) return 1.05;
+  const an = NEUTRAL.has(a), bn = NEUTRAL.has(b);
+  if (an && bn) return NEUTRAL_PAIRS[[a, b].sort().join("|")] ?? 1;
+  if (a === "Multi" || b === "Multi") return (an || bn) ? 1.05 : 0.6;
+  if (an || bn) { const acc = an ? b : a, neu = an ? a : b; return ACCENT_NEUTRAL[acc + "|" + neu] ?? 1.1; }
+  if ((a === "Red" && b === "Pink") || (a === "Pink" && b === "Red")) return 0.5;
+  const diff = Math.abs(HUES[a] - HUES[b]), d = Math.min(diff, 360 - diff);
+  if (d <= 40) return 1.15; if (d >= 160) return 1.2; if (d >= 105 && d <= 135) return 1.0; if (d > 135) return 0.95; return 0.55;
+}
+function harmonyFactor(i, ctx) {
+  if (!i.color || !ctx || !ctx.ids || !ctx.ids.length) return 1;
+  const ps = []; for (const id of ctx.ids) { const o = byId(id); if (o && o.color) ps.push(colorPair(i.color, o.color)); }
+  if (!ps.length) return 1;
+  const m = ps.reduce((a, b) => a + b, 0) / ps.length;
+  return Math.pow(Math.max(0.35, Math.min(1.4, m)), 2);
+}
 function weight(i, ctx) {
   const tags = i.tags || [], has = (t) => tags.includes(t), quiet = !i.color || NEUTRAL.has(i.color), bold = isAccent(i) || i.pattern === "patterned";
   let w = i.favorite ? 3 : 1;
@@ -723,6 +771,7 @@ function weight(i, ctx) {
   if (mood.feeling === "Low-key") { if (quiet) w *= 3; if (i.pattern === "patterned") w *= 0.2; }
   if (mood.energy === "Low") { if (has("Lounge") || has("Casual")) w *= 2; if (quiet) w *= 2; }
   if (mood.energy === "High") { if (bold) w *= 2; if (has("Dressy")) w *= 1.5; }
+  w *= formalFactor(i, ctx) * harmonyFactor(i, ctx);
   const ms = mem.item[i.id] || 0; if (ms) w *= Math.exp(0.3 * ms);
   if (ctx && ctx.ids && ctx.ids.length) { let ps = 0; for (const o of ctx.ids) ps += mem.pair[pairKey(i.id, o)] || 0; if (ps) w *= Math.exp(0.7 * Math.max(-3, Math.min(4, ps))); }
   return w;
@@ -780,6 +829,15 @@ function tips() {
   else if (accents.length === 1) t.push(relaxed() ? accents[0] + " leads today. Let it be the star." : accents[0] + " is the color of the day. Keep the rest neutral.");
   else t.push(accents.join(" and ") + " are competing. Swap one for something neutral.");
   if (pats.length > 1) t.push("Two patterns at once. Swap one for a solid."); else if (pats.length === 1) t.push("One pattern is the statement piece. Keep the rest solid.");
+  const cl = its.filter(i => i.color && i.category !== "accessories"); let minP = 9, minPair = null, sum = 0, np = 0;
+  for (let x = 0; x < cl.length; x++) for (let y = x + 1; y < cl.length; y++) { if (cl[x].color === cl[y].color) continue; const v = colorPair(cl[x].color, cl[y].color); sum += v; np++; if (v < minP) { minP = v; minPair = [cl[x].color, cl[y].color]; } }
+  if (minPair && minP < 0.7) t.push(`${minPair[0]} and ${minPair[1]} don't sit well together. Swap one.`);
+  else if (minPair && sum / np >= 1.15) t.push(`${minPair[0]} with ${minPair[1]} is a classic pairing.`);
+  const fl = its.filter(i => i.category !== "accessories").map(i => [i, formalityOf(i)]).filter(([, f]) => f !== null);
+  if (fl.length >= 2) {
+    const vs = fl.map(([, f]) => f), mean = vs.reduce((a, b) => a + b, 0) / vs.length;
+    if (Math.max(...vs) - Math.min(...vs) >= 2) { const [o, f] = fl.reduce((p, q) => Math.abs(q[1] - mean) > Math.abs(p[1] - mean) ? q : p); t.push(`The ${(o.name || o.color || LABEL[o.category]).toLowerCase()} is much ${f > mean ? "dressier" : "more casual"} than the rest. Swap it, or lean into the contrast on purpose.`); }
+  }
   if (wx && mood.weather && wx.rain >= 60) t.push("Rain is likely. Pick shoes you don't mind getting wet.");
   if (wx && mood.weather && wx.tmin <= 8 && !its.some(i => i.category === "outerwear")) t.push("It's cold. Add a coat or jacket if you have one.");
   return t.join(" ");
@@ -985,28 +1043,28 @@ async function analyzeAndSave(id) {
   });
 }
 
-// label, category, display name, suggested event tags
+// label, category, display name, suggested event tags, dress level (0 lounge, 1.5 casual, 2.5 smart casual, 3.5 work, 4 dressy)
 const TYPES = [
-  ["t-shirt", "tops", "T-shirt", ["Casual"]], ["polo shirt", "tops", "Polo shirt", ["Casual", "Work"]], ["button-up dress shirt", "tops", "Button-up shirt", ["Work", "Dressy"]],
-  ["blouse", "tops", "Blouse", ["Work", "Dressy"]], ["sweater", "tops", "Sweater", ["Casual", "Work"]], ["hoodie", "tops", "Hoodie", ["Casual", "Lounge"]],
-  ["sweatshirt", "tops", "Sweatshirt", ["Casual", "Lounge"]], ["cardigan", "tops", "Cardigan", ["Casual", "Work"]], ["tank top", "tops", "Tank top", ["Casual", "Active"]],
-  ["turtleneck sweater", "tops", "Turtleneck", ["Work", "Dressy"]], ["flannel shirt", "tops", "Flannel shirt", ["Casual"]], ["long sleeve shirt", "tops", "Long sleeve", ["Casual"]],
-  ["athletic shirt", "tops", "Athletic shirt", ["Active"]],
-  ["jeans", "bottoms", "Jeans", ["Casual"]], ["dress pants", "bottoms", "Dress pants", ["Work", "Dressy"]], ["chinos", "bottoms", "Chinos", ["Work", "Casual"]],
-  ["sweatpants", "bottoms", "Sweatpants", ["Lounge", "Active"]], ["joggers", "bottoms", "Joggers", ["Lounge", "Active"]], ["leggings", "bottoms", "Leggings", ["Active", "Lounge"]],
-  ["shorts", "bottoms", "Shorts", ["Casual", "Active"]], ["skirt", "bottoms", "Skirt", ["Casual", "Dressy"]], ["cargo pants", "bottoms", "Cargo pants", ["Casual"]],
-  ["corduroy pants", "bottoms", "Cords", ["Casual"]],
-  ["puffer jacket", "outerwear", "Puffer jacket", ["Casual", "Active"]], ["wool coat", "outerwear", "Wool coat", ["Work", "Dressy"]], ["denim jacket", "outerwear", "Denim jacket", ["Casual"]],
-  ["leather jacket", "outerwear", "Leather jacket", ["Casual", "Dressy"]], ["blazer", "outerwear", "Blazer", ["Work", "Dressy"]], ["trench coat", "outerwear", "Trench coat", ["Work", "Dressy"]],
-  ["bomber jacket", "outerwear", "Bomber jacket", ["Casual"]], ["raincoat", "outerwear", "Raincoat", ["Casual"]], ["fleece jacket", "outerwear", "Fleece jacket", ["Casual", "Active"]],
-  ["vest", "outerwear", "Vest", ["Casual"]],
-  ["sneakers", "shoes", "Sneakers", ["Casual", "Active"]], ["running shoes", "shoes", "Running shoes", ["Active"]], ["boots", "shoes", "Boots", ["Casual", "Dressy"]],
-  ["dress shoes", "shoes", "Dress shoes", ["Work", "Dressy"]], ["loafers", "shoes", "Loafers", ["Work", "Dressy"]], ["sandals", "shoes", "Sandals", ["Casual"]],
-  ["high heels", "shoes", "Heels", ["Dressy"]], ["slippers", "shoes", "Slippers", ["Lounge"]],
-  ["beanie hat", "accessories", "Beanie", ["Casual"]], ["baseball cap", "accessories", "Cap", ["Casual", "Active"]], ["scarf", "accessories", "Scarf", ["Casual", "Dressy"]],
-  ["belt", "accessories", "Belt", ["Work", "Dressy"]], ["gloves", "accessories", "Gloves", ["Casual"]], ["handbag", "accessories", "Handbag", ["Casual", "Dressy"]],
-  ["backpack", "accessories", "Backpack", ["Casual"]], ["necktie", "accessories", "Tie", ["Work", "Dressy"]],
-  ["dress", "onepiece", "Dress", ["Dressy"]], ["jumpsuit", "onepiece", "Jumpsuit", ["Casual", "Dressy"]],
+  ["t-shirt", "tops", "T-shirt", ["Casual"], 1.5], ["polo shirt", "tops", "Polo shirt", ["Casual", "Work"], 2.5], ["button-up dress shirt", "tops", "Button-up shirt", ["Work", "Dressy"], 3.2],
+  ["blouse", "tops", "Blouse", ["Work", "Dressy"], 3.2], ["sweater", "tops", "Sweater", ["Casual", "Work"], 2.5], ["hoodie", "tops", "Hoodie", ["Casual", "Lounge"], 1],
+  ["sweatshirt", "tops", "Sweatshirt", ["Casual", "Lounge"], 1], ["cardigan", "tops", "Cardigan", ["Casual", "Work"], 2.5], ["tank top", "tops", "Tank top", ["Casual", "Active"], 1],
+  ["turtleneck sweater", "tops", "Turtleneck", ["Work", "Dressy"], 3], ["flannel shirt", "tops", "Flannel shirt", ["Casual"], 1.5], ["long sleeve shirt", "tops", "Long sleeve", ["Casual"], 1.5],
+  ["athletic shirt", "tops", "Athletic shirt", ["Active"], 0.5],
+  ["jeans", "bottoms", "Jeans", ["Casual"], 1.5], ["dress pants", "bottoms", "Dress pants", ["Work", "Dressy"], 3.5], ["chinos", "bottoms", "Chinos", ["Work", "Casual"], 2.5],
+  ["sweatpants", "bottoms", "Sweatpants", ["Lounge", "Active"], 0.5], ["joggers", "bottoms", "Joggers", ["Lounge", "Active"], 0.7], ["leggings", "bottoms", "Leggings", ["Active", "Lounge"], 0.5],
+  ["shorts", "bottoms", "Shorts", ["Casual", "Active"], 1], ["skirt", "bottoms", "Skirt", ["Casual", "Dressy"], 2.5], ["cargo pants", "bottoms", "Cargo pants", ["Casual"], 1.5],
+  ["corduroy pants", "bottoms", "Cords", ["Casual"], 2],
+  ["puffer jacket", "outerwear", "Puffer jacket", ["Casual", "Active"], 1.5], ["wool coat", "outerwear", "Wool coat", ["Work", "Dressy"], 3.5], ["denim jacket", "outerwear", "Denim jacket", ["Casual"], 1.5],
+  ["leather jacket", "outerwear", "Leather jacket", ["Casual", "Dressy"], 2.5], ["blazer", "outerwear", "Blazer", ["Work", "Dressy"], 3.5], ["trench coat", "outerwear", "Trench coat", ["Work", "Dressy"], 3.5],
+  ["bomber jacket", "outerwear", "Bomber jacket", ["Casual"], 1.5], ["raincoat", "outerwear", "Raincoat", ["Casual"], 1.5], ["fleece jacket", "outerwear", "Fleece jacket", ["Casual", "Active"], 1],
+  ["vest", "outerwear", "Vest", ["Casual"], 2],
+  ["sneakers", "shoes", "Sneakers", ["Casual", "Active"], 1.5], ["running shoes", "shoes", "Running shoes", ["Active"], 0.5], ["boots", "shoes", "Boots", ["Casual", "Dressy"], 2.5],
+  ["dress shoes", "shoes", "Dress shoes", ["Work", "Dressy"], 3.5], ["loafers", "shoes", "Loafers", ["Work", "Dressy"], 3], ["sandals", "shoes", "Sandals", ["Casual"], 1.2],
+  ["high heels", "shoes", "Heels", ["Dressy"], 4], ["slippers", "shoes", "Slippers", ["Lounge"], 0],
+  ["beanie hat", "accessories", "Beanie", ["Casual"], 1.5], ["baseball cap", "accessories", "Cap", ["Casual", "Active"], 1], ["scarf", "accessories", "Scarf", ["Casual", "Dressy"], 2.5],
+  ["belt", "accessories", "Belt", ["Work", "Dressy"], 2.5], ["gloves", "accessories", "Gloves", ["Casual"], 2], ["handbag", "accessories", "Handbag", ["Casual", "Dressy"], 2.5],
+  ["backpack", "accessories", "Backpack", ["Casual"], 1], ["necktie", "accessories", "Tie", ["Work", "Dressy"], 4],
+  ["dress", "onepiece", "Dress", ["Dressy"], 3.5], ["jumpsuit", "onepiece", "Jumpsuit", ["Casual", "Dressy"], 3],
 ];
 const TYPE_LABELS = TYPES.map(t => t[0]);
 const TF_LIB = "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
