@@ -78,15 +78,56 @@ input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; poin
 .note.bad { color: var(--danger); border-color: var(--danger); }
 .cat-title { font-family: var(--font-display); font-size: 18px; margin: 0; }
 .tip { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.tabs { display: flex; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 4px; gap: 4px; }
+.tabs button { flex: 1; border: 0; background: transparent; padding: 10px; border-radius: 9px; font-weight: 600; }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); }
+.outfit { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.slot { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+.slot img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; }
+.slot .row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; gap: 6px; }
+.slot .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.slot .swap { border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 5px 10px; font-size: 13px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 13px 16px; font-weight: 600; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); flex: 1 1 200px; }
+.btn[disabled] { opacity: .5; cursor: default; }
+.status { font-weight: 600; }
+.status.ok { color: var(--ok); }
+.note-style { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; line-height: 1.5; }
+.hist { display: flex; flex-direction: column; gap: 8px; }
+.hrow { display: flex; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+.hrow .d { width: 84px; flex: none; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hrow .th { display: flex; gap: 4px; overflow-x: auto; min-width: 0; }
+.hrow .th img { width: 44px; height: 58px; object-fit: cover; border-radius: 6px; flex: none; }
 </style>
 
 <main>
   <div class="top">
-    <h1>Closet Capture</h1>
+    <h1>My Closet</h1>
     <div class="total"><b id="total">0</b> items photographed</div>
   </div>
 
   <div class="seasons" id="seasons" role="group" aria-label="Season"></div>
+  <div class="tabs" role="tablist">
+    <button role="tab" data-tab="today" aria-selected="true">Today's outfit</button>
+    <button role="tab" data-tab="capture" aria-selected="false">Add photos</button>
+  </div>
+
+  <section id="viewToday" class="stack">
+    <div id="todayHead"></div>
+    <div class="outfit" id="outfit"></div>
+    <div class="actions">
+      <button class="btn" id="reroll">New outfit</button>
+      <button class="btn primary" id="wear">I'm wearing this today</button>
+    </div>
+    <div class="actions"><button class="btn" id="styleBtn">Ask Claude to style it</button></div>
+    <div id="styleNote"></div>
+    <h2 class="cat-title">Last two weeks</h2>
+    <div class="hist" id="history"></div>
+  </section>
+
+  <div id="viewCapture" class="stack" hidden>
   <div class="cats" id="cats" role="group" aria-label="Category"></div>
 
   <label class="shutter" for="cam">
@@ -104,6 +145,7 @@ input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; poin
     <p class="tip" id="catTip"></p>
   </div>
   <div class="grid" id="grid"></div>
+  </div>
   <div id="msg"></div>
 </main>
 
@@ -154,7 +196,7 @@ function esc(s) { return String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<"
 
 document.addEventListener("click", (e) => {
   const t = e.target.closest("button"); if (!t) return;
-  if (t.dataset.season) { season = t.dataset.season; confirmId = null; render(); }
+  if (t.dataset.season) { season = t.dataset.season; confirmId = null; render(); syncToday(); }
   else if (t.dataset.cat) { cat = t.dataset.cat; confirmId = null; render(); }
   else if (t.dataset.ask) { confirmId = t.dataset.ask; render(); }
   else if ("cancel" in t.dataset) { confirmId = null; render(); }
@@ -200,6 +242,96 @@ async function remove(id) {
 }
 function setMsg(text, bad) { $("msg").innerHTML = text ? `<div class="note ${bad ? "bad" : ""}">${esc(text)}</div>` : ""; }
 
+/* ---------- Today's outfit ---------- */
+let worn = [], sample = null, outfit = [], outfitSeason = null, styling = false, tab = "today";
+const LABEL = { tops: "Top", bottoms: "Bottom", outerwear: "Outerwear", shoes: "Shoes", accessories: "Accessory", onepiece: "Dress / set" };
+const todayStr = () => new Date().toLocaleDateString("en-CA");
+const byId = (id) => items.find(i => i.id === id);
+const pool = (c) => items.filter(i => i.season === season && i.category === c);
+const rnd = (a) => a[Math.floor(Math.random() * a.length)];
+function recentIds() {
+  const cut = new Date(Date.now() - 6 * 864e5).toLocaleDateString("en-CA"), t = todayStr(), s = new Set();
+  worn.filter(w => w.date >= cut && w.date !== t).forEach(w => (w.itemIds || []).forEach(id => s.add(id)));
+  return s;
+}
+function pick(c, exclude) {
+  let p = pool(c); if (!p.length) return null;
+  if (exclude && p.length > 1) p = p.filter(i => i.id !== exclude);
+  const recent = recentIds(), fresh = p.filter(i => !recent.has(i.id));
+  return rnd(fresh.length ? fresh : p).id;
+}
+function generate() {
+  const slots = [], cold = season === "fall-winter";
+  const useOne = pool("onepiece").length && (Math.random() < 0.25 || !pool("tops").length || !pool("bottoms").length);
+  if (useOne) slots.push({ cat: "onepiece", id: pick("onepiece") });
+  else for (const c of ["tops", "bottoms"]) { const id = pick(c); if (id) slots.push({ cat: c, id }); }
+  if (pool("outerwear").length && (cold || Math.random() < 0.3)) slots.push({ cat: "outerwear", id: pick("outerwear") });
+  if (pool("shoes").length) slots.push({ cat: "shoes", id: pick("shoes") });
+  if (pool("accessories").length && Math.random() < 0.5) slots.push({ cat: "accessories", id: pick("accessories") });
+  outfit = slots; outfitSeason = season; $("styleNote").innerHTML = "";
+}
+function syncToday() {
+  const w = worn.find(x => x.id === todayStr());
+  if ((!outfit.length || outfitSeason !== season) && items.length) {
+    if (w && w.season === season && (w.itemIds || []).every(byId) && w.itemIds.length) {
+      outfit = w.itemIds.map(id => ({ cat: byId(id).category, id })); outfitSeason = season;
+    } else generate();
+  }
+  outfit = outfit.filter(s => byId(s.id));
+  renderToday();
+}
+function renderToday() {
+  const w = worn.find(x => x.id === todayStr());
+  const n = items.filter(i => i.season === season).length;
+  $("todayHead").innerHTML = w
+    ? `<div class="status ok">Logged for today. You can still change it.</div>`
+    : `<div class="status">${new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>`;
+  $("outfit").innerHTML = outfit.length ? outfit.map((s, i) => { const it = byId(s.id); return `<div class="slot"><img src="${it.url}" alt="${LABEL[s.cat]}"><div class="row"><span class="lbl">${LABEL[s.cat]}</span><button class="swap" data-swap="${i}">Swap</button></div></div>`; }).join("")
+    : `<div class="empty" style="grid-column:1/-1">${n ? "Building your outfit..." : "No photos in this season yet. Open Add photos and take a few tops, bottoms and shoes."}</div>`;
+  $("wear").textContent = w ? "Update today's outfit" : "I'm wearing this today";
+  $("wear").disabled = !outfit.length; $("reroll").disabled = !n;
+  $("styleBtn").hidden = !sample; $("styleBtn").disabled = !outfit.length || styling;
+  const done = worn.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
+  $("history").innerHTML = done.length ? done.map(h => `<div class="hrow"><div class="d">${new Date(h.date + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div><div class="th">${(h.itemIds || []).map(id => byId(id)).filter(Boolean).map(i => `<img src="${i.url}" alt="">`).join("")}</div></div>`).join("")
+    : `<div class="empty">Nothing logged yet. Tap "I'm wearing this today" and it shows up here.</div>`;
+}
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.tab) {
+    tab = t.dataset.tab;
+    document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
+    $("viewToday").hidden = tab !== "today"; $("viewCapture").hidden = tab !== "capture";
+  } else if (t.dataset.swap !== undefined) {
+    const s = outfit[+t.dataset.swap]; s.id = pick(s.cat, s.id); $("styleNote").innerHTML = ""; renderToday();
+  } else if (t.id === "reroll") { generate(); renderToday(); }
+  else if (t.id === "wear") {
+    t.disabled = true;
+    try { await db.collection("worn").doc(todayStr()).set({ date: todayStr(), season, itemIds: outfit.map(s => s.id), createdAt: new Date().toISOString() }); }
+    catch { setMsg("Couldn't save today's outfit.", true); }
+    renderToday();
+  } else if (t.id === "styleBtn") { styleIt(); }
+});
+async function thumb(it) {
+  const img = new Image(); img.src = "/_blob/" + it.assetId; await img.decode();
+  const sc = Math.min(1, 384 / Math.max(img.width, img.height)), cv = document.createElement("canvas");
+  cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
+  cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+  return new Promise(r => cv.toBlob(r, "image/jpeg", 0.8));
+}
+async function styleIt() {
+  styling = true; renderToday(); $("styleNote").innerHTML = `<div class="note-style">Looking at your outfit...</div>`;
+  try {
+    const its = outfit.map(s => ({ s, it: byId(s.id) }));
+    const imgs = await Promise.all(its.map(x => thumb(x.it)));
+    const list = its.map((x, i) => `Photo ${i + 1}: ${LABEL[x.s.cat]}`).join("; ");
+    const r = await sample(`These photos are one outfit for a ${season === "fall-winter" ? "fall/winter" : "spring/summer"} day. ${list}. In 3 short sentences, say what colours and pieces work together, and give one specific styling tip (tuck, roll, layer, accessory). If something clashes, say which piece to swap. Plain text, no markdown.`, { images: imgs });
+    $("styleNote").innerHTML = `<div class="note-style">${esc(r.text)}</div>`;
+  } catch (err) {
+    $("styleNote").innerHTML = `<div class="note-style">Couldn't get a styling note right now.</div>`;
+  }
+  styling = false; renderToday();
+}
+
 render();
 (async () => {
   try {
@@ -207,11 +339,18 @@ render();
   } catch { db = null; }
   if (!db || !assets) { setMsg("Photo storage isn't available in this view. Open the page from your own claude.ai account to save photos.", true); return; }
   ready = true;
+  db.collection("worn").onSnapshot((snap) => {
+    worn = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    syncToday();
+  }, () => {});
+  try { sample = await claude.use("sample"); } catch { sample = null; }
+  renderToday();
   const timer = setTimeout(() => setMsg("Still loading your saved photos. Taking new ones works already.", false), 10000);
   db.collection("closet").onSnapshot((snap) => {
     clearTimeout(timer); setMsg("");
     items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     render();
+    syncToday();
   }, () => { clearTimeout(timer); setMsg("Couldn't load saved photos.", true); });
 })();
 </script>
