@@ -127,6 +127,10 @@ details.card > summary span { color: var(--muted); font-weight: 500; font-size: 
 .skin[aria-pressed="true"] { border: 3px solid var(--fg); padding: 7px; }
 .skin .sw { height: 44px; border-radius: 10px; display: flex; gap: 4px; padding: 6px; align-items: flex-end; }
 .skin .sw i { flex: 1; border-radius: 4px; display: block; }
+img[data-cut] { object-fit: contain !important; padding: 5%; }
+.pc:has(img[data-cut]) { border-color: transparent; background: transparent; }
+.pc img[data-cut] { filter: drop-shadow(0 4px 5px rgba(0,0,0,.28)); padding: 0; }
+.hrow .th img[data-cut] { background: var(--surface); padding: 2px; }
 .accents { display: flex; flex-wrap: wrap; gap: 10px; }
 .acc { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--line); padding: 0; position: relative; }
 .acc[aria-pressed="true"] { outline: 3px solid var(--fg); outline-offset: 2px; }
@@ -166,6 +170,7 @@ details.card > summary span { color: var(--muted); font-weight: 500; font-size: 
 
   <div id="viewCapture" class="stack" hidden>
     <div class="cats" id="cats" role="group" aria-label="Category"></div>
+    <div id="cutNag"></div>
     <button class="shutter" id="camOpen"><span id="shutterText">Open camera<small>Photos save inside this app, not in your gallery.</small></span></button>
     <div id="camLive" class="stack" hidden>
       <div class="camwrap"><video id="vid" playsinline muted autoplay></video><div class="flash" id="flash"></div></div>
@@ -193,6 +198,14 @@ details.card > summary span { color: var(--muted); font-weight: 500; font-size: 
       <h2 class="cat-title" style="margin-top:6px">Accent color</h2>
       <p class="tip">Changes buttons, the active tab and highlights, on top of any look above.</p>
       <div class="accents" id="accents"></div>
+    </div>
+    <div class="card">
+      <h2 class="cat-title">Photo cleanup</h2>
+      <p class="tip">Removes the background so each piece sits cleanly on the outfit board. It runs on this phone. The first time it downloads a model of about 45 MB, so use Wi-Fi. Each photo takes a few seconds. Your original photos are always kept.</p>
+      <div class="tip" id="cutStatus"></div>
+      <div class="actions"><button class="btn primary" id="cutAll">Remove backgrounds</button><button class="btn" id="cutStop" hidden>Stop</button></div>
+      <label class="formrow" style="gap:10px"><input type="checkbox" id="cutAuto" style="width:22px;height:22px;accent-color:var(--accent)"><span>Clean new photos automatically</span></label>
+      <label class="formrow" style="gap:10px"><input type="checkbox" id="cutShow" style="width:22px;height:22px;accent-color:var(--accent)"><span>Show cleaned photos (turn off to see originals)</span></label>
     </div>
     <div class="card">
       <h2 class="cat-title">What I wear</h2>
@@ -246,7 +259,7 @@ details.card > summary span { color: var(--muted); font-weight: 500; font-size: 
     </label>
     <div class="tip" id="edWear"></div>
     <label class="chk"><input type="checkbox" id="edFav"> Favorite (picked more often)</label>
-    <div class="actions"><button class="btn" id="edWash">Mark washed</button><button class="btn" id="edDelete">Delete photo</button><button class="btn primary" id="edDone">Done</button></div>
+    <div class="actions"><button class="btn" id="edCut">Clean background</button><button class="btn" id="edWash">Mark washed</button><button class="btn" id="edDelete">Delete photo</button><button class="btn primary" id="edDone">Done</button></div>
   </div>
 </div>
 
@@ -292,6 +305,10 @@ let activeCats = lsGet("closet-cats") || ["tops", "bottoms", "outerwear", "shoes
 let laundry = Object.assign({ day: 0, low: 2 }, lsGet("closet-laundry") || {});
 let skin = lsGet("closet-skin") || "editorial";
 let accent = lsGet("closet-accent") || "";
+let cutPrefs = Object.assign({ use: true, auto: false }, lsGet("closet-cut") || {});
+const cutState = { queue: [], running: false, stop: false, done: 0, total: 0, msg: "", err: "" };
+const pic = (i) => (cutPrefs.use && i.cutUrl) ? i.cutUrl : i.url;
+const ca = (i) => (cutPrefs.use && i.cutUrl) ? "data-cut" : "";
 const ACCENTS = [["Forest green", "#1f5c3a"], ["Emerald", "#0f9d6b"], ["Sage", "#6b8f71"], ["Teal", "#0e7c86"], ["Electric blue", "#2b44ff"], ["Navy", "#1c2f6b"], ["Purple", "#6d3fd1"], ["Plum", "#7a2a6b"], ["Rose", "#d6336c"], ["Coral", "#f0603a"], ["Orange", "#e67700"], ["Gold", "#c8960c"], ["Black", "#111111"]];
 const isActiveCat = (c) => activeCats.includes(c);
 
@@ -308,7 +325,7 @@ function applySkin() {
 }
 
 /* ---------- Local storage (IndexedDB) ---------- */
-const urls = new Map(), subs = { closet: [], worn: [] };
+const urls = new Map(), curls = new Map(), subs = { closet: [], worn: [] };
 let idbp;
 const openDb = () => idbp || (idbp = new Promise((res, rej) => {
   const r = indexedDB.open("my-closet", 1);
@@ -322,8 +339,13 @@ async function tx(name, mode, fn) {
 async function notify(name) {
   const rows = await tx(name, "readonly", s => s.getAll());
   const snap = { docs: rows.map(r => {
-    const data = { ...r }; delete data.blob;
+    const data = { ...r }; delete data.blob; delete data.cutout;
     if (r.blob) { if (!urls.has(r.id)) urls.set(r.id, URL.createObjectURL(r.blob)); data.url = urls.get(r.id); }
+    const old = curls.get(r.id);
+    if (r.cutout) {
+      if (!old || old.at !== r.cutAt) { if (old) URL.revokeObjectURL(old.url); curls.set(r.id, { at: r.cutAt, url: URL.createObjectURL(r.cutout) }); }
+      data.cutUrl = curls.get(r.id).url;
+    } else if (old) { URL.revokeObjectURL(old.url); curls.delete(r.id); }
     return { id: r.id, data: () => data };
   }) };
   subs[name].forEach(f => f(snap));
@@ -332,7 +354,7 @@ function makeDb() {
   const col = (name) => ({
     async add(data) {
       const rec = { id: "i" + Date.now() + Math.random().toString(36).slice(2, 6), ...data };
-      await tx(name, "readwrite", s => s.put(rec)); await notify(name);
+      await tx(name, "readwrite", s => s.put(rec)); await notify(name); return rec.id;
     },
     doc: (id) => ({
       async set(d) { await tx(name, "readwrite", s => s.put({ id, ...d })); await notify(name); },
@@ -405,10 +427,10 @@ function renderLaundry() {
     <div class="stats">${stat(L.dirty.length, "in the hamper", false)}${lf("tops")}${lf("bottoms")}</div>
     <p class="tip">Days left counts the wears left on your clean ${season === "fall-winter" ? "fall / winter" : "spring / summer"} tops and bottoms, one of each per day. Jeans and some sweaters last several wears, so it's more than the number of pieces.</p>
     <h2 class="cat-title">Hamper</h2>
-    <div class="grid">${L.dirty.length ? L.dirty.map(i => `<button class="tile" data-wash="${i.id}" aria-label="Mark ${esc(i.name || "item")} washed"><img src="${i.url}" alt=""><span class="badge dirty">${wearsOf(i)}/${maxWears(i)} worn</span>${i.name ? `<span class="cap">${esc(i.name)}</span>` : ""}</button>`).join("") : `<div class="empty" style="grid-column:1/-1">The hamper is empty. Pieces land here after you've worn them as many times as you set.</div>`}</div>
+    <div class="grid">${L.dirty.length ? L.dirty.map(i => `<button class="tile" data-wash="${i.id}" aria-label="Mark ${esc(i.name || "item")} washed"><img src="${pic(i)}" ${ca(i)} alt=""><span class="badge dirty">${wearsOf(i)}/${maxWears(i)} worn</span>${i.name ? `<span class="cap">${esc(i.name)}</span>` : ""}</button>`).join("") : `<div class="empty" style="grid-column:1/-1">The hamper is empty. Pieces land here after you've worn them as many times as you set.</div>`}</div>
     ${L.dirty.length ? `<p class="tip">Tap a piece to mark just that one washed.</p>` : ""}
     <div class="actions"><button class="btn primary" data-washall="dirty" ${L.dirty.length ? "" : "disabled"}>Washed the hamper</button><button class="btn" data-washall="all" ${L.dirty.length + L.partial.length ? "" : "disabled"}>Washed everything worn</button></div>
-    ${L.partial.length ? `<h2 class="cat-title">Worn, still ok</h2><div class="grid">${L.partial.map(i => `<button class="tile" data-edit="${i.id}"><img src="${i.url}" alt=""><span class="badge">${wearsOf(i)}/${maxWears(i)} worn</span>${i.name ? `<span class="cap">${esc(i.name)}</span>` : ""}</button>`).join("")}</div>` : ""}
+    ${L.partial.length ? `<h2 class="cat-title">Worn, still ok</h2><div class="grid">${L.partial.map(i => `<button class="tile" data-edit="${i.id}"><img src="${pic(i)}" ${ca(i)} alt=""><span class="badge">${wearsOf(i)}/${maxWears(i)} worn</span>${i.name ? `<span class="cap">${esc(i.name)}</span>` : ""}</button>`).join("")}</div>` : ""}
     <div class="card">
       <h2 class="cat-title">Laundry schedule</h2>
       <label class="tip">Usual laundry day<select id="lnDay">${[["-1", "No set day"], ...DAYS.map((d, k) => [String(k), d])].map(([v, t]) => `<option value="${v}" ${+v === laundry.day ? "selected" : ""}>${t}</option>`).join("")}</select></label>
@@ -443,7 +465,7 @@ function render() {
   html += mine.map(i => {
     const m = maxWears(i), w = wearsOf(i);
     const badge = isDirty(i) ? `<span class="badge dirty">In hamper</span>` : (m > 1 && w > 0 ? `<span class="badge">${w}/${m} worn</span>` : "");
-    return `<button class="tile" data-edit="${i.id}" aria-label="Edit ${esc(i.name || c.label)}"><img src="${i.url}" alt="" loading="lazy">${badge}${i.favorite ? '<span class="star">★</span>' : ""}${(i.name || i.color) ? `<span class="cap">${esc(i.name || i.color)}</span>` : ""}</button>`;
+    return `<button class="tile" data-edit="${i.id}" aria-label="Edit ${esc(i.name || c.label)}"><img src="${pic(i)}" ${ca(i)} alt="" loading="lazy">${badge}${i.favorite ? '<span class="star">★</span>' : ""}${(i.name || i.color) ? `<span class="cap">${esc(i.name || i.color)}</span>` : ""}</button>`;
   }).join("");
   $("grid").innerHTML = html || `<div class="empty" style="grid-column:1/-1">${q ? "No matches." : `Nothing here yet. Open the camera and add your first ${esc(c.label.toLowerCase())} photo.`}</div>`;
 }
@@ -464,8 +486,9 @@ async function handleFiles(files) {
     pending.push(p); render();
     try {
       const blob = await shrink(file);
-      await db.collection("closet").add({ season: p.season, category: p.category, blob, createdAt: new Date().toISOString() });
+      const newId = await db.collection("closet").add({ season: p.season, category: p.category, blob, createdAt: new Date().toISOString() });
       pending = pending.filter(x => x !== p);
+      if (cutPrefs.auto) enqueueCut([newId]);
     } catch (err) { p.status = "error"; p.error = (err && err.message) || "try again"; }
     render();
   }
@@ -506,11 +529,12 @@ function renderEdTags() {
 function openEditor(id) {
   const it = byId(id); if (!it) return;
   editId = id; delArm = false; refreshCnt();
-  $("edImg").src = it.url; $("edName").value = it.name || ""; $("edColor").value = it.color || "";
+  $("edImg").src = pic(it); $("edName").value = it.name || ""; $("edColor").value = it.color || "";
   $("edPattern").value = it.pattern || "solid"; $("edFav").checked = !!it.favorite;
   $("edMax").value = it.maxWears === undefined || it.maxWears === null ? "" : String(it.maxWears);
   const m = maxWears(it); $("edWear").textContent = m === 0 ? "Not tracked for washing." : `Worn ${wearsOf(it)} of ${m} since the last wash${isDirty(it) ? ". It's in the hamper." : "."}`;
   $("edWash").hidden = !wearsOf(it);
+  $("edCut").hidden = !!it.demo; $("edCut").textContent = it.cutUrl ? "Use original photo" : "Clean background";
   edTags = new Set(it.tags || []); renderEdTags();
   $("edDelete").textContent = "Delete photo"; $("sheet").hidden = false;
 }
@@ -522,6 +546,11 @@ async function closeEditor() {
 }
 $("edDone").addEventListener("click", closeEditor);
 $("sheet").addEventListener("click", (e) => { if (e.target.id === "sheet") closeEditor(); });
+$("edCut").addEventListener("click", async () => {
+  const id = editId, it = byId(id); await closeEditor(); if (!it) return;
+  if (it.cutUrl) await db.collection("closet").doc(id).update({ cutout: null, cutAt: null, cutFail: false });
+  else { await db.collection("closet").doc(id).update({ cutFail: false }); enqueueCut([id]); showTab("more"); }
+});
 $("edWash").addEventListener("click", async () => { const id = editId; await closeEditor(); const it = byId(id); if (it) await washItems([it]); });
 $("edDelete").addEventListener("click", async () => {
   if (!delArm) { delArm = true; $("edDelete").textContent = "Tap again to delete"; return; }
@@ -678,7 +707,7 @@ function stageHTML() {
   const U = 0.25;                       // logical 400-wide board, scaled with container width
   const cq = (n) => (n * U).toFixed(2) + "cqw";
   let html = "", y = 16;
-  const piece = (x, yy, w, h, e) => `<button class="pc" data-swap="${e.i}" aria-label="Swap ${LABEL[e.s.cat]}" style="left:${cq(x)};top:${cq(yy)};width:${cq(w)};height:${cq(h)}"><img src="${e.it.url}" alt="${LABEL[e.s.cat]}"></button>`;
+  const piece = (x, yy, w, h, e) => `<button class="pc" data-swap="${e.i}" aria-label="Swap ${LABEL[e.s.cat]}" style="left:${cq(x)};top:${cq(yy)};width:${cq(w)};height:${cq(h)}"><img src="${pic(e.it)}" ${ca(e.it)} alt="${LABEL[e.s.cat]}"></button>`;
   const label = (e, x, yy, w) => {
     const m = maxWears(e.it), wc = wearsOf(e.it), rew = m > 1 && wc > 0 ? `<i>Re-wear ${wc}/${m}</i>` : "";
     return `<button class="lab" data-swap="${e.i}" style="left:${cq(x)};top:${cq(yy)};width:${cq(w)}"><small>${LABEL[e.s.cat]}${e.it.favorite ? " ★" : ""}</small><b>${esc(e.it.name || e.it.color || LABEL[e.s.cat])}</b>${rew}</button>`;
@@ -721,7 +750,7 @@ function renderToday() {
   const last = lsGet("closet-lastBackup"), stale = !last || Date.now() - last > 3 * 864e5;
   $("backupNag").innerHTML = items.length >= 5 && stale ? `<button class="wxline" data-tab="more"><b>Back up your closet.</b> Your photos exist only on this phone.</button>` : "";
   const done = worn.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
-  $("history").innerHTML = done.length ? done.map(h => `<div class="hrow"><div class="d">${new Date(h.date + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div><div class="th">${(h.itemIds || []).map(byId).filter(Boolean).map(i => `<img src="${i.url}" alt="">`).join("")}</div></div>`).join("")
+  $("history").innerHTML = done.length ? done.map(h => `<div class="hrow"><div class="d">${new Date(h.date + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div><div class="th">${(h.itemIds || []).map(byId).filter(Boolean).map(i => `<img src="${pic(i)}" ${ca(i)} alt="">`).join("")}</div></div>`).join("")
     : `<div class="empty">Nothing logged yet. Tap "I'm wearing this today" and it shows up here.</div>`;
 }
 
@@ -730,7 +759,7 @@ async function buildBackup() {
   const [cl, wr] = await Promise.all([tx("closet", "readonly", s => s.getAll()), tx("worn", "readonly", s => s.getAll())]);
   const toData = (b) => new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b); });
   const closet = [];
-  for (const r of cl) { const o = { ...r }; if (o.blob) o.photo = await toData(o.blob); delete o.blob; closet.push(o); }
+  for (const r of cl) { const o = { ...r }; if (o.blob) o.photo = await toData(o.blob); delete o.blob; if (o.cutout) o.cutoutPhoto = await toData(o.cutout); delete o.cutout; closet.push(o); }
   return new Blob([JSON.stringify({ app: "my-closet", version: 2, exportedAt: new Date().toISOString(), closet, worn: wr, settings: { activeCats, laundry, mood, skin, accent } })], { type: "application/json" });
 }
 const bkName = () => "my-closet-backup-" + todayStr() + ".json";
@@ -758,6 +787,7 @@ async function importBackup(file) {
     let n = 0;
     for (const o of j.closet) {
       const rec = { ...o }; if (rec.photo) { rec.blob = await (await fetch(rec.photo)).blob(); delete rec.photo; } else continue;
+      if (rec.cutoutPhoto) { rec.cutout = await (await fetch(rec.cutoutPhoto)).blob(); delete rec.cutoutPhoto; }
       await tx("closet", "readwrite", s => s.put(rec)); n++;
     }
     for (const w of (j.worn || [])) await tx("worn", "readwrite", s => s.put(w));
@@ -769,6 +799,80 @@ $("exportBtn").addEventListener("click", exportBackup);
 $("shareBtn").addEventListener("click", shareBackup);
 $("importFile").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) importBackup(f); });
 try { const t = new File([""], "t.json", { type: "application/json" }); if (navigator.canShare && navigator.canShare({ files: [t] })) $("shareBtn").hidden = false; } catch {}
+
+/* ---------- Photo cleanup (background removal, on this phone) ---------- */
+const BG_LIB = "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/+esm";
+const BG_DATA_FALLBACK = "https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.4.5/dist/";
+let bgMod = null;
+const eligible = () => items.filter(i => !i.demo && i.url && !i.cutUrl && !i.cutFail);
+async function trimCutout(blob) {
+  const bmp = await createImageBitmap(blob), cv = document.createElement("canvas");
+  cv.width = bmp.width; cv.height = bmp.height;
+  const g = cv.getContext("2d", { willReadFrequently: true }); g.drawImage(bmp, 0, 0);
+  const d = g.getImageData(0, 0, cv.width, cv.height).data;
+  let x0 = cv.width, y0 = cv.height, x1 = 0, y1 = 0, op = 0;
+  for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
+    if (d[(y * cv.width + x) * 4 + 3] > 24) { op++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  }
+  const frac = op / (cv.width * cv.height);
+  if (frac < 0.02 || frac > 0.97) return null;           // nothing found, or nothing removed
+  const padX = Math.round((x1 - x0) * 0.04) + 2, padY = Math.round((y1 - y0) * 0.04) + 2;
+  x0 = Math.max(0, x0 - padX); y0 = Math.max(0, y0 - padY); x1 = Math.min(cv.width - 1, x1 + padX); y1 = Math.min(cv.height - 1, y1 + padY);
+  const out = document.createElement("canvas"); out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
+  out.getContext("2d").drawImage(cv, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+  return new Promise(r => out.toBlob(r, "image/webp", 0.85));
+}
+async function cutOne(it) {
+  if (!bgMod) { cutState.msg = "Loading the cleanup tool..."; renderCut(); bgMod = await import(BG_LIB); }
+  const src = await (await fetch(it.url)).blob();
+  const opts = { model: "small", output: { format: "image/webp", quality: 0.9 }, progress: (key, cur, tot) => {
+    if (/fetch|download/i.test(key) && tot) { cutState.msg = "Downloading the model, " + Math.round(100 * cur / tot) + "%. One time only."; renderCut(); }
+  } };
+  let out;
+  try { out = await bgMod.removeBackground(src, opts); }
+  catch (e1) { out = await bgMod.removeBackground(src, { ...opts, publicPath: BG_DATA_FALLBACK }); }
+  const trimmed = await trimCutout(out);
+  if (!trimmed) { await db.collection("closet").doc(it.id).update({ cutFail: true }); return false; }
+  await db.collection("closet").doc(it.id).update({ cutout: trimmed, cutAt: new Date().toISOString(), cutFail: false });
+  return true;
+}
+function enqueueCut(ids) {
+  for (const id of ids) if (!cutState.queue.includes(id)) { cutState.queue.push(id); cutState.total++; }
+  drainCut();
+}
+async function drainCut() {
+  if (cutState.running) return;
+  cutState.running = true; cutState.stop = false; cutState.err = "";
+  let lock = null; try { lock = navigator.wakeLock && await navigator.wakeLock.request("screen"); } catch {}
+  while (cutState.queue.length && !cutState.stop) {
+    const id = cutState.queue.shift(), it = byId(id);
+    if (!it || it.cutUrl) { cutState.done++; continue; }
+    cutState.msg = `Cleaning photo ${cutState.done + 1} of ${cutState.total}...`; renderCut();
+    try { await cutOne(it); cutState.done++; }
+    catch (e) {
+      cutState.err = "Couldn't load or run the cleanup tool. Check your connection and try again.";
+      cutState.queue.length = 0; break;
+    }
+  }
+  if (lock) try { lock.release(); } catch {}
+  cutState.running = false; cutState.queue.length = 0; cutState.msg = ""; cutState.total = 0; cutState.done = 0;
+  renderCut(); render(); renderToday();
+}
+function renderCut() {
+  const left = eligible().length, total = items.filter(i => !i.demo).length, done = items.filter(i => !i.demo && i.cutUrl).length;
+  let t = total ? `${done} of ${total} photos cleaned.` : "No photos yet.";
+  if (cutState.msg) t = cutState.msg; else if (cutState.err) t = cutState.err;
+  $("cutStatus").textContent = t;
+  $("cutAll").disabled = cutState.running || !left; $("cutAll").textContent = left ? `Remove backgrounds (${left})` : "All photos cleaned";
+  $("cutStop").hidden = !cutState.running;
+  $("cutAuto").checked = cutPrefs.auto; $("cutShow").checked = cutPrefs.use;
+  const nag = left >= 5 && !cutPrefs.auto && !cutState.running;
+  $("cutNag").innerHTML = nag ? `<button class="wxline" data-tab="more"><b>${left} photos still have backgrounds.</b> Clean them up in More.</button>` : "";
+}
+$("cutAll").addEventListener("click", () => enqueueCut(eligible().map(i => i.id)));
+$("cutStop").addEventListener("click", () => { cutState.stop = true; $("cutStatus").textContent = "Stopping after this photo..."; });
+$("cutAuto").addEventListener("change", (e) => { cutPrefs.auto = e.target.checked; lsSet("closet-cut", cutPrefs); });
+$("cutShow").addEventListener("change", (e) => { cutPrefs.use = e.target.checked; lsSet("closet-cut", cutPrefs); render(); renderToday(); if (tab === "laundry") renderLaundry(); });
 
 /* ---------- Sample clothes ---------- */
 const HEX = { Black: "#25252a", White: "#f4f4f2", Gray: "#8d9096", Beige: "#cdb99a", Navy: "#1f2f4f", Brown: "#6b4a32", Blue: "#3f6fb5", Green: "#3f7a52", Red: "#b83a3a", Pink: "#e59aae", Yellow: "#e5c445", Orange: "#e08a3c", Purple: "#7a56a8", Multi: "#7a56a8" };
@@ -829,6 +933,7 @@ $("demoRemove").addEventListener("click", removeDemo);
 
 /* ---------- More tab ---------- */
 function renderMore() {
+  renderCut();
   $("unitC").setAttribute("aria-pressed", !unitF); $("unitF").setAttribute("aria-pressed", unitF);
   if (place && !$("wxStatus").textContent.startsWith("Couldn't")) {
     $("wxStatus").textContent = wx ? `${place.name}: ${fmt(wx.tmin)} to ${fmt(wx.tmax)}, ${wx.rain}% chance of rain today.` : `${place.name} saved. Loading forecast...`;
@@ -893,7 +998,7 @@ applySkin(); render();
     const before = items.length;
     items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (items.length !== before && !worn.find(w => w.id === todayStr())) outfit = [];
-    render(); syncToday();
+    render(); syncToday(); renderCut();
   });
   db.collection("worn").onSnapshot((snap) => { worn = snap.docs.map(d => ({ id: d.id, ...d.data() })); render(); syncToday(); });
   renderMore();
