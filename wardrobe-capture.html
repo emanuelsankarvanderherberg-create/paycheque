@@ -1,0 +1,217 @@
+<title>Closet Capture</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: phone-first single column. Sticky category chips on top, one big shutter button, thumbnail grid for the active category below. */
+:root {
+  --bg: #f6f5f3;
+  --surface: #ffffff;
+  --fg: #1d1b1a;
+  --muted: #6d6863;
+  --line: #e3dfda;
+  --accent: #2f4f4f;
+  --accent-fg: #ffffff;
+  --danger: #b3261e;
+  --ok: #2e7d4f;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151413; --surface: #1f1d1c; --fg: #f1eeea; --muted: #a09a93; --line: #34312f;
+    --accent: #8fc0b8; --accent-fg: #10201e; --danger: #f2877f; --ok: #6fcf97; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151413; --surface: #1f1d1c; --fg: #f1eeea; --muted: #a09a93; --line: #34312f;
+  --accent: #8fc0b8; --accent-fg: #10201e; --danger: #f2877f; --ok: #6fcf97; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; margin: 0;
+  padding-block: 16px 96px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+h1 { font-family: var(--font-display); font-size: 26px; margin: 0; letter-spacing: -0.01em; }
+.top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.total { color: var(--muted); font-variant-numeric: tabular-nums; }
+.total b { color: var(--fg); font-family: var(--font-display); font-size: 22px; }
+.seasons, .cats { display: flex; gap: 8px; flex-wrap: wrap; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chip {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 9px 14px;
+  display: inline-flex; gap: 8px; align-items: center; font-weight: 500;
+}
+.chip .n { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+.chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.chip[aria-pressed="true"] .n { color: inherit; opacity: .8; }
+.shutter {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: var(--accent); color: var(--accent-fg); border-radius: 14px; padding: 22px 16px;
+  font-family: var(--font-display); font-weight: 700; font-size: 20px; cursor: pointer; text-align: center;
+}
+.shutter small { display: block; font-family: var(--font-body); font-weight: 400; font-size: 13px; opacity: .85; }
+.alt { color: var(--muted); font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.alt label { text-decoration: underline; cursor: pointer; color: var(--fg); }
+input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.tile {
+  position: relative; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden; background: var(--surface);
+  border: 1px solid var(--line); padding: 0;
+}
+.tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tile .state {
+  position: absolute; inset: auto 0 0 0; padding: 4px 6px; font-size: 12px; background: rgba(0,0,0,.6); color: #fff;
+}
+.tile.err .state { background: var(--danger); }
+.tile .x {
+  position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 50%; border: 0;
+  background: rgba(0,0,0,.6); color: #fff; font-size: 16px; line-height: 1;
+}
+.tile .confirm { position: absolute; inset: 0; background: rgba(0,0,0,.75); display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center; }
+.tile .confirm button { background: #fff; color: #111; border: 0; border-radius: 8px; padding: 6px 12px; font-size: 13px; }
+.tile .confirm button.del { background: var(--danger); color: #fff; }
+.empty, .note { color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; padding: 18px; text-align: center; }
+.note.bad { color: var(--danger); border-color: var(--danger); }
+.cat-title { font-family: var(--font-display); font-size: 18px; margin: 0; }
+.tip { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+</style>
+
+<main>
+  <div class="top">
+    <h1>Closet Capture</h1>
+    <div class="total"><b id="total">0</b> items photographed</div>
+  </div>
+
+  <div class="seasons" id="seasons" role="group" aria-label="Season"></div>
+  <div class="cats" id="cats" role="group" aria-label="Category"></div>
+
+  <label class="shutter" for="cam">
+    <span id="shutterText">Take photo<small>Lay it flat or hang it, one item per photo</small></span>
+  </label>
+  <input id="cam" type="file" accept="image/*" capture="environment">
+
+  <div class="alt">Photos already on your phone?
+    <label for="lib">Pick several</label>
+  </div>
+  <input id="lib" type="file" accept="image/*" multiple>
+
+  <div>
+    <h2 class="cat-title" id="catTitle"></h2>
+    <p class="tip" id="catTip"></p>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div id="msg"></div>
+</main>
+
+<script>
+const SEASONS = [
+  { id: "fall-winter", label: "Fall / Winter" },
+  { id: "spring-summer", label: "Spring / Summer" },
+];
+const CATS = [
+  { id: "tops", label: "Tops", tip: "Shirts, sweaters, hoodies, tees." },
+  { id: "bottoms", label: "Bottoms", tip: "Pants, jeans, shorts, skirts." },
+  { id: "outerwear", label: "Outerwear", tip: "Coats, jackets, vests." },
+  { id: "shoes", label: "Shoes", tip: "Each pair once." },
+  { id: "accessories", label: "Accessories", tip: "Hats, scarves, gloves, belts, bags." },
+  { id: "onepiece", label: "Dresses & sets", tip: "Dresses, jumpsuits, matching sets." },
+];
+let season = "fall-winter", cat = "tops";
+let items = [];          // saved docs {id, season, category, assetId, url}
+let pending = [];        // {key, season, category, preview, status, error}
+let db = null, assets = null, ready = false, confirmId = null;
+const $ = (id) => document.getElementById(id);
+
+function render() {
+  $("seasons").innerHTML = SEASONS.map(s =>
+    `<button class="chip" data-season="${s.id}" aria-pressed="${s.id === season}">${s.label}</button>`).join("");
+  const inSeason = items.filter(i => i.season === season);
+  $("total").textContent = inSeason.length;
+  $("cats").innerHTML = CATS.map(c => {
+    const n = inSeason.filter(i => i.category === c.id).length + pending.filter(p => p.season === season && p.category === c.id && p.status !== "error").length;
+    return `<button class="chip" data-cat="${c.id}" aria-pressed="${c.id === cat}">${c.label}<span class="n">${n}</span></button>`;
+  }).join("");
+  const c = CATS.find(x => x.id === cat);
+  $("catTitle").textContent = c.label;
+  $("catTip").textContent = c.tip;
+  $("shutterText").firstChild.textContent = "Take photo of a " + c.label.toLowerCase().replace(/s$/, "").replace("dresses & set", "dress or set");
+
+  const mine = items.filter(i => i.season === season && i.category === cat)
+    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+  const pend = pending.filter(p => p.season === season && p.category === cat);
+  let html = pend.map(p => `<div class="tile ${p.status === "error" ? "err" : ""}"><img src="${p.preview}" alt=""><div class="state">${p.status === "error" ? "Failed: " + esc(p.error) : "Saving..."}</div></div>`).join("");
+  html += mine.map(i => `<div class="tile"><img src="${i.url}" alt="${esc(c.label)} photo" loading="lazy">
+    ${confirmId === i.id
+      ? `<div class="confirm"><button class="del" data-del="${i.id}">Delete</button><button data-cancel>Keep</button></div>`
+      : `<button class="x" data-ask="${i.id}" aria-label="Delete photo">×</button>`}</div>`).join("");
+  $("grid").innerHTML = html || `<div class="empty" style="grid-column:1/-1">Nothing here yet. Tap the big button to add your first ${esc(c.label.toLowerCase())} photo.</div>`;
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch])); }
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.season) { season = t.dataset.season; confirmId = null; render(); }
+  else if (t.dataset.cat) { cat = t.dataset.cat; confirmId = null; render(); }
+  else if (t.dataset.ask) { confirmId = t.dataset.ask; render(); }
+  else if ("cancel" in t.dataset) { confirmId = null; render(); }
+  else if (t.dataset.del) { remove(t.dataset.del); }
+});
+
+async function shrink(file) {
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, 1000 / Math.max(bmp.width, bmp.height));
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(bmp.width * scale); cv.height = Math.round(bmp.height * scale);
+    cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+    const blob = await new Promise(r => cv.toBlob(r, "image/jpeg", 0.82));
+    return blob || file;
+  } catch { return file; }
+}
+
+async function handleFiles(files) {
+  if (!ready) { setMsg("Storage isn't connected. Reopen this page while signed in to claude.ai.", true); return; }
+  for (const file of files) {
+    const p = { key: Math.random().toString(36).slice(2), season, category: cat, preview: URL.createObjectURL(file), status: "saving" };
+    pending.push(p); render();
+    try {
+      const blob = await shrink(file);
+      const up = await assets.upload(blob.type ? blob : new Blob([blob], { type: "image/jpeg" }));
+      await db.collection("closet").add({ season: p.season, category: p.category, assetId: up.id, url: up.url, createdAt: new Date().toISOString() });
+      pending = pending.filter(x => x !== p);
+    } catch (err) {
+      p.status = "error"; p.error = (err && err.message) || "try again";
+    }
+    render();
+  }
+}
+for (const id of ["cam", "lib"]) {
+  $(id).addEventListener("change", (e) => { const f = [...e.target.files]; e.target.value = ""; if (f.length) handleFiles(f); });
+}
+
+async function remove(id) {
+  const it = items.find(i => i.id === id); confirmId = null;
+  try { await db.collection("closet").doc(id).delete(); } catch (e) { setMsg("Couldn't delete that photo.", true); }
+  render();
+}
+function setMsg(text, bad) { $("msg").innerHTML = text ? `<div class="note ${bad ? "bad" : ""}">${esc(text)}</div>` : ""; }
+
+render();
+(async () => {
+  try {
+    db = await claude.use("db"); assets = await claude.use("assets");
+  } catch { db = null; }
+  if (!db || !assets) { setMsg("Photo storage isn't available in this view. Open the page from your own claude.ai account to save photos.", true); return; }
+  ready = true;
+  const timer = setTimeout(() => setMsg("Still loading your saved photos. Taking new ones works already.", false), 10000);
+  db.collection("closet").onSnapshot((snap) => {
+    clearTimeout(timer); setMsg("");
+    items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, () => { clearTimeout(timer); setMsg("Couldn't load saved photos.", true); });
+})();
+</script>
