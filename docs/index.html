@@ -127,6 +127,10 @@ details.card > summary span { color: var(--muted); font-weight: 500; font-size: 
 .skin[aria-pressed="true"] { border: 3px solid var(--fg); padding: 7px; }
 .skin .sw { height: 44px; border-radius: 10px; display: flex; gap: 4px; padding: 6px; align-items: flex-end; }
 .skin .sw i { flex: 1; border-radius: 4px; display: block; }
+.accents { display: flex; flex-wrap: wrap; gap: 10px; }
+.acc { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--line); padding: 0; position: relative; }
+.acc[aria-pressed="true"] { outline: 3px solid var(--fg); outline-offset: 2px; }
+.acc.auto { background: conic-gradient(var(--fg) 0 25%, var(--surface) 0 50%, var(--fg) 0 75%, var(--surface) 0); }
 .sheet { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
 .panel { background: var(--bg); width: 100%; max-width: 640px; border: 3px solid var(--fg); border-bottom: 0; border-radius: 28px 28px 0 0; padding: 16px max(16px, env(safe-area-inset-left, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 12px; max-height: 92vh; overflow-y: auto; }
 .panel img { width: 120px; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 14px; border: 3px solid var(--fg); align-self: center; }
@@ -186,6 +190,9 @@ details.card > summary span { color: var(--muted); font-weight: 500; font-size: 
       <h2 class="cat-title">Look</h2>
       <p class="tip">Tap a sample to try it. It applies right away.</p>
       <div class="skins" id="skins"></div>
+      <h2 class="cat-title" style="margin-top:6px">Accent color</h2>
+      <p class="tip">Changes buttons, the active tab and highlights, on top of any look above.</p>
+      <div class="accents" id="accents"></div>
     </div>
     <div class="card">
       <h2 class="cat-title">What I wear</h2>
@@ -284,11 +291,19 @@ let mood = Object.assign({ weather: true, event: "", feeling: "", energy: "" }, 
 let activeCats = lsGet("closet-cats") || ["tops", "bottoms", "outerwear", "shoes", "accessories"];
 let laundry = Object.assign({ day: 0, low: 2 }, lsGet("closet-laundry") || {});
 let skin = lsGet("closet-skin") || "editorial";
+let accent = lsGet("closet-accent") || "";
+const ACCENTS = [["Forest green", "#1f5c3a"], ["Emerald", "#0f9d6b"], ["Sage", "#6b8f71"], ["Teal", "#0e7c86"], ["Electric blue", "#2b44ff"], ["Navy", "#1c2f6b"], ["Purple", "#6d3fd1"], ["Plum", "#7a2a6b"], ["Rose", "#d6336c"], ["Coral", "#f0603a"], ["Orange", "#e67700"], ["Gold", "#c8960c"], ["Black", "#111111"]];
 const isActiveCat = (c) => activeCats.includes(c);
 
 /* ---------- Skin ---------- */
 function applySkin() {
   if (skin === "editorial") document.documentElement.removeAttribute("data-skin"); else document.documentElement.setAttribute("data-skin", skin);
+  const rs = document.documentElement.style;
+  if (accent) {
+    const n = parseInt(accent.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    rs.setProperty("--accent", accent); rs.setProperty("--accent-fg", lum > 0.62 ? "#111111" : "#ffffff");
+    rs.setProperty("--soft", "color-mix(in srgb, " + accent + " 16%, var(--bg))");
+  } else { ["--accent", "--accent-fg", "--soft"].forEach(k => rs.removeProperty(k)); }
   try { $("themeMeta").content = getComputedStyle(document.body).getPropertyValue("--bg").trim() || "#2f4f4f"; } catch {}
 }
 
@@ -716,7 +731,7 @@ async function buildBackup() {
   const toData = (b) => new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b); });
   const closet = [];
   for (const r of cl) { const o = { ...r }; if (o.blob) o.photo = await toData(o.blob); delete o.blob; closet.push(o); }
-  return new Blob([JSON.stringify({ app: "my-closet", version: 2, exportedAt: new Date().toISOString(), closet, worn: wr, settings: { activeCats, laundry, mood, skin } })], { type: "application/json" });
+  return new Blob([JSON.stringify({ app: "my-closet", version: 2, exportedAt: new Date().toISOString(), closet, worn: wr, settings: { activeCats, laundry, mood, skin, accent } })], { type: "application/json" });
 }
 const bkName = () => "my-closet-backup-" + todayStr() + ".json";
 async function exportBackup() {
@@ -819,6 +834,7 @@ function renderMore() {
     $("wxStatus").textContent = wx ? `${place.name}: ${fmt(wx.tmin)} to ${fmt(wx.tmax)}, ${wx.rain}% chance of rain today.` : `${place.name} saved. Loading forecast...`;
   }
   $("skins").innerHTML = SKINS.map(s => `<button class="skin" data-skin="${s.id}" aria-pressed="${s.id === skin}"><div class="sw" style="background:${s.c[0]}"><i style="background:${s.c[1]};height:60%"></i><i style="background:${s.c[2]};height:100%"></i><i style="background:${s.c[1]};height:35%"></i></div>${s.label}</button>`).join("");
+  $("accents").innerHTML = `<button class="acc auto" data-accent="" aria-pressed="${!accent}" aria-label="Use the look's own accent" title="Look's own"></button>` + ACCENTS.map(([n, h]) => `<button class="acc" data-accent="${h}" aria-pressed="${accent === h}" aria-label="${n}" title="${n}" style="background:${h}"></button>`).join("");
   $("catUse").innerHTML = CATS.map(c => `<button class="chip" data-catuse="${c.id}" aria-pressed="${isActiveCat(c.id)}">${c.label}</button>`).join("");
 }
 $("cityGo").addEventListener("click", findCity);
@@ -843,6 +859,7 @@ document.addEventListener("click", async (e) => {
     if (k === "weather") mood.weather = !mood.weather; else mood[k] = mood[k] === v ? "" : v;
     lsSet("closet-mood", mood); generate(); renderToday();
   }
+  else if (t.dataset.accent !== undefined) { accent = t.dataset.accent; lsSet("closet-accent", accent); applySkin(); renderMore(); }
   else if (t.dataset.skin) { skin = t.dataset.skin; lsSet("closet-skin", skin); applySkin(); renderMore(); }
   else if (t.dataset.catuse) {
     const c = t.dataset.catuse; activeCats = isActiveCat(c) ? activeCats.filter(x => x !== c) : [...activeCats, c];
