@@ -56,7 +56,9 @@ button:focus-visible, label:focus-within { outline: 2px solid var(--accent); out
 .shutter small { display: block; font-family: var(--font-body); font-weight: 400; font-size: 13px; opacity: .85; }
 .alt { color: var(--muted); font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .alt label { text-decoration: underline; cursor: pointer; color: var(--fg); }
-input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.pick { position: relative; overflow: hidden; }
+.pick input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 0; }
+.shutter.second { background: var(--surface); color: var(--fg); border: 1px solid var(--line); padding: 16px; font-size: 16px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
 .tile {
   position: relative; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden; background: var(--surface);
@@ -130,15 +132,14 @@ input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; poin
   <div id="viewCapture" class="stack" hidden>
   <div class="cats" id="cats" role="group" aria-label="Category"></div>
 
-  <label class="shutter" for="cam">
-    <span id="shutterText">Take photo<small>Lay it flat or hang it, one item per photo</small></span>
-  </label>
-  <input id="cam" type="file" accept="image/*" capture="environment">
-
-  <div class="alt">Photos already on your phone?
-    <label for="lib">Pick several</label>
+  <div class="shutter pick">
+    <span id="shutterText">Take photo<small>Opens your camera. One item per photo.</small></span>
+    <input id="cam" type="file" accept="image/*" capture="environment" aria-label="Take photo">
   </div>
-  <input id="lib" type="file" accept="image/*" multiple>
+  <div class="shutter second pick">
+    <span>Choose from camera or photo library<small style="opacity:.7">Use this if the button above does nothing. You can pick many at once.</small></span>
+    <input id="lib" type="file" accept="image/*" multiple aria-label="Choose photos">
+  </div>
 
   <div>
     <h2 class="cat-title" id="catTitle"></h2>
