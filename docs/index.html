@@ -66,8 +66,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .cat-title { font-family: var(--font-display); font-weight: 800; font-size: 20px; margin: 0; letter-spacing: -0.01em; }
 .tip { color: var(--muted); font-size: 13px; margin: 2px 0 0; line-height: 1.45; }
 .stack { display: flex; flex-direction: column; gap: 14px; }
-.nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--surface); border-top: 3px solid var(--fg); border-radius: 24px 24px 0 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 8px max(10px, env(safe-area-inset-left, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)); }
-.nav button { border: 0; background: transparent; padding: 12px 0; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); border-radius: 16px; position: relative; }
+.nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--surface); border-top: 3px solid var(--fg); border-radius: 24px 24px 0 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; padding: 8px max(10px, env(safe-area-inset-left, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)); }
+.nav button { border: 0; background: transparent; padding: 12px 0; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); border-radius: 16px; position: relative; }
 .nav button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); }
 .nav .dot { position: absolute; top: 6px; right: 14px; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); border: 2px solid var(--surface); }
 .readout { display: flex; border: 3px solid var(--fg); border-radius: 22px; overflow: hidden; background: var(--surface); }
@@ -108,7 +108,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .closecam { border: 3px solid var(--fg); background: var(--surface); border-radius: var(--r); padding: 20px 18px; font-weight: 700; }
 .wxline { display: block; width: 100%; text-align: left; background: var(--surface); border: 2px solid var(--fg); border-radius: 16px; padding: 11px 14px; font-size: 14px; color: var(--muted); }
 .wxline b { color: var(--fg); }
-input[type=text], input[type=search], select { background: var(--surface); border: 2px solid var(--fg); border-radius: 14px; padding: 11px 12px; width: 100%; min-width: 0; }
+input[type=text], input[type=search], input[type=number], select { background: var(--surface); border: 2px solid var(--fg); border-radius: 14px; padding: 11px 12px; width: 100%; min-width: 0; }
 .formrow { display: flex; gap: 8px; align-items: center; }
 .formrow > span { flex: 1; }
 .card { background: var(--surface); border: 3px solid var(--fg); border-radius: 22px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
@@ -131,6 +131,21 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 .pc:has(img[data-cut]) { border-color: transparent; background: transparent; }
 .pc img[data-cut] { filter: drop-shadow(0 4px 5px rgba(0,0,0,.28)); padding: 0; }
 .hrow .th img[data-cut] { background: var(--surface); padding: 2px; }
+.chip[disabled] { opacity: .45; cursor: default; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; z-index: 15; max-width: 90vw; text-align: center; }
+.dh { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.dh b { font-family: var(--font-display); font-weight: 800; font-size: 19px; letter-spacing: -.02em; }
+.dh small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.badges { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.badge2 { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--fg); color: var(--bg); white-space: nowrap; }
+.badge2.warn { background: var(--warn); color: #fff; }
+.dthumbs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.dp { flex: none; width: 64px; text-align: center; font-size: 10px; line-height: 1.25; }
+.dp img { width: 64px; height: 84px; object-fit: cover; border-radius: 12px; border: 2px solid var(--fg); display: block; background: var(--surface); }
+.dp span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px; color: var(--muted); }
+.dp img[data-cut] { padding: 3px; }
+.hrow .grow { flex: 1; min-width: 0; }
+.hrow .grow b { display: block; font-family: var(--font-display); font-size: 15px; }
 .accents { display: flex; flex-wrap: wrap; gap: 10px; }
 .acc { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--line); padding: 0; position: relative; }
 .acc[aria-pressed="true"] { outline: 3px solid var(--fg); outline-offset: 2px; }
@@ -162,8 +177,13 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <button class="btn" id="reroll">Shuffle</button>
       <button class="btn primary" id="wear">I'm wearing this today</button>
     </div>
+    <div class="actions" id="rateRow">
+      <button class="btn" id="skipBtn">Skip it</button>
+      <button class="btn" id="loveBtn">Love it</button>
+    </div>
     <div id="laundryNag"></div>
     <div id="backupNag"></div>
+    <div id="savedWrap" class="stack" hidden><h2 class="cat-title">Saved looks</h2><div class="hist" id="savedLooks"></div></div>
     <h2 class="cat-title">Last two weeks</h2>
     <div class="hist" id="history"></div>
   </section>
@@ -189,8 +209,11 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
   </div>
 
   <section id="viewLaundry" class="stack" hidden></section>
+  <section id="viewWeek" class="stack" hidden></section>
+  <section id="viewStats" class="stack" hidden></section>
 
   <section id="viewMore" class="stack" hidden>
+    <button class="btn primary" data-tab="stats" style="flex:none">Closet stats: most worn, donate list, cost per wear</button>
     <div class="card">
       <h2 class="cat-title">Look</h2>
       <p class="tip">Tap a sample to try it. It applies right away.</p>
@@ -198,6 +221,12 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <h2 class="cat-title" style="margin-top:6px">Accent color</h2>
       <p class="tip">Changes buttons, the active tab and highlights, on top of any look above.</p>
       <div class="accents" id="accents"></div>
+    </div>
+    <div class="card">
+      <h2 class="cat-title">Outfit memory</h2>
+      <p class="tip">Tap Love it or Skip it on the Today screen. The shuffle learns which pieces and pairings you like and shows rejected pairings less. Looks you love are saved.</p>
+      <div class="tip" id="memStatus"></div>
+      <button class="btn" id="memReset">Forget what it learned</button>
     </div>
     <div class="card">
       <h2 class="cat-title">Photo cleanup</h2>
@@ -242,11 +271,13 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 
 <nav class="nav" role="tablist" aria-label="Sections">
   <button role="tab" data-tab="today" aria-selected="true">Today</button>
+  <button role="tab" data-tab="week" aria-selected="false">Week</button>
   <button role="tab" data-tab="capture" aria-selected="false">Photos</button>
   <button role="tab" data-tab="laundry" aria-selected="false">Laundry<span class="dot" id="navDot" hidden></span></button>
   <button role="tab" data-tab="more" aria-selected="false">More</button>
 </nav>
 
+<div class="toast" id="toast" hidden></div>
 <div class="sheet" id="sheet" hidden>
   <div class="panel" role="dialog" aria-label="Edit item">
     <img id="edImg" alt="">
@@ -257,6 +288,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
     <label>Wears before washing
       <select id="edMax"><option value="">Automatic</option><option value="0">Never (shoes, coats, accessories)</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="7">7</option><option value="10">10</option></select>
     </label>
+    <label>Price paid, optional<input type="number" id="edPrice" inputmode="decimal" min="0" step="0.01" placeholder="e.g. 60"></label>
     <div class="tip" id="edWear"></div>
     <label class="chk"><input type="checkbox" id="edFav"> Favorite (picked more often)</label>
     <div class="actions"><button class="btn" id="edCut">Clean background</button><button class="btn" id="edWash">Mark washed</button><button class="btn" id="edDelete">Delete photo</button><button class="btn primary" id="edDone">Done</button></div>
@@ -311,6 +343,15 @@ const pic = (i) => (cutPrefs.use && i.cutUrl) ? i.cutUrl : i.url;
 const ca = (i) => (cutPrefs.use && i.cutUrl) ? "data-cut" : "";
 const ACCENTS = [["Forest green", "#1f5c3a"], ["Emerald", "#0f9d6b"], ["Sage", "#6b8f71"], ["Teal", "#0e7c86"], ["Electric blue", "#2b44ff"], ["Navy", "#1c2f6b"], ["Purple", "#6d3fd1"], ["Plum", "#7a2a6b"], ["Rose", "#d6336c"], ["Coral", "#f0603a"], ["Orange", "#e67700"], ["Gold", "#c8960c"], ["Black", "#111111"]];
 const isActiveCat = (c) => activeCats.includes(c);
+let mem = Object.assign({ item: {}, pair: {}, saved: [] }, lsGet("closet-mem") || {});
+let plan = lsGet("closet-plan") || { days: [] };
+let SIM = null, outfitFrom = "", memArm = false;
+const saveMem = () => lsSet("closet-mem", mem);
+const pairKey = (a, b) => a < b ? a + "|" + b : b + "|" + a;
+const clampScore = (v) => Math.max(-4, Math.min(5, v));
+const rndOf = (a) => a[Math.floor(Math.random() * a.length)];
+let toastT = null;
+function toast(text) { const t = $("toast"); t.textContent = text; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2600); }
 
 /* ---------- Skin ---------- */
 function applySkin() {
@@ -389,7 +430,7 @@ function refreshCnt() {
     if (!it.washedAt || (w.createdAt || "") > it.washedAt) CNT.set(id, (CNT.get(id) || 0) + 1);
   }
 }
-const wearsOf = (i) => CNT.get(i.id) || 0;
+const wearsOf = (i) => (SIM ? SIM.cnt : CNT).get(i.id) || 0;
 const isDirty = (i) => { const m = maxWears(i); return m > 0 && wearsOf(i) >= m; };
 const leftOf = (i) => { const m = maxWears(i); return m > 0 ? Math.max(0, m - wearsOf(i)) : Infinity; };
 
@@ -533,6 +574,7 @@ function openEditor(id) {
   $("edPattern").value = it.pattern || "solid"; $("edFav").checked = !!it.favorite;
   $("edMax").value = it.maxWears === undefined || it.maxWears === null ? "" : String(it.maxWears);
   const m = maxWears(it); $("edWear").textContent = m === 0 ? "Not tracked for washing." : `Worn ${wearsOf(it)} of ${m} since the last wash${isDirty(it) ? ". It's in the hamper." : "."}`;
+  $("edPrice").value = it.price === undefined || it.price === null ? "" : it.price;
   $("edWash").hidden = !wearsOf(it);
   $("edCut").hidden = !!it.demo; $("edCut").textContent = it.cutUrl ? "Use original photo" : "Clean background";
   edTags = new Set(it.tags || []); renderEdTags();
@@ -541,7 +583,7 @@ function openEditor(id) {
 async function closeEditor() {
   $("sheet").hidden = true; if (!editId) return;
   const id = editId; editId = null; const mx = $("edMax").value;
-  try { await db.collection("closet").doc(id).update({ name: $("edName").value.trim(), color: $("edColor").value, pattern: $("edPattern").value, favorite: $("edFav").checked, tags: [...edTags], maxWears: mx === "" ? null : +mx }); }
+  try { await db.collection("closet").doc(id).update({ name: $("edName").value.trim(), color: $("edColor").value, pattern: $("edPattern").value, favorite: $("edFav").checked, tags: [...edTags], maxWears: mx === "" ? null : +mx, price: $("edPrice").value === "" ? null : +$("edPrice").value }); }
   catch { setMsg("Couldn't save changes.", true); }
 }
 $("edDone").addEventListener("click", closeEditor);
@@ -559,14 +601,16 @@ $("edDelete").addEventListener("click", async () => {
 });
 
 /* ---------- Weather ---------- */
+const dateOffset = (k) => new Date(Date.now() + k * 864e5).toLocaleDateString("en-CA");
 async function fetchWx(force) {
   if (!place) { wx = null; return; }
   const key = place.lat + "," + place.lon + "," + todayStr();
-  if (!force && wx && wx.key === key && Date.now() - wx.at < 36e5) return;
+  if (!force && wx && wx.key === key && wx.days && Date.now() - wx.at < 36e5) return;
   try {
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${place.lat}&longitude=${place.lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1`);
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${place.lat}&longitude=${place.lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=7`);
     const j = await r.json(), d = j.daily;
-    wx = { key, at: Date.now(), tmax: d.temperature_2m_max[0], tmin: d.temperature_2m_min[0], rain: Math.round(d.precipitation_probability_max[0] || 0) };
+    const days = d.temperature_2m_max.map((mx, k) => ({ date: (d.time && d.time[k]) || dateOffset(k), tmax: mx, tmin: d.temperature_2m_min[k], rain: Math.round(d.precipitation_probability_max[k] || 0) }));
+    wx = { key, at: Date.now(), tmax: days[0].tmax, tmin: days[0].tmin, rain: days[0].rain, days };
     lsSet("closet-wx", wx);
   } catch { if (!wx || wx.key !== key) wx = null; }
 }
@@ -597,10 +641,11 @@ function useLocation() {
   }, () => { $("wxStatus").textContent = "Location was blocked. Type your city instead."; }, { timeout: 15000 });
 }
 function wantOuter() {
-  if (wx && mood.weather) {
-    if (wx.tmin <= 8 || wx.tmax <= 12) return true;
-    if (wx.tmax <= 18) return Math.random() < 0.6;
-    if (wx.rain >= 60) return Math.random() < 0.4;
+  const W = SIM ? SIM.wx : wx;
+  if (W && mood.weather) {
+    if (W.tmin <= 8 || W.tmax <= 12) return true;
+    if (W.tmax <= 18) return Math.random() < 0.6;
+    if (W.rain >= 60) return Math.random() < 0.4;
     return false;
   }
   return season === "fall-winter" || Math.random() < 0.3;
@@ -620,15 +665,16 @@ const poolAll = (c) => isActiveCat(c) ? items.filter(i => i.season === season &&
 const relaxed = () => mood.feeling === "Playful" || mood.energy === "High";
 const isAccent = (i) => i.color && !NEUTRAL.has(i.color) && i.color !== "Multi";
 function recentIds() {
+  if (SIM) return SIM.recent;
   const cut = new Date(Date.now() - 6 * 864e5).toLocaleDateString("en-CA"), t = todayStr(), s = new Set();
   worn.filter(w => w.date >= cut && w.date !== t).forEach(w => (w.itemIds || []).forEach(id => { const it = byId(id); if (it && maxWears(it) > 1 && !isDirty(it)) return; s.add(id); }));
   return s;
 }
 function ctxOf(ids) {
   const its = ids.map(byId).filter(Boolean);
-  return { patterned: its.some(i => i.pattern === "patterned"), accent: its.some(isAccent) };
+  return { ids, patterned: its.some(i => i.pattern === "patterned"), accent: its.some(isAccent) };
 }
-function weight(i) {
+function weight(i, ctx) {
   const tags = i.tags || [], has = (t) => tags.includes(t), quiet = !i.color || NEUTRAL.has(i.color), bold = isAccent(i) || i.pattern === "patterned";
   let w = i.favorite ? 3 : 1;
   if (maxWears(i) > 1 && wearsOf(i) > 0) w *= 1.5;
@@ -639,6 +685,8 @@ function weight(i) {
   if (mood.feeling === "Low-key") { if (quiet) w *= 3; if (i.pattern === "patterned") w *= 0.2; }
   if (mood.energy === "Low") { if (has("Lounge") || has("Casual")) w *= 2; if (quiet) w *= 2; }
   if (mood.energy === "High") { if (bold) w *= 2; if (has("Dressy")) w *= 1.5; }
+  const ms = mem.item[i.id] || 0; if (ms) w *= Math.exp(0.3 * ms);
+  if (ctx && ctx.ids && ctx.ids.length) { let ps = 0; for (const o of ctx.ids) ps += mem.pair[pairKey(i.id, o)] || 0; if (ps) w *= Math.exp(0.7 * Math.max(-3, Math.min(4, ps))); }
   return w;
 }
 function pick(c, exclude, ctx) {
@@ -649,13 +697,19 @@ function pick(c, exclude, ctx) {
     if (ctx.accent && !relaxed() && ["tops", "bottoms", "outerwear"].includes(c)) { const q = p.filter(i => !i.color || NEUTRAL.has(i.color)); if (q.length) p = q; }
   }
   const recent = recentIds(), fresh = p.filter(i => !recent.has(i.id)), from = fresh.length ? fresh : p;
-  const w = from.map(weight); let r = Math.random() * w.reduce((a, b) => a + b, 0);
+  const w = from.map(i => weight(i, ctx)); let r = Math.random() * w.reduce((a, b) => a + b, 0);
   for (let k = 0; k < from.length; k++) { r -= w[k]; if (r <= 0) return from[k].id; }
   return from[from.length - 1].id;
 }
 function generate() {
-  refreshCnt();
+  if (!SIM) refreshCnt();
+  outfitFrom = "";
   const slots = [];
+  if (!mood.event && !mood.feeling && !mood.energy && mem.saved.length) {
+    const rec = recentIds();
+    const ok = mem.saved.filter(l => l.ids.every(id => { const it = byId(id); return it && it.season === season && isActiveCat(it.category) && !isDirty(it) && !rec.has(id); }));
+    if (ok.length && Math.random() < 0.2) { const l = rndOf(ok); outfit = l.ids.map(id => ({ cat: byId(id).category, id })); outfitSeason = season; outfitFrom = "saved"; return; }
+  }
   const add = (c) => { const id = pick(c, null, ctxOf(slots.map(s => s.id))); if (id) slots.push({ cat: c, id }); };
   const oneP = mood.event === "Active" || mood.event === "Work" ? 0.1 : mood.event === "Dressy" ? 0.4 : 0.25;
   const useOne = pool("onepiece").length && (Math.random() < oneP || !pool("tops").length || !pool("bottoms").length);
@@ -739,11 +793,13 @@ function renderToday() {
     : `<div class="empty" style="margin:14px">${n ? (items.some(i => i.season === season && isDirty(i)) ? "Everything clean is already used up. Check the Laundry tab." : "Building your outfit...") : "No photos in this season yet. Open Photos and take a few tops, bottoms and shoes."}</div>`;
   const asked = [mood.event, mood.feeling, mood.energy && mood.energy + " energy"].filter(Boolean);
   const tp = tips();
-  $("styleNote").innerHTML = (asked.length ? `<div class="rd">Styled for ${asked.map(a => `<mark>${esc(a)}</mark>`).join(" / ")}</div>` : "")
+  $("styleNote").innerHTML = (outfitFrom === "saved" ? '<div class="rd">From your saved looks</div>' : "") + (asked.length ? `<div class="rd">Styled for ${asked.map(a => `<mark>${esc(a)}</mark>`).join(" / ")}</div>` : "")
     + (tp ? `<div class="note-style">${esc(tp)}</div>` : "")
     + (outfit.length ? `<p class="tip">${w ? "Logged for today. " : ""}Tap a piece or its label to swap it.</p>` : "");
   $("wear").textContent = w ? "Update today's outfit" : "I'm wearing this today";
   $("wear").disabled = !outfit.length; $("reroll").disabled = !n;
+  $("rateRow").hidden = !outfit.length;
+  $("loveBtn").textContent = lookIdx() >= 0 ? "Saved ★" : "Love it";
   const L = laundryInfo();
   $("laundryNag").innerHTML = L.due ? `<button class="wxline" data-tab="laundry" style="border-color:var(--warn)"><b>${esc(L.due)}</b> Open Laundry.</button>` : "";
   $("navDot").hidden = !L.due;
@@ -752,6 +808,7 @@ function renderToday() {
   const done = worn.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
   $("history").innerHTML = done.length ? done.map(h => `<div class="hrow"><div class="d">${new Date(h.date + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div><div class="th">${(h.itemIds || []).map(byId).filter(Boolean).map(i => `<img src="${pic(i)}" ${ca(i)} alt="">`).join("")}</div></div>`).join("")
     : `<div class="empty">Nothing logged yet. Tap "I'm wearing this today" and it shows up here.</div>`;
+  renderSaved();
 }
 
 /* ---------- Backup ---------- */
@@ -760,7 +817,7 @@ async function buildBackup() {
   const toData = (b) => new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b); });
   const closet = [];
   for (const r of cl) { const o = { ...r }; if (o.blob) o.photo = await toData(o.blob); delete o.blob; if (o.cutout) o.cutoutPhoto = await toData(o.cutout); delete o.cutout; closet.push(o); }
-  return new Blob([JSON.stringify({ app: "my-closet", version: 2, exportedAt: new Date().toISOString(), closet, worn: wr, settings: { activeCats, laundry, mood, skin, accent } })], { type: "application/json" });
+  return new Blob([JSON.stringify({ app: "my-closet", version: 2, exportedAt: new Date().toISOString(), closet, worn: wr, settings: { activeCats, laundry, mood, skin, accent, mem, plan } })], { type: "application/json" });
 }
 const bkName = () => "my-closet-backup-" + todayStr() + ".json";
 async function exportBackup() {
@@ -791,6 +848,15 @@ async function importBackup(file) {
       await tx("closet", "readwrite", s => s.put(rec)); n++;
     }
     for (const w of (j.worn || [])) await tx("worn", "readwrite", s => s.put(w));
+    const st = j.settings || {};
+    if (st.activeCats) { activeCats = st.activeCats; lsSet("closet-cats", activeCats); }
+    if (st.laundry) { laundry = Object.assign({ day: 0, low: 2 }, st.laundry); lsSet("closet-laundry", laundry); }
+    if (st.mood) { mood = Object.assign({ weather: true, event: "", feeling: "", energy: "" }, st.mood); lsSet("closet-mood", mood); }
+    if (st.skin) { skin = st.skin; lsSet("closet-skin", skin); }
+    if ("accent" in st) { accent = st.accent || ""; lsSet("closet-accent", accent); }
+    if (st.mem) { mem = Object.assign({ item: {}, pair: {}, saved: [] }, st.mem); saveMem(); }
+    if (st.plan) { plan = st.plan; lsSet("closet-plan", plan); }
+    applySkin();
     await notify("closet"); await notify("worn");
     $("bkStatus").textContent = "Restored " + n + " items.";
   } catch { $("bkStatus").textContent = "That file isn't a valid closet backup."; }
@@ -931,9 +997,158 @@ async function removeDemo() {
 $("demoLoad").addEventListener("click", loadDemo);
 $("demoRemove").addEventListener("click", removeDemo);
 
+/* ---------- Outfit memory (Love it / Skip it) ---------- */
+const outKey = () => outfit.map(s => s.id).sort().join("|");
+const lookIdx = () => mem.saved.findIndex(l => l.ids.slice().sort().join("|") === outKey());
+function teach(delta) {
+  const ids = outfit.map(s => s.id);
+  for (const id of ids) mem.item[id] = clampScore((mem.item[id] || 0) + delta * 0.5);
+  for (let a = 0; a < ids.length; a++) for (let b = a + 1; b < ids.length; b++) { const k = pairKey(ids[a], ids[b]); mem.pair[k] = clampScore((mem.pair[k] || 0) + delta); }
+  saveMem();
+}
+function loveIt() {
+  if (!outfit.length) return;
+  const k = lookIdx();
+  if (k >= 0) { mem.saved.splice(k, 1); teach(-1); toast("Removed from saved looks."); }
+  else { teach(1); mem.saved.push({ ids: outfit.map(s => s.id), at: Date.now() }); saveMem(); toast("Saved. I'll suggest it again and favor these pairings."); }
+  renderToday();
+}
+function skipIt() {
+  if (!outfit.length) return;
+  teach(-1); toast("Got it. I'll show that pairing less."); generate(); renderToday();
+}
+function renderSaved() {
+  const L = mem.saved.filter(l => l.ids.every(byId));
+  $("savedWrap").hidden = !L.length;
+  $("savedLooks").innerHTML = L.map((l) => {
+    const k = mem.saved.indexOf(l), blocked = l.ids.some(id => isDirty(byId(id)));
+    return `<div class="hrow"><div class="th">${l.ids.map(id => byId(id)).map(i => `<img src="${pic(i)}" ${ca(i)} alt="">`).join("")}</div><button class="chip sm" data-savewear="${k}" ${blocked ? "disabled title='Something in this look is in the hamper'" : ""}>Wear</button><button class="chip sm" data-savedel="${k}" aria-label="Remove saved look">✕</button></div>`;
+  }).join("");
+}
+function renderMem() {
+  const skipped = Object.values(mem.pair).filter(v => v < 0).length, liked = Object.values(mem.pair).filter(v => v > 0).length;
+  $("memStatus").textContent = `${mem.saved.length} saved ${mem.saved.length === 1 ? "look" : "looks"}, ${liked} liked pairings, ${skipped} pairings it will show less.`;
+  $("memReset").textContent = memArm ? "Tap again to forget everything" : "Forget what it learned";
+}
+$("loveBtn").addEventListener("click", loveIt);
+$("skipBtn").addEventListener("click", skipIt);
+$("memReset").addEventListener("click", () => {
+  if (!memArm) { memArm = true; renderMem(); return; }
+  memArm = false; mem = { item: {}, pair: {}, saved: [] }; saveMem(); renderMem(); renderToday(); toast("Forgot everything it learned.");
+});
+
+/* ---------- Week planner ---------- */
+const dayKeys = () => Array.from({ length: 7 }, (_, k) => dateOffset(k));
+const wxFor = (date) => (wx && wx.days) ? (wx.days.find(d => d.date === date) || null) : null;
+const dayName = (date, long) => new Date(date + "T12:00").toLocaleDateString(undefined, { weekday: long ? "long" : "short", month: "short", day: "numeric" });
+let planShort = {};
+function buildPlan(fromIdx = 0) {
+  refreshCnt();
+  const keys = dayKeys(), old = new Map(plan.days.map(d => [d.date, d]));
+  const sim = { cnt: new Map(CNT), recent: new Set(recentIds()), wx: null };
+  const days = [], short = {};
+  const saveO = outfit, saveS = outfitSeason, saveF = outfitFrom;
+  keys.forEach((date, idx) => {
+    const prev = old.get(date), locked = !!(prev && prev.locked);
+    let ids;
+    if (idx === 0 && outfit.length) ids = outfit.map(s => s.id);
+    else if (prev && prev.ids.length && prev.ids.every(byId) && (locked || idx < fromIdx)) ids = prev.ids;
+    else { SIM = sim; sim.wx = wxFor(date) || (idx === 0 ? wx : null); try { generate(); } finally { SIM = null; } ids = outfit.map(s => s.id); }
+    const loggedToday = idx === 0 && worn.find(w => w.id === date);
+    if (!loggedToday) for (const id of ids) sim.cnt.set(id, (sim.cnt.get(id) || 0) + 1);
+    for (const id of ids) { const it = byId(id); if (!it) continue; if (maxWears(it) > 1 && (sim.cnt.get(id) || 0) < maxWears(it)) continue; sim.recent.add(id); }
+    const cs = new Set(ids.map(id => byId(id) && byId(id).category));
+    for (const c of ["tops", "bottoms"]) if (isActiveCat(c) && poolAllAny(c) && !cs.has(c) && !cs.has("onepiece") && !short[c]) short[c] = date;
+    const lday = laundry.day >= 0 && new Date(date + "T12:00").getDay() === laundry.day;
+    if (lday) sim.cnt = new Map();
+    days.push({ date, ids, locked, laundry: lday });
+  });
+  outfit = saveO; outfitSeason = saveS; outfitFrom = saveF;
+  plan = { days, short, madeAt: Date.now() }; lsSet("closet-plan", plan);
+}
+const poolAllAny = (c) => items.some(i => i.season === season && i.category === c);
+const planFresh = () => plan.days && plan.days.length === 7 && plan.days[0].date === todayStr() && plan.days.every(d => d.ids.every(byId));
+function renderWeek() {
+  const el = $("viewWeek");
+  if (!items.some(i => i.season === season && isActiveCat(i.category))) {
+    el.innerHTML = `<div class="empty">No photos in this season yet. Add some pieces in Photos, then plan your week here.</div>`; return;
+  }
+  if (!planFresh()) buildPlan(0);
+  const short = plan.short || {}, msgs = [];
+  for (const c of ["tops", "bottoms"]) if (short[c]) {
+    const prevDay = new Date(short[c] + "T12:00"); prevDay.setDate(prevDay.getDate() - 1);
+    const before = prevDay.toLocaleDateString("en-CA");
+    msgs.push(`You run out of clean ${c} on ${dayName(short[c])}. ${short[c] === todayStr() ? "Do laundry now." : (before === todayStr() ? "Wash today." : "Wash by " + dayName(before) + ".")}`);
+  }
+  const rain = wx && wx.days ? wx.days.filter(d => d.rain >= 60).length : 0;
+  let h = `<div class="actions"><button class="btn primary" id="replanBtn">Replan unlocked days</button></div>`;
+  if (!place) h = `<button class="wxline" data-tab="more">Add your city to plan around the forecast</button>` + h;
+  if (msgs.length) h = `<div class="note-style warn"><b>${esc(msgs.join(" "))}</b><br>${laundry.day >= 0 ? "Your usual laundry day is " + DAYS[laundry.day] + "." : "Set a laundry day in the Laundry tab."}</div>` + h;
+  h += `<p class="tip">Each day follows your wear limits, the forecast and your style settings. Laundry day resets the counts. Lock a day to keep it when you replan.${rain ? " " + rain + " rainy day" + (rain > 1 ? "s" : "") + " ahead." : ""}</p>`;
+  h += plan.days.map((d, k) => {
+    const w = wxFor(d.date) || (k === 0 ? wx : null), its = d.ids.map(byId).filter(Boolean);
+    const wtxt = w ? `${fmt(w.tmin)} / ${fmt(w.tmax)} · ${w.rain}% rain` : "No forecast";
+    const badges = (k === 0 ? `<span class="badge2">Today</span>` : "") + (d.laundry ? `<span class="badge2 warn">Laundry day</span>` : "") + (d.locked ? `<span class="badge2">Locked</span>` : "");
+    return `<div class="card"><div class="dh"><div><b>${dayName(d.date)}</b><small>${esc(wtxt)}</small></div><div class="badges">${badges}</div></div>
+      ${its.length ? `<div class="dthumbs">${its.map(i => `<div class="dp"><img src="${pic(i)}" ${ca(i)} alt=""><span>${esc(i.name || i.color || LABEL[i.category])}</span></div>`).join("")}</div>` : `<div class="empty">Nothing clean to plan for this day.</div>`}
+      <div class="actions"><button class="chip sm" data-dayshuf="${k}" ${d.locked ? "disabled" : ""}>Shuffle</button><button class="chip sm" data-daylock="${k}" aria-pressed="${d.locked}">${d.locked ? "Locked" : "Lock"}</button>${k === 0 ? `<button class="chip sm" data-tab="today">Open today</button>` : ""}</div></div>`;
+  }).join("");
+  el.innerHTML = h;
+}
+
+/* ---------- Closet stats ---------- */
+function renderStats() {
+  refreshCnt();
+  const wearsBy = new Map(), last = new Map();
+  for (const w of worn) for (const id of (w.itemIds || [])) { wearsBy.set(id, (wearsBy.get(id) || 0) + 1); if (!last.get(id) || w.date > last.get(id)) last.set(id, w.date); }
+  const its = items.filter(i => isActiveCat(i.category)), days = worn.length;
+  const today = new Date(); today.setHours(12, 0, 0, 0);
+  const since = (d) => Math.round((today - new Date(d + "T12:00")) / 864e5);
+  const money = (n) => "$" + (Math.round(n * 100) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const nm = (i) => esc(i.name || i.color || LABEL[i.category]);
+  const row = (i, sub, right) => `<div class="hrow"><div class="th" style="flex:none"><img src="${pic(i)}" ${ca(i)} alt=""></div><div class="grow"><b>${nm(i)}</b><span class="tip">${sub}</span></div>${right || ""}</div>`;
+  const totalWears = its.reduce((a, i) => a + (wearsBy.get(i.id) || 0), 0);
+  const most = its.filter(i => wearsBy.get(i.id)).sort((a, b) => wearsBy.get(b.id) - wearsBy.get(a.id)).slice(0, 5);
+  const enough = days >= 10;
+  const cand = enough ? its.filter(i => {
+    if (i.keepUntil && i.keepUntil > todayStr()) return false;
+    const l = last.get(i.id); if (l) return since(l) > 60;
+    return since((i.createdAt || "").slice(0, 10) || todayStr()) > 30;
+  }).sort((a, b) => (last.get(a.id) || "").localeCompare(last.get(b.id) || "")) : [];
+  const priced = its.filter(i => i.price > 0).map(i => ({ i, w: wearsBy.get(i.id) || 0, cpw: i.price / Math.max(1, wearsBy.get(i.id) || 0) })).sort((a, b) => b.cpw - a.cpw).slice(0, 5);
+  // gaps for the current season
+  const S = items.filter(i => i.season === season), cnt = (c) => S.filter(i => i.category === c).length, gaps = [];
+  const sname = season === "fall-winter" ? "fall / winter" : "spring / summer";
+  if (isActiveCat("tops") && cnt("tops") < 4) gaps.push(`Only ${cnt("tops")} ${cnt("tops") === 1 ? "top" : "tops"} for ${sname}. Aim for 5 or more so you don't run out between washes.`);
+  if (isActiveCat("bottoms") && cnt("bottoms") < 3) gaps.push(`Only ${cnt("bottoms")} ${cnt("bottoms") === 1 ? "bottom" : "bottoms"} for ${sname}. 3 or more keeps outfits varied.`);
+  if (isActiveCat("shoes") && cnt("shoes") < 2) gaps.push(`Only ${cnt("shoes")} ${cnt("shoes") === 1 ? "pair" : "pairs"} of shoes for ${sname}.`);
+  if (isActiveCat("outerwear") && season === "fall-winter" && !cnt("outerwear")) gaps.push("No coat or jacket for fall / winter.");
+  const bottoms = S.filter(i => i.category === "bottoms");
+  if (bottoms.length && !bottoms.some(i => !i.color || NEUTRAL.has(i.color))) gaps.push("No neutral bottoms, which makes bold tops harder to pair.");
+  for (const ev of ["Work", "Dressy", "Active"]) {
+    if (!S.some(i => (i.tags || []).includes(ev))) continue;
+    for (const c of ["tops", "bottoms", "shoes"]) if (isActiveCat(c) && cnt(c) && !S.some(i => i.category === c && (i.tags || []).includes(ev))) gaps.push(`Nothing tagged ${ev} in ${c}, so ${ev} outfits will be incomplete.`);
+  }
+  const keepBtn = (i) => `<button class="chip sm" data-keep="${i.id}">Keep</button>`;
+  $("viewStats").innerHTML = `
+    <div class="actions"><button class="chip" data-tab="more">← Back</button></div>
+    <h2 class="cat-title" style="font-size:24px">Closet stats</h2>
+    <div class="stats"><div class="stat"><b>${its.length}</b><span>pieces</span></div><div class="stat"><b>${totalWears}</b><span>wears logged</span></div><div class="stat"><b>${days}</b><span>days logged</span></div></div>
+    <h2 class="cat-title">Most worn</h2>
+    <div class="hist">${most.length ? most.map(i => row(i, `${wearsBy.get(i.id)} ${wearsBy.get(i.id) === 1 ? "wear" : "wears"}${i.price > 0 ? " · " + money(i.price / wearsBy.get(i.id)) + " per wear" : ""}`)).join("") : `<div class="empty">Log outfits with "I'm wearing this today" and your most worn pieces show up here.</div>`}</div>
+    <h2 class="cat-title">Donate or revisit</h2>
+    <p class="tip">Pieces you haven't worn in 60 days, or never wore in the 30 days since you added them.</p>
+    <div class="hist">${!enough ? `<div class="empty">Log about 10 days of outfits first. Right now ${days} ${days === 1 ? "day is" : "days are"} logged, which isn't enough to tell what you skip.</div>` : cand.length ? cand.map(i => row(i, last.get(i.id) ? `Last worn ${since(last.get(i.id))} days ago` : "Never worn", keepBtn(i) + `<button class="chip sm" data-edit="${i.id}">Open</button>`)).join("") : `<div class="empty">Nothing to donate. You've worn everything lately.</div>`}</div>
+    <h2 class="cat-title">Cost per wear</h2>
+    <p class="tip">Add a price in a piece's details to track it. Highest cost per wear first, which means it hasn't paid off yet.</p>
+    <div class="hist">${priced.length ? priced.map(({ i, w, cpw }) => row(i, `${money(i.price)} · ${w} ${w === 1 ? "wear" : "wears"}`, `<b style="font-family:var(--font-display)">${money(cpw)}</b>`)).join("") : `<div class="empty">No prices yet.</div>`}</div>
+    <h2 class="cat-title">Gaps in ${sname}</h2>
+    <div class="stack" style="gap:8px">${gaps.length ? gaps.map(g => `<div class="note-style" style="font-size:15px">${esc(g)}</div>`).join("") : `<div class="empty">No gaps found.</div>`}</div>`;
+}
+
 /* ---------- More tab ---------- */
 function renderMore() {
-  renderCut();
+  renderCut(); renderMem();
   $("unitC").setAttribute("aria-pressed", !unitF); $("unitF").setAttribute("aria-pressed", unitF);
   if (place && !$("wxStatus").textContent.startsWith("Couldn't")) {
     $("wxStatus").textContent = wx ? `${place.name}: ${fmt(wx.tmin)} to ${fmt(wx.tmax)}, ${wx.rain}% chance of rain today.` : `${place.name} saved. Loading forecast...`;
@@ -950,15 +1165,30 @@ for (const [id, f] of [["unitC", false], ["unitF", true]]) $(id).addEventListene
 /* ---------- Tabs and clicks ---------- */
 function showTab(name) {
   tab = name; if (tab !== "capture") stopCam();
-  document.querySelectorAll(".nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
-  $("viewToday").hidden = tab !== "today"; $("viewCapture").hidden = tab !== "capture"; $("viewLaundry").hidden = tab !== "laundry"; $("viewMore").hidden = tab !== "more";
+  const navTab = tab === "stats" ? "more" : tab;
+  document.querySelectorAll(".nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === navTab));
+  const V = { today: "viewToday", week: "viewWeek", capture: "viewCapture", laundry: "viewLaundry", more: "viewMore", stats: "viewStats" };
+  for (const [k, id] of Object.entries(V)) $(id).hidden = tab !== k;
   $("seasons").hidden = tab === "more";
-  if (tab === "more") renderMore(); if (tab === "laundry") renderLaundry();
+  if (tab === "more") renderMore(); if (tab === "laundry") renderLaundry(); if (tab === "week") renderWeek(); if (tab === "stats") renderStats();
   window.scrollTo(0, 0);
 }
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("button"); if (!t) return;
-  if (t.dataset.tag) { edTags.has(t.dataset.tag) ? edTags.delete(t.dataset.tag) : edTags.add(t.dataset.tag); renderEdTags(); }
+  if (t.dataset.dayshuf !== undefined) {
+    const k = +t.dataset.dayshuf;
+    if (k === 0) { generate(); renderToday(); buildPlan(1); } else buildPlan(k);
+    renderWeek();
+  }
+  else if (t.dataset.daylock !== undefined) { const d = plan.days[+t.dataset.daylock]; if (d) { d.locked = !d.locked; lsSet("closet-plan", plan); renderWeek(); } }
+  else if (t.id === "replanBtn") { buildPlan(0); renderWeek(); toast("Replanned the unlocked days."); }
+  else if (t.dataset.keep) { const d = new Date(); d.setDate(d.getDate() + 90); await db.collection("closet").doc(t.dataset.keep).update({ keepUntil: d.toLocaleDateString("en-CA") }); }
+  else if (t.dataset.savewear !== undefined) {
+    const l = mem.saved[+t.dataset.savewear];
+    if (l && l.ids.every(byId)) { outfit = l.ids.map(id => ({ cat: byId(id).category, id })); outfitSeason = season; outfitFrom = "saved"; renderToday(); window.scrollTo(0, 0); }
+  }
+  else if (t.dataset.savedel !== undefined) { mem.saved.splice(+t.dataset.savedel, 1); saveMem(); renderToday(); }
+  else if (t.dataset.tag) { edTags.has(t.dataset.tag) ? edTags.delete(t.dataset.tag) : edTags.add(t.dataset.tag); renderEdTags(); }
   else if (t.dataset.mood) {
     const [k, v] = t.dataset.mood.split("|");
     if (k === "weather") mood.weather = !mood.weather; else mood[k] = mood[k] === v ? "" : v;
@@ -980,7 +1210,7 @@ document.addEventListener("click", async (e) => {
   else if (t.dataset.edit) openEditor(t.dataset.edit);
   else if (t.dataset.swap !== undefined) {
     refreshCnt(); const i = +t.dataset.swap, s = outfit[i];
-    s.id = pick(s.cat, s.id, ctxOf(outfit.filter((_, k) => k !== i).map(x => x.id))); renderToday();
+    s.id = pick(s.cat, s.id, ctxOf(outfit.filter((_, k) => k !== i).map(x => x.id))); outfitFrom = ""; renderToday();
   } else if (t.id === "reroll") { generate(); renderToday(); }
   else if (t.id === "wear") {
     t.disabled = true;
@@ -998,7 +1228,7 @@ applySkin(); render();
     const before = items.length;
     items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (items.length !== before && !worn.find(w => w.id === todayStr())) outfit = [];
-    render(); syncToday(); renderCut();
+    render(); syncToday(); renderCut(); if (tab === "stats") renderStats();
   });
   db.collection("worn").onSnapshot((snap) => { worn = snap.docs.map(d => ({ id: d.id, ...d.data() })); render(); syncToday(); });
   renderMore();
