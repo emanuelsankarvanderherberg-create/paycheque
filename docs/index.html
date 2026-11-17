@@ -93,6 +93,10 @@ input[type=text], input[type=search], select { background: var(--surface); borde
 .formrow { display: flex; gap: 8px; align-items: center; }
 .sheet { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
 .panel { background: var(--bg); width: 100%; max-width: 640px; border-radius: 18px 18px 0 0; padding: 16px max(16px, env(safe-area-inset-left, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 12px; max-height: 92vh; overflow-y: auto; }
+.moodbox { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.moodgrp { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.moodgrp .lab { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); width: 62px; flex: none; }
+.chip.sm { padding: 6px 11px; font-size: 13px; }
 .panel img { width: 120px; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 10px; align-self: center; }
 .panel label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
 .panel label.chk { flex-direction: row; align-items: center; gap: 10px; font-size: 15px; color: var(--fg); }
@@ -113,6 +117,7 @@ input[type=text], input[type=search], select { background: var(--surface); borde
 
   <section id="viewToday" class="stack">
     <div id="weatherBar"></div>
+    <div class="moodbox" id="moodBar"></div>
     <div id="todayHead"></div>
     <div class="outfit" id="outfit"></div>
     <div id="styleNote"></div>
@@ -172,6 +177,7 @@ input[type=text], input[type=search], select { background: var(--surface); borde
     <label>Name<input type="text" id="edName" placeholder="e.g. Black hoodie"></label>
     <label>Color<select id="edColor"><option value="">Not set</option></select></label>
     <label>Pattern<select id="edPattern"><option value="solid">Solid</option><option value="patterned">Patterned or graphic</option></select></label>
+    <div><div class="tip" style="margin-bottom:6px">Good for (pick any)</div><div class="cats" id="edTags"></div></div>
     <label class="chk"><input type="checkbox" id="edFav"> Favorite (picked more often)</label>
     <div class="actions"><button class="btn" id="edDelete">Delete photo</button><button class="btn primary" id="edDone">Done</button></div>
   </div>
@@ -200,7 +206,11 @@ let items = [], worn = [], pending = [], db = null, ready = false;
 let outfit = [], outfitSeason = null;
 let place = lsGet("closet-place"), wx = lsGet("closet-wx");
 let unitF = lsGet("closet-unitF"); if (unitF === null) unitF = /^en-US/i.test(navigator.language || "");
-let editId = null, delArm = false;
+let editId = null, delArm = false, edTags = new Set();
+const EVENTS = ["Casual", "Work", "Dressy", "Active", "Lounge"];
+const FEELINGS = ["Comfy", "Confident", "Playful", "Low-key"];
+const ENERGIES = ["Low", "Medium", "High"];
+let mood = Object.assign({ weather: true, event: "", feeling: "", energy: "" }, lsGet("closet-mood") || {});
 
 /* ---------- Local storage (IndexedDB) ---------- */
 const urls = new Map(), subs = { closet: [], worn: [] };
@@ -321,17 +331,21 @@ $("snap").addEventListener("click", snap);
 
 /* ---------- Item editor ---------- */
 $("edColor").innerHTML += COLORS.map(c => `<option>${c}</option>`).join("");
+function renderEdTags() {
+  $("edTags").innerHTML = EVENTS.map(t => `<button type="button" class="chip sm" data-tag="${t}" aria-pressed="${edTags.has(t)}">${t}</button>`).join("");
+}
 function openEditor(id) {
   const it = byId(id); if (!it) return;
   editId = id; delArm = false;
   $("edImg").src = it.url; $("edName").value = it.name || ""; $("edColor").value = it.color || "";
   $("edPattern").value = it.pattern || "solid"; $("edFav").checked = !!it.favorite;
+  edTags = new Set(it.tags || []); renderEdTags();
   $("edDelete").textContent = "Delete photo"; $("sheet").hidden = false;
 }
 async function closeEditor() {
   $("sheet").hidden = true; if (!editId) return;
   const id = editId; editId = null;
-  try { await db.collection("closet").doc(id).update({ name: $("edName").value.trim(), color: $("edColor").value, pattern: $("edPattern").value, favorite: $("edFav").checked }); }
+  try { await db.collection("closet").doc(id).update({ name: $("edName").value.trim(), color: $("edColor").value, pattern: $("edPattern").value, favorite: $("edFav").checked, tags: [...edTags] }); }
   catch { setMsg("Couldn't save changes.", true); }
 }
 $("edDone").addEventListener("click", closeEditor);
@@ -381,7 +395,7 @@ function useLocation() {
   }, () => { $("wxStatus").textContent = "Location was blocked. Type your city instead."; }, { timeout: 15000 });
 }
 function wantOuter() {
-  if (wx) {
+  if (wx && mood.weather) {
     if (wx.tmin <= 8 || wx.tmax <= 12) return true;
     if (wx.tmax <= 18) return Math.random() < 0.6;
     if (wx.rain >= 60) return Math.random() < 0.4;
@@ -407,26 +421,42 @@ function ctxOf(ids) {
   const its = ids.map(byId).filter(Boolean);
   return { patterned: its.some(i => i.pattern === "patterned"), accent: its.some(i => i.color && !NEUTRAL.has(i.color) && i.color !== "Multi") };
 }
+const relaxed = () => mood.feeling === "Playful" || mood.energy === "High";
+const isAccent = (i) => i.color && !NEUTRAL.has(i.color) && i.color !== "Multi";
+function weight(i) {
+  const tags = i.tags || [], has = (t) => tags.includes(t), quiet = !i.color || NEUTRAL.has(i.color), bold = isAccent(i) || i.pattern === "patterned";
+  let w = i.favorite ? 3 : 1;
+  if (mood.event) { if (has(mood.event)) w *= 5; else if (tags.length) w *= 0.15; }
+  if (mood.feeling === "Comfy") { if (has("Lounge") || has("Casual")) w *= 3; if (has("Dressy")) w *= 0.3; }
+  if (mood.feeling === "Confident") { if (has("Dressy") || i.favorite) w *= 2.5; }
+  if (mood.feeling === "Playful" && bold) w *= 3;
+  if (mood.feeling === "Low-key") { if (quiet) w *= 3; if (i.pattern === "patterned") w *= 0.2; }
+  if (mood.energy === "Low") { if (has("Lounge") || has("Casual")) w *= 2; if (quiet) w *= 2; }
+  if (mood.energy === "High") { if (bold) w *= 2; if (has("Dressy")) w *= 1.5; }
+  return w;
+}
 function pick(c, exclude, ctx) {
   let p = pool(c); if (!p.length) return null;
   if (exclude && p.length > 1) p = p.filter(i => i.id !== exclude);
   if (ctx) {
     if (ctx.patterned) { const q = p.filter(i => i.pattern !== "patterned"); if (q.length) p = q; }
-    if (ctx.accent && ["tops", "bottoms", "outerwear"].includes(c)) { const q = p.filter(i => !i.color || NEUTRAL.has(i.color)); if (q.length) p = q; }
+    if (ctx.accent && !relaxed() && ["tops", "bottoms", "outerwear"].includes(c)) { const q = p.filter(i => !i.color || NEUTRAL.has(i.color)); if (q.length) p = q; }
   }
   const recent = recentIds(), fresh = p.filter(i => !recent.has(i.id)), from = fresh.length ? fresh : p;
-  const w = from.map(i => i.favorite ? 3 : 1); let r = Math.random() * w.reduce((a, b) => a + b, 0);
+  const w = from.map(weight); let r = Math.random() * w.reduce((a, b) => a + b, 0);
   for (let k = 0; k < from.length; k++) { r -= w[k]; if (r <= 0) return from[k].id; }
   return from[from.length - 1].id;
 }
 function generate() {
   const slots = [];
   const add = (c) => { const id = pick(c, null, ctxOf(slots.map(s => s.id))); if (id) slots.push({ cat: c, id }); };
-  const useOne = pool("onepiece").length && (Math.random() < 0.25 || !pool("tops").length || !pool("bottoms").length);
+  const oneP = mood.event === "Active" || mood.event === "Work" ? 0.1 : mood.event === "Dressy" ? 0.4 : 0.25;
+  const useOne = pool("onepiece").length && (Math.random() < oneP || !pool("tops").length || !pool("bottoms").length);
   if (useOne) add("onepiece"); else { add("tops"); add("bottoms"); }
   if (pool("outerwear").length && wantOuter()) add("outerwear");
   if (pool("shoes").length) add("shoes");
-  if (pool("accessories").length && Math.random() < 0.5) add("accessories");
+  const accP = mood.energy === "High" || mood.feeling === "Confident" ? 0.9 : mood.energy === "Low" ? 0.2 : 0.5;
+  if (pool("accessories").length && Math.random() < accP) add("accessories");
   outfit = slots; outfitSeason = season;
 }
 function syncToday() {
@@ -442,21 +472,30 @@ function syncToday() {
 function tips() {
   const its = outfit.map(s => byId(s.id)).filter(Boolean); if (!its.length) return "";
   const t = [], tagged = its.filter(i => i.color).length;
+  const asked = [mood.event, mood.feeling, mood.energy && mood.energy + " energy"].filter(Boolean);
+  if (asked.length) t.push("Styled for " + asked.join(", ").toLowerCase() + ".");
   const accents = [...new Set(its.filter(i => i.color && !NEUTRAL.has(i.color) && i.color !== "Multi").map(i => i.color))];
   const pats = its.filter(i => i.pattern === "patterned");
   if (!tagged) t.push("Tap a photo in Add photos and set its color to get style tips here.");
   else if (!accents.length) t.push("Neutral palette, so it's easy to wear. Add one bold accessory for a pop of color.");
-  else if (accents.length === 1) t.push(accents[0] + " is the color of the day. Keep the rest neutral.");
+  else if (accents.length === 1) t.push(relaxed() ? accents[0] + " leads today. Let it be the star." : accents[0] + " is the color of the day. Keep the rest neutral.");
   else t.push(accents.join(" and ") + " are competing. Swap one for something neutral.");
   if (pats.length > 1) t.push("Two patterns at once. Swap one for a solid."); else if (pats.length === 1) t.push("One pattern is the statement piece. Keep the rest solid.");
-  if (wx && wx.rain >= 60) t.push("Rain is likely. Pick shoes you don't mind getting wet.");
-  if (wx && wx.tmin <= 8 && !its.some(i => i.category === "outerwear")) t.push("It's cold. Add a coat or jacket if you have one.");
+  if (wx && mood.weather && wx.rain >= 60) t.push("Rain is likely. Pick shoes you don't mind getting wet.");
+  if (wx && mood.weather && wx.tmin <= 8 && !its.some(i => i.category === "outerwear")) t.push("It's cold. Add a coat or jacket if you have one.");
   return t.join(" ");
+}
+function renderMood() {
+  const grp = (label, key, opts) => `<div class="moodgrp"><span class="lab">${label}</span>${opts.map(o => `<button class="chip sm" data-mood="${key}|${o}" aria-pressed="${mood[key] === o}">${o}</button>`).join("")}</div>`;
+  const tagged = items.filter(i => (i.tags || []).length).length;
+  $("moodBar").innerHTML = grp("Event", "event", EVENTS) + grp("Feeling", "feeling", FEELINGS) + grp("Energy", "energy", ENERGIES)
+    + `<div class="moodgrp"><span class="lab">Weather</span><button class="chip sm" data-mood="weather|toggle" aria-pressed="${mood.weather}">${mood.weather ? "Using the forecast" : "Ignoring the forecast"}</button></div>`
+    + `<div class="tip">${tagged ? "Tap again to clear a choice, then Shuffle." : "To match events, open a photo in Add photos and mark what it's good for. Untagged pieces are fine for any event."}</div>`;
 }
 function renderToday() {
   const w = worn.find(x => x.id === todayStr());
   const n = items.filter(i => i.season === season).length;
-  renderWx();
+  renderWx(); renderMood();
   $("todayHead").innerHTML = w ? `<div class="status ok">Logged for today. You can still change it.</div>`
     : `<div class="status">${new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>`;
   $("outfit").innerHTML = outfit.length ? outfit.map((s, i) => { const it = byId(s.id); return `<div class="slot"><img src="${it.url}" alt="${LABEL[s.cat]}"><div class="row"><span class="lbl">${LABEL[s.cat]}${it.favorite ? " ★" : ""}</span><button class="swap" data-swap="${i}">Swap</button></div></div>`; }).join("")
@@ -464,6 +503,7 @@ function renderToday() {
   const tp = tips(); $("styleNote").innerHTML = tp ? `<div class="note-style">${esc(tp)}</div>` : "";
   $("wear").textContent = w ? "Update today's outfit" : "I'm wearing this today";
   $("wear").disabled = !outfit.length; $("reroll").disabled = !n;
+  $("reroll").textContent = "Shuffle";
   const last = lsGet("closet-lastBackup"), stale = !last || Date.now() - last > 3 * 864e5;
   $("backupNag").innerHTML = items.length >= 5 && stale ? `<button class="wxline" data-tab="more"><b>Back up your closet.</b> Your photos exist only on this phone.</button>` : "";
   const done = worn.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
@@ -538,7 +578,13 @@ function showTab(name) {
 }
 document.addEventListener("click", (e) => {
   const t = e.target.closest("button"); if (!t) return;
-  if (t.dataset.tab) showTab(t.dataset.tab);
+  if (t.dataset.tag) { edTags.has(t.dataset.tag) ? edTags.delete(t.dataset.tag) : edTags.add(t.dataset.tag); renderEdTags(); }
+  else if (t.dataset.mood) {
+    const [k, v] = t.dataset.mood.split("|");
+    if (k === "weather") mood.weather = !mood.weather; else mood[k] = mood[k] === v ? "" : v;
+    lsSet("closet-mood", mood); generate(); renderToday();
+  }
+  else if (t.dataset.tab) showTab(t.dataset.tab);
   else if (t.dataset.season) { season = t.dataset.season; render(); syncToday(); }
   else if (t.dataset.cat) { cat = t.dataset.cat; render(); }
   else if (t.dataset.edit) openEditor(t.dataset.edit);
