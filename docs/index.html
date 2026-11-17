@@ -200,6 +200,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
   <div id="viewCapture" class="stack" hidden>
     <div class="cats" id="cats" role="group" aria-label="Category"></div>
     <div id="cutNag"></div>
+    <div id="recNag"></div>
     <button class="shutter" id="camOpen"><span id="shutterText">Open camera<small>Photos save inside this app, not in your gallery.</small></span></button>
     <div id="camLive" class="stack" hidden>
       <div class="camwrap"><video id="vid" playsinline muted autoplay></video><div class="flash" id="flash"></div></div>
@@ -236,6 +237,15 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <p class="tip">Tap Love it or Skip it on the Today screen. The shuffle learns which pieces and pairings you like and shows rejected pairings less. Looks you love are saved.</p>
       <div class="tip" id="memStatus"></div>
       <button class="btn" id="memReset">Forget what it learned</button>
+    </div>
+    <div class="card">
+      <h2 class="cat-title">Smart sort</h2>
+      <p class="tip">Reads each photo to fill in its color, pattern and type, for example "Navy hoodie", and moves photos you shot in Auto-sort to the right category. Color and pattern work instantly with no download. Recognizing the type uses an AI model that downloads once (about 150 MB), so use Wi-Fi. It can be wrong, so check the names and fix any in one tap. Anything you edit yourself is never overwritten.</p>
+      <div class="tip" id="recStatus"></div>
+      <div class="actions"><button class="btn primary" id="recAll">Recognize my photos</button><button class="btn" id="recStop" hidden>Stop</button></div>
+      <button class="btn" id="colorAll">Detect colors and patterns (no download)</button>
+      <label class="formrow" style="gap:10px"><input type="checkbox" id="colorAuto" style="width:22px;height:22px;accent-color:var(--accent)"><span>Detect color and pattern on new photos</span></label>
+      <label class="formrow" style="gap:10px"><input type="checkbox" id="recAuto" style="width:22px;height:22px;accent-color:var(--accent)"><span>Recognize the type of new photos automatically</span></label>
     </div>
     <div class="card">
       <h2 class="cat-title">Photo cleanup</h2>
@@ -291,6 +301,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
   <div class="panel" role="dialog" aria-label="Edit item">
     <img id="edImg" alt="">
     <label>Name<input type="text" id="edName" placeholder="e.g. Black hoodie"></label>
+    <label>Category<select id="edCat"></select></label>
     <label>Color<select id="edColor"><option value="">Not set</option></select></label>
     <label>Pattern<select id="edPattern"><option value="solid">Solid</option><option value="patterned">Patterned or graphic</option></select></label>
     <div><div class="tip" style="margin-bottom:6px">Good for (pick any)</div><div class="cats" id="edTags"></div></div>
@@ -307,6 +318,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 <script>
 const SEASONS = [{ id: "fall-winter", label: "Fall / Winter" }, { id: "spring-summer", label: "Spring / Summer" }];
 const CATS = [
+  { id: "unsorted", label: "Auto-sort", tip: "Shoot anything without choosing a category. Smart sort reads each photo and moves it to the right category." },
   { id: "tops", label: "Tops", tip: "Shirts, sweaters, hoodies, tees." },
   { id: "bottoms", label: "Bottoms", tip: "Pants, jeans, shorts." },
   { id: "outerwear", label: "Outerwear", tip: "Coats, jackets, vests." },
@@ -325,7 +337,7 @@ const SKINS = [
 ];
 const COLORS = ["Black", "White", "Gray", "Beige", "Navy", "Brown", "Blue", "Green", "Red", "Pink", "Yellow", "Orange", "Purple", "Multi"];
 const NEUTRAL = new Set(["Black", "White", "Gray", "Beige", "Navy", "Brown"]);
-const LABEL = { tops: "Top", bottoms: "Bottom", outerwear: "Outerwear", shoes: "Shoes", accessories: "Accessory", onepiece: "Dress / set" };
+const LABEL = { tops: "Top", bottoms: "Bottom", outerwear: "Outerwear", shoes: "Shoes", accessories: "Accessory", onepiece: "Dress / set", unsorted: "Unsorted" };
 const EVENTS = ["Casual", "Work", "Dressy", "Active", "Lounge"];
 const FEELINGS = ["Comfy", "Confident", "Playful", "Low-key"];
 const ENERGIES = ["Low", "Medium", "High"];
@@ -351,7 +363,7 @@ const cutState = { queue: [], running: false, stop: false, done: 0, total: 0, ms
 const pic = (i) => (cutPrefs.use && i.cutUrl) ? i.cutUrl : i.url;
 const ca = (i) => (cutPrefs.use && i.cutUrl) ? "data-cut" : "";
 const ACCENTS = [["Forest green", "#1f5c3a"], ["Emerald", "#0f9d6b"], ["Sage", "#6b8f71"], ["Teal", "#0e7c86"], ["Electric blue", "#2b44ff"], ["Navy", "#1c2f6b"], ["Purple", "#6d3fd1"], ["Plum", "#7a2a6b"], ["Rose", "#d6336c"], ["Coral", "#f0603a"], ["Orange", "#e67700"], ["Gold", "#c8960c"], ["Black", "#111111"]];
-const isActiveCat = (c) => activeCats.includes(c);
+const isActiveCat = (c) => c === "unsorted" || activeCats.includes(c);
 let mem = Object.assign({ item: {}, pair: {}, saved: [] }, lsGet("closet-mem") || {});
 let plan = lsGet("closet-plan") || { days: [] };
 let SIM = null, outfitFrom = "", memArm = false;
@@ -538,7 +550,11 @@ async function handleFiles(files) {
       const blob = await shrink(file);
       const newId = await db.collection("closet").add({ season: p.season, category: p.category, blob, createdAt: new Date().toISOString() });
       pending = pending.filter(x => x !== p);
-      if (cutPrefs.auto) enqueueCut([newId]);
+      (async () => {
+        if (smart.color) { try { await analyzeAndSave(newId); } catch {} }
+        if (cutPrefs.auto) enqueueCut([newId]);
+        if (smart.ai || p.category === "unsorted") enqueueRec([newId]);
+      })();
     } catch (err) { p.status = "error"; p.error = (err && err.message) || "try again"; }
     render();
   }
@@ -573,6 +589,7 @@ $("snap").addEventListener("click", snap);
 
 /* ---------- Item editor ---------- */
 $("edColor").innerHTML += COLORS.map(c => `<option>${c}</option>`).join("");
+$("edCat").innerHTML = CATS.map(c => `<option value="${c.id}">${c.id === "unsorted" ? "Unsorted" : c.label}</option>`).join("");
 function renderEdTags() {
   $("edTags").innerHTML = EVENTS.map(t => `<button type="button" class="chip sm" data-tag="${t}" aria-pressed="${edTags.has(t)}">${t}</button>`).join("");
 }
@@ -580,7 +597,7 @@ function openEditor(id) {
   const it = byId(id); if (!it) return;
   editId = id; delArm = false; refreshCnt();
   $("edImg").src = pic(it); $("edName").value = it.name || ""; $("edColor").value = it.color || "";
-  $("edPattern").value = it.pattern || "solid"; $("edFav").checked = !!it.favorite;
+  $("edCat").value = it.category; $("edPattern").value = it.pattern || "solid"; $("edFav").checked = !!it.favorite;
   $("edMax").value = it.maxWears === undefined || it.maxWears === null ? "" : String(it.maxWears);
   const m = maxWears(it); $("edWear").textContent = m === 0 ? "Not tracked for washing." : `Worn ${wearsOf(it)} of ${m} since the last wash${isDirty(it) ? ". It's in the hamper." : "."}`;
   $("edPrice").value = it.price === undefined || it.price === null ? "" : it.price;
@@ -591,8 +608,20 @@ function openEditor(id) {
 }
 async function closeEditor() {
   $("sheet").hidden = true; if (!editId) return;
-  const id = editId; editId = null; const mx = $("edMax").value;
-  try { await db.collection("closet").doc(id).update({ name: $("edName").value.trim(), color: $("edColor").value, pattern: $("edPattern").value, favorite: $("edFav").checked, tags: [...edTags], maxWears: mx === "" ? null : +mx, price: $("edPrice").value === "" ? null : +$("edPrice").value }); }
+  const id = editId; editId = null; const it = byId(id); if (!it) return;
+  const mx = $("edMax").value, a = { ...(it.auto || {}) }, upd = {};
+  const name = $("edName").value.trim(), tags = [...edTags], price = $("edPrice").value === "" ? null : +$("edPrice").value;
+  if (name !== (it.name || "")) { upd.name = name; a.name = false; }
+  if ($("edColor").value !== (it.color || "")) { upd.color = $("edColor").value; a.color = false; }
+  if ($("edPattern").value !== (it.pattern || "solid")) { upd.pattern = $("edPattern").value; a.pattern = false; }
+  if ($("edCat").value !== it.category) { upd.category = $("edCat").value; a.category = false; }
+  if (tags.slice().sort().join() !== (it.tags || []).slice().sort().join()) { upd.tags = tags; a.tags = false; }
+  if ($("edFav").checked !== !!it.favorite) upd.favorite = $("edFav").checked;
+  const mw = mx === "" ? null : +mx; if (mw !== (it.maxWears === undefined ? null : it.maxWears)) upd.maxWears = mw;
+  if (price !== (it.price === undefined ? null : it.price)) upd.price = price;
+  if (!Object.keys(upd).length) return;
+  upd.auto = a;
+  try { await db.collection("closet").doc(id).update(upd); }
   catch { setMsg("Couldn't save changes.", true); }
 }
 $("edDone").addEventListener("click", closeEditor);
@@ -875,6 +904,195 @@ $("shareBtn").addEventListener("click", shareBackup);
 $("importFile").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) importBackup(f); });
 try { const t = new File([""], "t.json", { type: "application/json" }); if (navigator.canShare && navigator.canShare({ files: [t] })) $("shareBtn").hidden = false; } catch {}
 
+/* ---------- Smart sort: color, pattern and type ---------- */
+let smart = Object.assign({ color: true, ai: false }, lsGet("closet-smart") || {});
+const heavy = { p: Promise.resolve() };
+async function withHeavy(fn) { const prev = heavy.p; let rel; heavy.p = new Promise(r => rel = r); await prev; try { return await fn(); } finally { rel(); } }
+
+function rgb2hsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (!d) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h * 60 + 360) % 360; return [h, s, l];
+}
+function nameColor(r, g, b) {
+  const [h, s, l] = rgb2hsl(r, g, b);
+  if (l < 0.14) return "Black";
+  if (l > 0.9 && s < 0.3) return "White";
+  if (s < 0.10) return l > 0.82 ? "White" : (l < 0.22 ? "Black" : "Gray");
+  if (h < 12 || h >= 345) return l > 0.72 ? "Pink" : (l < 0.26 && s < 0.5 ? "Brown" : "Red");
+  if (h < 45) { if (s > 0.6 && l > 0.45) return "Orange"; if (l < 0.40) return "Brown"; return "Beige"; }
+  if (h < 70) return (l > 0.5 && s > 0.5) ? "Yellow" : (l < 0.4 ? "Brown" : "Beige");
+  if (h < 170) return "Green";
+  if (h < 255) return l < 0.28 ? "Navy" : "Blue";
+  if (h < 320) return "Purple";
+  return "Pink";
+}
+async function analyzeLook(it) {
+  const src = it.cutUrl || it.url; if (!src) return null;
+  const img = new Image(); img.src = src;
+  try { await img.decode(); } catch { return null; }
+  const sc = 72 / Math.max(img.naturalWidth, img.naturalHeight);
+  const w = Math.max(8, Math.round(img.naturalWidth * sc)), h = Math.max(8, Math.round(img.naturalHeight * sc));
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const g = cv.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0, w, h);
+  const d = g.getImageData(0, 0, w, h).data, N = w * h, fg = new Uint8Array(N);
+  if (it.cutUrl) { for (let i = 0; i < N; i++) fg[i] = d[i * 4 + 3] > 200 ? 1 : 0; }
+  else {
+    // photo with a background: look at the middle of the frame, ignoring pixels that match the border color
+    const ring = []; for (let x = 0; x < w; x++) { ring.push((x) * 4, ((h - 1) * w + x) * 4); } for (let y = 0; y < h; y++) { ring.push((y * w) * 4, (y * w + w - 1) * 4); }
+    const med = (k) => { const v = ring.map(i => d[i + k]).sort((p, q) => p - q); return v[v.length >> 1]; };
+    const br = med(0), bg = med(1), bb = med(2);
+    let inE = 0, keep = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const dx = (x / w - 0.5) / 0.34, dy = (y / h - 0.5) / 0.40, i = y * w + x;
+      if (dx * dx + dy * dy > 1) continue; inE++;
+      const dist = Math.abs(d[i * 4] - br) + Math.abs(d[i * 4 + 1] - bg) + Math.abs(d[i * 4 + 2] - bb);
+      if (dist > 60) { fg[i] = 1; keep++; }
+    }
+    if (keep < inE * 0.08) { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const dx = (x / w - 0.5) / 0.34, dy = (y / h - 0.5) / 0.40; fg[y * w + x] = dx * dx + dy * dy <= 1 ? 1 : 0; } }
+  }
+  const counts = {}; let total = 0, edge = 0, pairs = 0;
+  const L = (i) => 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x; if (!fg[i]) continue;
+    const c = nameColor(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]); counts[c] = (counts[c] || 0) + 1; total++;
+    if (x + 1 < w && fg[i + 1]) { edge += Math.abs(L(i) - L(i + 1)); pairs++; }
+    if (y + 1 < h && fg[i + w]) { edge += Math.abs(L(i) - L(i + w)); pairs++; }
+  }
+  if (total < 30) return null;
+  const ranked = Object.entries(counts).sort((p, q) => q[1] - p[1]).map(([c, n]) => [c, n / total]);
+  const edgeAvg = pairs ? edge / pairs : 0, top = ranked[0], second = ranked[1];
+  const patterned = edgeAvg >= 11 || (!!second && second[1] >= 0.2 && edgeAvg >= 6);
+  return { color: patterned && top[1] < 0.6 ? "Multi" : top[0], pattern: patterned ? "patterned" : "solid", edge: edgeAvg, ranked };
+}
+const wq = { p: Promise.resolve() };
+function serial(fn) { const run = wq.p.then(fn, fn); wq.p = run.catch(() => {}); return run; }
+async function analyzeAndSave(id) {
+  const it0 = byId(id); if (!it0) return;
+  const res = await analyzeLook(it0); if (!res) return;
+  return serial(async () => {
+    const it = byId(id); if (!it) return;
+    const a = { ...(it.auto || {}) }, upd = { analyzedAt: new Date().toISOString() };
+    if (a.color === true || !it.color) { upd.color = res.color; a.color = true; }
+    if (a.pattern === true || !it.pattern) { upd.pattern = res.pattern; a.pattern = true; }
+    upd.auto = a;
+    const T = it.typeLabel && TYPES.find(t => t[0] === it.typeLabel);
+    if (T && a.name && it.name === it.autoName) { const nm = `${upd.color || it.color} ${T[2].toLowerCase()}`; upd.name = nm; upd.autoName = nm; }
+    await db.collection("closet").doc(id).update(upd);
+  });
+}
+
+// label, category, display name, suggested event tags
+const TYPES = [
+  ["t-shirt", "tops", "T-shirt", ["Casual"]], ["polo shirt", "tops", "Polo shirt", ["Casual", "Work"]], ["button-up dress shirt", "tops", "Button-up shirt", ["Work", "Dressy"]],
+  ["blouse", "tops", "Blouse", ["Work", "Dressy"]], ["sweater", "tops", "Sweater", ["Casual", "Work"]], ["hoodie", "tops", "Hoodie", ["Casual", "Lounge"]],
+  ["sweatshirt", "tops", "Sweatshirt", ["Casual", "Lounge"]], ["cardigan", "tops", "Cardigan", ["Casual", "Work"]], ["tank top", "tops", "Tank top", ["Casual", "Active"]],
+  ["turtleneck sweater", "tops", "Turtleneck", ["Work", "Dressy"]], ["flannel shirt", "tops", "Flannel shirt", ["Casual"]], ["long sleeve shirt", "tops", "Long sleeve", ["Casual"]],
+  ["athletic shirt", "tops", "Athletic shirt", ["Active"]],
+  ["jeans", "bottoms", "Jeans", ["Casual"]], ["dress pants", "bottoms", "Dress pants", ["Work", "Dressy"]], ["chinos", "bottoms", "Chinos", ["Work", "Casual"]],
+  ["sweatpants", "bottoms", "Sweatpants", ["Lounge", "Active"]], ["joggers", "bottoms", "Joggers", ["Lounge", "Active"]], ["leggings", "bottoms", "Leggings", ["Active", "Lounge"]],
+  ["shorts", "bottoms", "Shorts", ["Casual", "Active"]], ["skirt", "bottoms", "Skirt", ["Casual", "Dressy"]], ["cargo pants", "bottoms", "Cargo pants", ["Casual"]],
+  ["corduroy pants", "bottoms", "Cords", ["Casual"]],
+  ["puffer jacket", "outerwear", "Puffer jacket", ["Casual", "Active"]], ["wool coat", "outerwear", "Wool coat", ["Work", "Dressy"]], ["denim jacket", "outerwear", "Denim jacket", ["Casual"]],
+  ["leather jacket", "outerwear", "Leather jacket", ["Casual", "Dressy"]], ["blazer", "outerwear", "Blazer", ["Work", "Dressy"]], ["trench coat", "outerwear", "Trench coat", ["Work", "Dressy"]],
+  ["bomber jacket", "outerwear", "Bomber jacket", ["Casual"]], ["raincoat", "outerwear", "Raincoat", ["Casual"]], ["fleece jacket", "outerwear", "Fleece jacket", ["Casual", "Active"]],
+  ["vest", "outerwear", "Vest", ["Casual"]],
+  ["sneakers", "shoes", "Sneakers", ["Casual", "Active"]], ["running shoes", "shoes", "Running shoes", ["Active"]], ["boots", "shoes", "Boots", ["Casual", "Dressy"]],
+  ["dress shoes", "shoes", "Dress shoes", ["Work", "Dressy"]], ["loafers", "shoes", "Loafers", ["Work", "Dressy"]], ["sandals", "shoes", "Sandals", ["Casual"]],
+  ["high heels", "shoes", "Heels", ["Dressy"]], ["slippers", "shoes", "Slippers", ["Lounge"]],
+  ["beanie hat", "accessories", "Beanie", ["Casual"]], ["baseball cap", "accessories", "Cap", ["Casual", "Active"]], ["scarf", "accessories", "Scarf", ["Casual", "Dressy"]],
+  ["belt", "accessories", "Belt", ["Work", "Dressy"]], ["gloves", "accessories", "Gloves", ["Casual"]], ["handbag", "accessories", "Handbag", ["Casual", "Dressy"]],
+  ["backpack", "accessories", "Backpack", ["Casual"]], ["necktie", "accessories", "Tie", ["Work", "Dressy"]],
+  ["dress", "onepiece", "Dress", ["Dressy"]], ["jumpsuit", "onepiece", "Jumpsuit", ["Casual", "Dressy"]],
+];
+const TYPE_LABELS = TYPES.map(t => t[0]);
+const TF_LIB = "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
+const recState = { queue: [], running: false, stop: false, done: 0, total: 0, msg: "", err: "", unclear: 0 };
+let tfMod = null, clf = null;
+async function loadClip() {
+  if (clf) return clf;
+  recState.msg = "Loading the recognition tool..."; renderRec();
+  if (!tfMod) tfMod = await import(TF_LIB);
+  tfMod.env.allowLocalModels = false;
+  recState.msg = "Downloading the recognition model. One time only, about 150 MB..."; renderRec();
+  clf = await tfMod.pipeline("zero-shot-image-classification", "Xenova/clip-vit-base-patch32", {
+    progress_callback: (p) => { if (p && p.status === "progress" && typeof p.progress === "number") { recState.msg = "Downloading the recognition model, " + Math.round(p.progress) + "%. One time only."; renderRec(); } },
+  });
+  return clf;
+}
+async function recognizeOne(it) {
+  const c = await loadClip();
+  const out = await c(it.url, TYPE_LABELS, { hypothesis_template: "a photo of a {}." });
+  const top = out[0], T = TYPES.find(t => t[0] === top.label);
+  return { label: top.label, score: top.score, category: T[1], display: T[2], tags: T[3] };
+}
+function applyRecognition(it, r) {
+  return serial(async () => {
+    const cur = byId(it.id) || it, a = { ...(cur.auto || {}) };
+    const upd = { typeLabel: r.label, typeScore: Math.round(r.score * 1000) / 1000, recognizedAt: new Date().toISOString() };
+    const confident = r.score >= 0.2;
+    if (confident) {
+      if (cur.category === "unsorted") { upd.category = r.category; a.category = true; }
+      const nm = cur.color ? `${cur.color} ${r.display.toLowerCase()}` : r.display;
+      if (a.name !== false && (!cur.name || (a.name && cur.name === cur.autoName))) { upd.name = nm; upd.autoName = nm; a.name = true; }
+      if (a.tags !== false && (!(cur.tags || []).length || a.tags)) { upd.tags = r.tags; a.tags = true; }
+    }
+    upd.auto = a;
+    await db.collection("closet").doc(it.id).update(upd);
+    return confident;
+  });
+}
+const eligibleRec = () => items.filter(i => !i.demo && i.url && !i.recognizedAt && (i.category === "unsorted" || !i.name || !(i.tags || []).length));
+function enqueueRec(ids) {
+  for (const id of ids) if (!recState.queue.includes(id)) { recState.queue.push(id); recState.total++; }
+  drainRec();
+}
+async function drainRec() {
+  if (recState.running) return;
+  recState.running = true; recState.stop = false; recState.err = ""; recState.unclear = 0;
+  await withHeavy(async () => {
+    let lock = null; try { lock = navigator.wakeLock && await navigator.wakeLock.request("screen"); } catch {}
+    while (recState.queue.length && !recState.stop) {
+      const id = recState.queue.shift(), it = byId(id);
+      if (!it || it.recognizedAt) { recState.done++; continue; }
+      recState.msg = `Reading photo ${recState.done + 1} of ${recState.total}...`; renderRec();
+      try { const r = await recognizeOne(it); if (!(await applyRecognition(it, r))) recState.unclear++; recState.done++; }
+      catch (e) {
+        recState.err = "Couldn't load or run the recognition model. Check your connection and try again.";
+        recState.queue.length = 0; break;
+      }
+    }
+    if (lock) try { lock.release(); } catch {}
+  });
+  const unclear = recState.unclear;
+  recState.running = false; recState.queue.length = 0; recState.msg = ""; recState.total = 0; recState.done = 0;
+  if (unclear && !recState.err) recState.err = `${unclear} ${unclear === 1 ? "photo was" : "photos were"} unclear. Tap ${unclear === 1 ? "it" : "them"} to set the type yourself.`;
+  renderRec(); render(); renderToday();
+}
+function renderRec() {
+  const left = eligibleRec().length, unsorted = items.filter(i => i.category === "unsorted").length;
+  const t = recState.msg || recState.err || (items.some(i => !i.demo) ? `${items.filter(i => !i.demo && i.recognizedAt).length} of ${items.filter(i => !i.demo).length} photos recognized.` : "No photos yet.");
+  $("recStatus").textContent = t;
+  $("recAll").disabled = recState.running || !left; $("recAll").textContent = left ? `Recognize my photos (${left})` : "All photos recognized";
+  $("recStop").hidden = !recState.running;
+  $("colorAuto").checked = smart.color; $("recAuto").checked = smart.ai;
+  $("recNag").innerHTML = recState.running ? `<div class="wxline"><b>${esc(recState.msg)}</b></div>`
+    : (unsorted ? `<button class="wxline" data-tab="more"><b>${unsorted} ${unsorted === 1 ? "photo needs" : "photos need"} sorting.</b> Open Smart sort in More.</button>` : "");
+}
+$("recAll").addEventListener("click", () => enqueueRec(eligibleRec().map(i => i.id)));
+$("recStop").addEventListener("click", () => { recState.stop = true; $("recStatus").textContent = "Stopping after this photo..."; });
+$("colorAuto").addEventListener("change", (e) => { smart.color = e.target.checked; lsSet("closet-smart", smart); });
+$("recAuto").addEventListener("change", (e) => { smart.ai = e.target.checked; lsSet("closet-smart", smart); });
+$("colorAll").addEventListener("click", async () => {
+  const todo = items.filter(i => !i.demo && i.url && (!i.color || (i.auto && i.auto.color)));
+  if (!todo.length) { $("recStatus").textContent = "Every photo already has a color."; return; }
+  let n = 0; for (const it of todo) { $("recStatus").textContent = `Detecting colors ${++n} of ${todo.length}...`; try { await analyzeAndSave(it.id); } catch {} }
+  renderRec(); render(); renderToday();
+});
+
 /* ---------- Photo cleanup (background removal, on this phone) ---------- */
 const BG_LIB = "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/+esm";
 const BG_DATA_FALLBACK = "https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.4.5/dist/";
@@ -918,18 +1136,20 @@ function enqueueCut(ids) {
 async function drainCut() {
   if (cutState.running) return;
   cutState.running = true; cutState.stop = false; cutState.err = "";
-  let lock = null; try { lock = navigator.wakeLock && await navigator.wakeLock.request("screen"); } catch {}
-  while (cutState.queue.length && !cutState.stop) {
-    const id = cutState.queue.shift(), it = byId(id);
-    if (!it || it.cutUrl) { cutState.done++; continue; }
-    cutState.msg = `Cleaning photo ${cutState.done + 1} of ${cutState.total}...`; renderCut();
-    try { await cutOne(it); cutState.done++; }
-    catch (e) {
-      cutState.err = "Couldn't load or run the cleanup tool. Check your connection and try again.";
-      cutState.queue.length = 0; break;
+  await withHeavy(async () => {
+    let lock = null; try { lock = navigator.wakeLock && await navigator.wakeLock.request("screen"); } catch {}
+    while (cutState.queue.length && !cutState.stop) {
+      const id = cutState.queue.shift(), it = byId(id);
+      if (!it || it.cutUrl) { cutState.done++; continue; }
+      cutState.msg = `Cleaning photo ${cutState.done + 1} of ${cutState.total}...`; renderCut();
+      try { await cutOne(it); cutState.done++; if (smart.color) await analyzeAndSave(id); }
+      catch (e) {
+        cutState.err = "Couldn't load or run the cleanup tool. Check your connection and try again.";
+        cutState.queue.length = 0; break;
+      }
     }
-  }
-  if (lock) try { lock.release(); } catch {}
+    if (lock) try { lock.release(); } catch {}
+  });
   cutState.running = false; cutState.queue.length = 0; cutState.msg = ""; cutState.total = 0; cutState.done = 0;
   renderCut(); render(); renderToday();
 }
@@ -1157,14 +1377,14 @@ function renderStats() {
 
 /* ---------- More tab ---------- */
 function renderMore() {
-  renderCut(); renderMem();
+  renderCut(); renderMem(); renderRec();
   $("unitC").setAttribute("aria-pressed", !unitF); $("unitF").setAttribute("aria-pressed", unitF);
   if (place && !$("wxStatus").textContent.startsWith("Couldn't")) {
     $("wxStatus").textContent = wx ? `${place.name}: ${fmt(wx.tmin)} to ${fmt(wx.tmax)}, ${wx.rain}% chance of rain today.` : `${place.name} saved. Loading forecast...`;
   }
   $("skins").innerHTML = SKINS.map(s => `<button class="skin" data-skin="${s.id}" aria-pressed="${s.id === skin}"><div class="sw" style="background:${s.c[0]}"><i style="background:${s.c[1]};height:60%"></i><i style="background:${s.c[2]};height:100%"></i><i style="background:${s.c[1]};height:35%"></i></div>${s.label}</button>`).join("");
   $("accents").innerHTML = `<button class="acc auto" data-accent="" aria-pressed="${!accent}" aria-label="Use the look's own accent" title="Look's own"></button>` + ACCENTS.map(([n, h]) => `<button class="acc" data-accent="${h}" aria-pressed="${accent === h}" aria-label="${n}" title="${n}" style="background:${h}"></button>`).join("");
-  $("catUse").innerHTML = CATS.map(c => `<button class="chip" data-catuse="${c.id}" aria-pressed="${isActiveCat(c.id)}">${c.label}</button>`).join("");
+  $("catUse").innerHTML = CATS.filter(c => c.id !== "unsorted").map(c => `<button class="chip" data-catuse="${c.id}" aria-pressed="${isActiveCat(c.id)}">${c.label}</button>`).join("");
 }
 $("cityGo").addEventListener("click", findCity);
 $("city").addEventListener("keydown", (e) => { if (e.key === "Enter") findCity(); });
@@ -1265,7 +1485,7 @@ applySkin(); render(); renderInstall();
     const before = items.length;
     items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (items.length !== before && !worn.find(w => w.id === todayStr())) outfit = [];
-    render(); syncToday(); renderCut(); if (tab === "stats") renderStats();
+    render(); syncToday(); renderCut(); renderRec(); if (tab === "stats") renderStats();
   });
   db.collection("worn").onSnapshot((snap) => { worn = snap.docs.map(d => ({ id: d.id, ...d.data() })); render(); syncToday(); });
   renderMore();
