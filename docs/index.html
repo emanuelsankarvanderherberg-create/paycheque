@@ -160,6 +160,13 @@ input[type=text], input[type=search], select { background: var(--surface); borde
         <button class="chip" id="unitC" aria-pressed="true">°C</button><button class="chip" id="unitF" aria-pressed="false">°F</button></div>
     </div>
     <div class="stack">
+      <h2 class="cat-title">Try it with sample clothes</h2>
+      <p class="tip">Adds about 30 drawn sample pieces, already marked with colors, patterns and events, so you can try the shuffle. Remove them any time. Your real photos aren't touched.</p>
+      <button class="btn" id="demoLoad">Add sample clothes</button>
+      <button class="btn" id="demoRemove">Remove sample clothes</button>
+      <div class="tip" id="demoStatus"></div>
+    </div>
+    <div class="stack">
       <h2 class="cat-title">Backup</h2>
       <p class="tip">Your photos live only in this browser on this phone. If you clear Chrome's site data or lose the phone, they're gone. Save a backup file now and then, and restore it here if needed.</p>
       <button class="btn primary" id="exportBtn">Save backup file</button>
@@ -555,6 +562,68 @@ $("exportBtn").addEventListener("click", exportBackup);
 $("shareBtn").addEventListener("click", shareBackup);
 $("importFile").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) importBackup(f); });
 try { const t = new File([""], "t.json", { type: "application/json" }); if (navigator.canShare && navigator.canShare({ files: [t] })) $("shareBtn").hidden = false; } catch {}
+
+/* ---------- Sample clothes ---------- */
+const HEX = { Black: "#25252a", White: "#f4f4f2", Gray: "#8d9096", Beige: "#cdb99a", Navy: "#1f2f4f", Brown: "#6b4a32", Blue: "#3f6fb5", Green: "#3f7a52", Red: "#b83a3a", Pink: "#e59aae", Yellow: "#e5c445", Orange: "#e08a3c", Purple: "#7a56a8", Multi: "#7a56a8" };
+const SHAPES = {
+  tops: "M110 70 L60 100 L30 170 L70 190 L90 160 L90 340 L210 340 L210 160 L230 190 L270 170 L240 100 L190 70 Q150 100 110 70 Z",
+  bottoms: "M90 60 L210 60 L225 340 L165 340 L150 140 L135 340 L75 340 Z",
+  outerwear: "M110 60 Q150 85 190 60 L255 100 L275 330 L225 340 L215 170 L215 360 L85 360 L85 170 L75 340 L25 330 L45 100 Z",
+  shoes: "M40 250 L40 160 Q100 150 130 190 L150 200 Q230 210 265 250 L265 285 L40 285 Z",
+  beanie: "M70 230 Q70 110 150 100 Q230 110 230 230 Z",
+  scarf: "M100 50 L200 50 L200 300 L170 330 L140 300 L100 300 Z",
+  onepiece: "M120 60 L180 60 L190 140 L250 350 L50 350 L110 140 Z",
+};
+function drawGarment(kind, color, pattern) {
+  const cv = document.createElement("canvas"); cv.width = 300; cv.height = 400;
+  const g = cv.getContext("2d"); g.fillStyle = "#e9e6e1"; g.fillRect(0, 0, 300, 400);
+  const path = new Path2D(SHAPES[kind]), hex = HEX[color] || "#8d9096";
+  g.fillStyle = hex; g.fill(path);
+  if (pattern === "patterned") {
+    g.save(); g.clip(path); g.fillStyle = "rgba(255,255,255,.55)";
+    for (let y = 40; y < 400; y += 30) g.fillRect(0, y, 300, 12);
+    g.restore();
+  }
+  if (kind === "beanie") { g.fillStyle = "rgba(0,0,0,.2)"; g.fillRect(62, 225, 176, 45); g.fillStyle = hex; g.beginPath(); g.arc(150, 92, 20, 0, 7); g.fill(); }
+  if (kind === "shoes") { g.fillStyle = "#f5f5f5"; g.fillRect(36, 285, 232, 20); }
+  if (kind === "outerwear") { g.strokeStyle = "rgba(0,0,0,.3)"; g.lineWidth = 3; g.beginPath(); g.moveTo(150, 85); g.lineTo(150, 360); g.stroke(); }
+  g.strokeStyle = "rgba(0,0,0,.3)"; g.lineWidth = 3; g.stroke(path);
+  return new Promise(r => cv.toBlob(r, "image/jpeg", 0.85));
+}
+const DEMO = [
+  ["tops", "Black tee", "Black", "", ["Casual", "Lounge"]], ["tops", "White button-up", "White", "", ["Work"]],
+  ["tops", "Gray sweater", "Gray", "", ["Casual", "Work"]], ["tops", "Navy hoodie", "Navy", "", ["Casual", "Lounge", "Active"], 1],
+  ["tops", "Red knit", "Red", "", ["Dressy", "Casual"]], ["tops", "Striped tee", "Multi", "patterned", ["Casual"]],
+  ["tops", "Green flannel", "Green", "patterned", ["Casual"]], ["tops", "Beige turtleneck", "Beige", "", ["Work", "Dressy"], 1],
+  ["bottoms", "Blue jeans", "Blue", "", ["Casual"]], ["bottoms", "Black slacks", "Black", "", ["Work", "Dressy"]],
+  ["bottoms", "Gray joggers", "Gray", "", ["Lounge", "Active"]], ["bottoms", "Khaki chinos", "Beige", "", ["Work", "Casual"]],
+  ["bottoms", "Black leggings", "Black", "", ["Active", "Lounge"]], ["bottoms", "Brown cords", "Brown", "", ["Casual"]],
+  ["outerwear", "Black puffer", "Black", "", ["Casual", "Active"]], ["outerwear", "Camel coat", "Beige", "", ["Work", "Dressy"], 1],
+  ["outerwear", "Navy peacoat", "Navy", "", ["Work", "Dressy"]], ["outerwear", "Denim jacket", "Blue", "", ["Casual"]],
+  ["shoes", "White sneakers", "White", "", ["Casual", "Active"]], ["shoes", "Black boots", "Black", "", ["Casual", "Dressy", "Work"]],
+  ["shoes", "Brown loafers", "Brown", "", ["Work", "Dressy"]], ["shoes", "Running shoes", "Gray", "", ["Active"]],
+  ["accessories", "Gray beanie", "Gray", "", ["Casual"], 0, "beanie"], ["accessories", "Red scarf", "Red", "", ["Casual", "Dressy"], 0, "scarf"],
+  ["accessories", "Brown beanie", "Brown", "", ["Casual", "Active"], 0, "beanie"],
+  ["onepiece", "Black dress", "Black", "", ["Dressy"]], ["onepiece", "Gray sweater dress", "Gray", "", ["Casual", "Work"]],
+];
+async function loadDemo() {
+  if (items.some(i => i.demo)) { $("demoStatus").textContent = "Sample clothes are already added."; return; }
+  $("demoStatus").textContent = "Adding sample clothes...";
+  for (const [category, name, color, pattern, tags, fav, kind] of DEMO) {
+    const blob = await drawGarment(kind || category, color, pattern);
+    await db.collection("closet").add({ season: "fall-winter", category, name, color, pattern: pattern || "solid", tags, favorite: !!fav, blob, demo: true, createdAt: new Date().toISOString() });
+  }
+  $("demoStatus").textContent = "Added " + DEMO.length + " sample pieces in Fall / Winter. Go to Today and try the settings.";
+  season = "fall-winter"; outfit = []; render(); syncToday();
+}
+async function removeDemo() {
+  const d = items.filter(i => i.demo);
+  for (const i of d) await db.collection("closet").doc(i.id).delete();
+  $("demoStatus").textContent = d.length ? "Removed " + d.length + " sample pieces." : "No sample clothes to remove.";
+  outfit = []; syncToday();
+}
+$("demoLoad").addEventListener("click", loadDemo);
+$("demoRemove").addEventListener("click", removeDemo);
 
 /* ---------- More tab ---------- */
 function renderMore() {
