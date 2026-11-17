@@ -1,7 +1,14 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>My Closet</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
 <style>
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+img { max-width: 100%; }
 /* Layout: phone-first single column. Sticky category chips on top, one big shutter button, thumbnail grid for the active category below. */
 :root {
   --bg: #f6f5f3;
@@ -112,6 +119,7 @@ button:focus-visible, label:focus-within { outline: 2px solid var(--accent); out
 .closecam { border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 20px 16px; font-weight: 600; }
 button.shutter { border: 0; width: 100%; }
 </style>
+</head><body>
 
 <main>
   <div class="top">
@@ -427,3 +435,4 @@ render();
   }, () => { clearTimeout(timer); setMsg("Couldn't load saved photos.", true); });
 })();
 </script>
+</body></html>
