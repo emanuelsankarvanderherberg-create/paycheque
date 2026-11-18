@@ -293,6 +293,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
     </div>
     <div class="card">
       <h2 class="cat-title">About</h2>
+      <p class="tip" id="appVer"></p>
       <p class="tip">My Closet is free, open-source software under the GNU AGPL-3.0 license. It includes the AGPL-licensed @imgly/background-removal library for photo cleanup.</p>
       <a class="btn" href="https://github.com/emanuelsankarvanderherberg-create/paycheque" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;color:inherit">Source code and license</a>
     </div>
@@ -1750,6 +1751,9 @@ document.addEventListener("click", async (e) => {
       .catch(() => setMsg("Couldn't save today's outfit.", true)).finally(renderToday);
   }
 });
+
+const APP_VERSION = 18;
+$("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
 if (smart.ai) cat = "unsorted";
