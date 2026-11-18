@@ -94,6 +94,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .btn { border: 3px solid var(--fg); background: var(--surface); border-radius: 18px; padding: 14px 18px; font-weight: 700; }
 .btn.primary { background: var(--accent); color: var(--accent-fg); flex: 1 1 200px; box-shadow: inset 0 -5px 0 rgba(0,0,0,.18); }
 .btn[disabled] { opacity: .5; cursor: default; }
+.card > .btn.primary, .stack > .btn.primary { flex: none; }
 .rd { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; line-height: 2; }
 .rd mark { background: var(--soft); color: var(--fg); padding: 3px 9px; border-radius: 999px; font-weight: 700; margin: 0 2px; letter-spacing: .06em; }
 .note-style { background: var(--surface); border: 3px solid var(--fg); border-radius: var(--r); padding: 12px 16px; line-height: 1.45; font-family: var(--font-display); font-size: 17px; }
@@ -146,6 +147,18 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 .ob .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); display: block; }
 .ob .dots i.on { background: var(--accent); }
 .ob .skip { background: none; border: 0; color: var(--muted); text-decoration: underline; padding: 6px; }
+.tile[aria-pressed="true"] { outline: 4px solid var(--accent); outline-offset: -4px; }
+.sel { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; min-height: 0; }
+.sel .si { flex: none; position: relative; }
+.sel .si img { width: 48px; height: 64px; object-fit: cover; border-radius: 8px; border: 2px solid var(--fg); display: block; background: var(--surface); }
+.sel .si button { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--fg); background: var(--surface); font-size: 11px; line-height: 1; padding: 0; }
+.prow { display: flex; gap: 10px; align-items: center; background: var(--surface); border: 2px solid var(--fg); border-radius: 16px; padding: 8px 10px; }
+.prow.done { opacity: .55; }
+.prow img { width: 44px; height: 58px; object-fit: cover; border-radius: 8px; border: 2px solid var(--fg); flex: none; background: var(--surface); }
+.prow .grow { flex: 1; min-width: 0; }
+.prow .grow b { display: block; font-family: var(--font-display); font-size: 15px; }
+.stepper { display: flex; align-items: center; gap: 10px; }
+.stepper b { font-family: var(--font-display); font-size: 22px; min-width: 28px; text-align: center; }
 .chip[disabled] { opacity: .45; cursor: default; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; z-index: 15; max-width: 90vw; text-align: center; }
 .dh { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
@@ -201,7 +214,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
     <div id="laundryNag"></div>
     <div id="backupNag"></div>
     <div id="savedWrap" class="stack" hidden><h2 class="cat-title">Saved looks</h2><div class="hist" id="savedLooks"></div></div>
-    <h2 class="cat-title">Last two weeks</h2>
+    <div class="dh"><h2 class="cat-title">Last two weeks</h2><button class="chip sm" id="logMissed">Log a missed day</button></div>
     <div class="hist" id="history"></div>
   </section>
 
@@ -231,8 +244,10 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
   <section id="viewLaundry" class="stack" hidden></section>
   <section id="viewWeek" class="stack" hidden></section>
   <section id="viewStats" class="stack" hidden></section>
+  <section id="viewPack" class="stack" hidden></section>
 
   <section id="viewMore" class="stack" hidden>
+    <button class="btn primary" data-tab="pack" style="flex:none">Packing list for a trip</button>
     <button class="btn primary" data-tab="stats" style="flex:none">Closet stats: most worn, donate list, cost per wear</button>
     <div class="card">
       <h2 class="cat-title">Look</h2>
@@ -319,6 +334,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 </nav>
 
 <div class="toast" id="toast" hidden></div>
+<div class="sheet" id="pickSheet" hidden><div class="panel" id="pickPanel" role="dialog" aria-label="Pick pieces"></div></div>
 <div class="sheet" id="onboard" hidden><div class="panel ob" id="obPanel" role="dialog" aria-label="Welcome"></div></div>
 <div class="sheet" id="sheet" hidden>
   <div class="panel" role="dialog" aria-label="Edit item">
@@ -914,7 +930,7 @@ function renderToday() {
   const last = lsGet("closet-lastBackup"), stale = !last || Date.now() - last > 3 * 864e5;
   $("backupNag").innerHTML = items.length >= 5 && stale ? `<button class="wxline" data-tab="more"><b>Back up your closet.</b> Your photos exist only on this phone.</button>` : "";
   const done = worn.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
-  $("history").innerHTML = done.length ? done.map(h => `<div class="hrow"><div class="d">${new Date(h.date + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div><div class="th">${(h.itemIds || []).map(byId).filter(Boolean).map(i => `<img src="${picT(i)}" decoding="async" ${ca(i)} alt="">`).join("")}</div></div>`).join("")
+  $("history").innerHTML = done.length ? done.map(h => `<div class="hrow"><div class="d">${new Date(h.date + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div><div class="th">${(h.itemIds || []).map(byId).filter(Boolean).map(i => `<img src="${picT(i)}" decoding="async" ${ca(i)} alt="">`).join("")}</div>${h.date !== todayStr() ? `<button class="chip sm" data-logday="${h.date}">Edit</button>` : ""}</div>`).join("")
     : `<div class="empty">Nothing logged yet. Tap "I'm wearing this today" and it shows up here.</div>`;
   renderSaved();
 }
@@ -925,7 +941,7 @@ async function buildBackup() {
   const toData = (b) => new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b); });
   const closet = [];
   for (const r of cl) { const o = { ...r }; if (o.blob) o.photo = await toData(o.blob); delete o.blob; delete o.thumb; delete o.cutThumb; if (o.cutout) o.cutoutPhoto = await toData(o.cutout); delete o.cutout; closet.push(o); }
-  return new Blob([JSON.stringify({ app: "my-closet", version: 2, exportedAt: new Date().toISOString(), closet, worn: wr, settings: { activeCats, laundry, mood, skin, accent, mem, plan } })], { type: "application/json" });
+  return new Blob([JSON.stringify({ app: "my-closet", version: 2, exportedAt: new Date().toISOString(), closet, worn: wr, settings: { activeCats, laundry, mood, skin, accent, mem, plan, pack } })], { type: "application/json" });
 }
 const bkName = () => "my-closet-backup-" + todayStr() + ".json";
 async function exportBackup() {
@@ -964,6 +980,7 @@ async function importBackup(file) {
     if ("accent" in st) { accent = st.accent || ""; lsSet("closet-accent", accent); }
     if (st.mem) { mem = Object.assign({ item: {}, pair: {}, saved: [] }, st.mem); saveMem(); }
     if (st.plan) { plan = st.plan; lsSet("closet-plan", plan); }
+    if (st.pack) { pack = Object.assign(pack, st.pack); lsSet("closet-pack", pack); }
     applySkin();
     await notify("closet"); await notify("worn");
     $("bkStatus").textContent = "Restored " + n + " items.";
@@ -1513,6 +1530,198 @@ function renderStats() {
     <div class="stack" style="gap:8px">${gaps.length ? gaps.map(g => `<div class="note-style" style="font-size:15px">${esc(g)}</div>`).join("") : `<div class="empty">No gaps found.</div>`}</div>`;
 }
 
+/* ---------- Piece picker (shared by missed-day logging and the packing list) ---------- */
+let pk = null;
+function openPicker(o) { pk = { title: o.title, mode: o.mode, ids: new Set(o.ids || []), cat: o.cat || "tops", date: o.date, onSave: o.onSave }; renderPicker(); $("pickSheet").hidden = false; }
+function closePicker() { $("pickSheet").hidden = true; pk = null; }
+function renderPicker() {
+  if (!pk) return;
+  const cats = CATS.filter(c => c.id !== "unsorted" && isActiveCat(c.id));
+  if (!cats.find(c => c.id === pk.cat)) pk.cat = cats[0] ? cats[0].id : "tops";
+  const sel = [...pk.ids].map(byId).filter(Boolean);
+  let head = "", canDelete = false;
+  if (pk.mode === "log") {
+    const dates = Array.from({ length: 30 }, (_, k) => dateOffset(-(k + 1))), logged = new Set(worn.map(w => w.id));
+    canDelete = logged.has(pk.date);
+    const fromOpts = [`<option value="">Nothing, I'll pick</option>`]
+      .concat(mem.saved.map((l, k) => l.ids.every(byId) ? `<option value="s${k}">Saved look ${k + 1}</option>` : ""))
+      .concat(dates.slice(0, 14).filter(d => logged.has(d) && d !== pk.date).map(d => `<option value="d${d}">Same as ${dayName(d)}</option>`));
+    head = `<label>Day<select id="pkDate">${dates.map(d => `<option value="${d}" ${d === pk.date ? "selected" : ""}>${dayName(d, true)}${logged.has(d) ? " (logged)" : ""}</option>`).join("")}</select></label>
+      <label>Start from<select id="pkFrom">${fromOpts.join("")}</select></label>`;
+  }
+  const list = items.filter(i => i.category === pk.cat).sort((a, b) => (b.season === season) - (a.season === season) || (a.name || "").localeCompare(b.name || ""));
+  const st = $("pickPanel").scrollTop;
+  $("pickPanel").innerHTML = `<h2 class="cat-title" style="font-size:22px">${esc(pk.title)}</h2>${head}
+    <div class="sel">${sel.length ? sel.map(i => `<div class="si"><img src="${picT(i)}" ${ca(i)} alt="${esc(i.name || "")}"><button data-pkdel="${i.id}" aria-label="Remove">✕</button></div>`).join("") : `<span class="tip">Nothing picked yet. Tap pieces below.</span>`}</div>
+    <div class="cats">${cats.map(c => `<button class="chip sm" data-pkcat="${c.id}" aria-pressed="${c.id === pk.cat}">${c.label}</button>`).join("")}</div>
+    <div class="grid">${list.length ? list.map(i => `<button class="tile" data-pkpick="${i.id}" aria-pressed="${pk.ids.has(i.id)}" aria-label="${esc(i.name || i.color || "piece")}"><img src="${picT(i)}" decoding="async" ${ca(i)} alt="">${pk.ids.has(i.id) ? '<span class="badge">✓</span>' : ""}${i.name || i.color ? `<span class="cap">${esc(i.name || i.color)}</span>` : ""}</button>`).join("") : `<div class="empty" style="grid-column:1/-1">Nothing in this category yet.</div>`}</div>
+    <div class="actions">${canDelete ? `<button class="btn" id="pkDelete">Delete this day</button>` : ""}<button class="btn" id="pkCancel">Cancel</button><button class="btn primary" id="pkSave">Save (${pk.ids.size})</button></div>`;
+  $("pickPanel").scrollTop = st;
+}
+function openLogDay(date) {
+  const d = date || dateOffset(-1), w = worn.find(x => x.id === d);
+  openPicker({ title: w ? "Edit this day" : "Log a missed day", mode: "log", date: d, ids: w ? w.itemIds : [] });
+}
+async function saveLogDay() {
+  const date = pk.date, ids = [...pk.ids].filter(byId);
+  if (!ids.length) { toast("Pick at least one piece."); return; }
+  const sn = ids.filter(id => byId(id).season === "spring-summer").length > ids.length / 2 ? "spring-summer" : "fall-winter";
+  closePicker();
+  try { await db.collection("worn").doc(date).set({ date, season: sn, itemIds: ids, createdAt: new Date(date + "T20:00:00").toISOString(), manual: true }); toast("Logged " + dayName(date) + "."); }
+  catch { toast("Couldn't save that day."); }
+  renderToday(); if (tab === "laundry") renderLaundry(); if (tab === "week") renderWeek();
+}
+$("pickSheet").addEventListener("click", async (e) => {
+  if (e.target.id === "pickSheet") { closePicker(); return; }
+  const t = e.target.closest("button"); if (!t || !pk) return;
+  if (t.dataset.pkcat) { pk.cat = t.dataset.pkcat; renderPicker(); }
+  else if (t.dataset.pkpick) { const id = t.dataset.pkpick; pk.ids.has(id) ? pk.ids.delete(id) : pk.ids.add(id); renderPicker(); }
+  else if (t.dataset.pkdel) { pk.ids.delete(t.dataset.pkdel); renderPicker(); }
+  else if (t.id === "pkCancel") closePicker();
+  else if (t.id === "pkDelete") { const d = pk.date; closePicker(); try { await db.collection("worn").doc(d).delete(); toast("Deleted " + dayName(d) + "."); } catch {} renderToday(); }
+  else if (t.id === "pkSave") { if (pk.mode === "log") await saveLogDay(); else { const ids = [...pk.ids]; const fn = pk.onSave; closePicker(); fn(ids); } }
+});
+$("pickSheet").addEventListener("change", (e) => {
+  if (!pk) return;
+  if (e.target.id === "pkDate") { pk.date = e.target.value; const w = worn.find(x => x.id === pk.date); pk.ids = new Set(w ? w.itemIds.filter(byId) : []); renderPicker(); }
+  else if (e.target.id === "pkFrom") {
+    const v = e.target.value; let ids = [];
+    if (v[0] === "s") ids = (mem.saved[+v.slice(1)] || { ids: [] }).ids; else if (v[0] === "d") { const w = worn.find(x => x.id === v.slice(1)); ids = w ? w.itemIds : []; }
+    pk.ids = new Set(ids.filter(byId)); renderPicker();
+  }
+});
+
+/* ---------- Packing list ---------- */
+let pack = Object.assign({ days: 5, startIn: 0, laundry: "once", weather: "cool", rain: false, occasions: [], dest: "", wxNote: "", season: "fall-winter", seasonAuto: true, ids: [], checked: {}, made: false }, lsGet("closet-pack") || {});
+const savePack = () => lsSet("closet-pack", pack);
+const autoSeason = () => (pack.weather === "cold" || pack.weather === "cool") ? "fall-winter" : "spring-summer";
+const WCLASS = [["cold", "Cold", "under 6°C"], ["cool", "Cool", "6 to 15°C"], ["warm", "Warm", "15 to 24°C"], ["hot", "Hot", "over 24°C"]];
+const classifyTemp = (c) => c <= 6 ? "cold" : c <= 15 ? "cool" : c <= 24 ? "warm" : "hot";
+const nameOf = (i) => ((i.typeLabel || "") + " " + (i.name || "")).toLowerCase();
+function packOk(i, w) {
+  const n = nameOf(i);
+  if (w === "hot") return !/puffer|parka|wool|peacoat|fleece|sweater|turtleneck|cardigan|hoodie|sweatshirt|flannel|beanie|scarf|glove|boot|coat/.test(n);
+  if (w === "warm") return !/puffer|parka|wool coat|peacoat|fleece|turtleneck|beanie|scarf|glove/.test(n);
+  if (w === "cold") return !/tank|short|sandal|crop/.test(n);
+  return true;
+}
+const cover = (i) => Math.min(4, Math.max(1, maxWears(i) || 1));
+function generatePack() {
+  refreshCnt();
+  const W = pack.weather, N = pack.days, eff = pack.laundry === "none" ? N : pack.laundry === "once" ? Math.min(N, Math.ceil(N / 2) + 1) : Math.min(N, 5);
+  const occ = new Set(pack.occasions);
+  const avail = (c) => items.filter(i => i.season === pack.season && i.category === c && isActiveCat(c) && !isDirty(i) && packOk(i, W));
+  const chosen = [];
+  const jitter = () => 0.88 + Math.random() * 0.24;
+  const scoreOf = (i, cat) => {
+    let sc = (i.favorite ? 2.2 : 1) * jitter();
+    const quiet = !i.color || NEUTRAL.has(i.color);
+    if (cat === "bottoms" && quiet) sc *= 1.5;
+    const f = formalityOf(i);
+    if (f !== null) { if (occ.has("Work") || occ.has("Dressy")) sc *= f >= 2.5 ? 1.2 : 0.9; }
+    const others = chosen.filter(c => c.id !== i.id && (c.category === "tops" || c.category === "bottoms")).map(c => c.color).filter(Boolean);
+    if (i.color && others.length) { const m = others.map(c => colorPair(i.color, c)).reduce((a, b) => a + b, 0) / others.length; sc *= Math.pow(Math.max(0.4, Math.min(1.4, m)), 1.5); }
+    return sc * Math.exp(0.3 * (mem.item[i.id] || 0));
+  };
+  const take = (cat, target, pred) => {
+    let covered = chosen.filter(c => c.category === cat && (!pred || pred(c))).reduce((a, c) => a + cover(c), 0), guard = 0;
+    while (covered < target && guard++ < 12) {
+      const pool = avail(cat).filter(i => !chosen.includes(i) && (!pred || pred(i)));
+      if (!pool.length) break;
+      pool.sort((a, b) => scoreOf(b, cat) - scoreOf(a, cat));
+      chosen.push(pool[0]); covered += cover(pool[0]);
+    }
+  };
+  const ensure = (cat, pred, n) => { const have = chosen.filter(c => c.category === cat && pred(c)).length; for (let k = have; k < n; k++) { const pool = avail(cat).filter(i => !chosen.includes(i) && pred(i)); if (!pool.length) break; pool.sort((a, b) => scoreOf(b, cat) - scoreOf(a, cat)); chosen.push(pool[0]); } };
+  take("bottoms", eff); take("tops", eff);
+  const formal = (i) => (formalityOf(i) ?? 0) >= 3.3, smart = (i) => (formalityOf(i) ?? 0) >= 2.5, active = (i) => (i.tags || []).includes("Active") || (formalityOf(i) ?? 9) <= 1;
+  if (occ.has("Dressy")) { ensure("tops", formal, 1); ensure("bottoms", formal, 1); ensure("shoes", formal, 1); }
+  if (occ.has("Work")) { ensure("tops", smart, Math.min(3, Math.ceil(N / 2))); ensure("bottoms", smart, 1); ensure("shoes", smart, 1); }
+  if (occ.has("Active")) { ensure("tops", active, 1); ensure("bottoms", active, 1); ensure("shoes", (i) => (i.tags || []).includes("Active"), 1); }
+  // outerwear
+  const heavyRe = /puffer|parka|wool|peacoat|fleece|coat/, rainRe = /rain|shell|trench|wind/;
+  const outN = W === "cold" ? (N > 5 ? 2 : 1) : W === "cool" ? 1 : 0;
+  const outPool = () => avail("outerwear").filter(i => !chosen.includes(i));
+  for (let k = chosen.filter(c => c.category === "outerwear").length; k < outN; k++) { const pool = outPool(); if (!pool.length) break; pool.sort((a, b) => (heavyRe.test(nameOf(b)) && W === "cold") - (heavyRe.test(nameOf(a)) && W === "cold") || scoreOf(b, "outerwear") - scoreOf(a, "outerwear")); chosen.push(pool[0]); }
+  if (pack.rain && !chosen.some(c => c.category === "outerwear" && rainRe.test(nameOf(c)))) { const r = outPool().find(i => rainRe.test(nameOf(i))) || (chosen.some(c => c.category === "outerwear") ? null : outPool()[0]); if (r) chosen.push(r); }
+  // shoes
+  const shoeN = N <= 3 ? 1 : 2; if (chosen.filter(c => c.category === "shoes").length < shoeN) { for (let k = chosen.filter(c => c.category === "shoes").length; k < shoeN; k++) { const pool = avail("shoes").filter(i => !chosen.includes(i)); if (!pool.length) break; pool.sort((a, b) => ((pack.rain || W === "cold") && /boot/.test(nameOf(b))) - ((pack.rain || W === "cold") && /boot/.test(nameOf(a))) || scoreOf(b, "shoes") - scoreOf(a, "shoes")); chosen.push(pool[0]); } }
+  // accessories
+  const accAll = avail("accessories").filter(i => !chosen.includes(i)), warmRe = /beanie|scarf|glove|hat/, sunRe = /cap|sunglass|hat/, beltRe = /belt|tie/;
+  const addAcc = (re, n) => { for (const a of accAll.filter(i => re.test(nameOf(i)) && !chosen.includes(i)).slice(0, n)) chosen.push(a); };
+  if (W === "cold") addAcc(warmRe, 3); else if (W === "hot" || W === "warm") addAcc(sunRe, 1);
+  if (occ.has("Work") || occ.has("Dressy")) addAcc(beltRe, 1);
+  pack.ids = chosen.map(i => i.id); pack.checked = {}; pack.made = true; savePack();
+}
+function packStats() {
+  const its = pack.ids.map(byId).filter(Boolean), by = (c) => its.filter(i => i.category === c);
+  const tops = by("tops"), bots = by("bottoms");
+  let combos = 0; for (const t of tops) for (const b of bots) { const f1 = formalityOf(t), f2 = formalityOf(b); if (colorPair(t.color, b.color) >= 0.7 && !(f1 !== null && f2 !== null && Math.abs(f1 - f2) > 2)) combos++; }
+  return { combos, topDays: tops.reduce((a, i) => a + cover(i), 0), botDays: bots.reduce((a, i) => a + cover(i), 0) };
+}
+async function findTrip() {
+  const q = $("packCity").value.trim(); if (!q) return;
+  pack.dest = q; $("packWx").textContent = "Looking up " + q + "...";
+  try {
+    const g = (await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`)).json()).results;
+    if (!g || !g[0]) { $("packWx").textContent = "Couldn't find that city."; return; }
+    const lat = g[0].latitude, lon = g[0].longitude, nm = g[0].name;
+    const j = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=16`)).json(), d = j.daily;
+    const a = Math.min(pack.startIn, 15), b = Math.min(a + pack.days, d.temperature_2m_max.length);
+    if (a >= b) { $("packWx").textContent = "The forecast doesn't reach that far. Pick the weather yourself."; return; }
+    const mx = d.temperature_2m_max.slice(a, b), mn = d.temperature_2m_min.slice(a, b), rn = d.precipitation_probability_max.slice(a, b);
+    const avg = (x) => x.reduce((p, q2) => p + q2, 0) / x.length, rainDays = rn.filter(v => v >= 60).length;
+    pack.weather = classifyTemp(avg(mx)); pack.rain = rainDays >= Math.max(1, Math.round((b - a) / 3));
+    if (pack.seasonAuto) pack.season = autoSeason();
+    pack.wxNote = `${nm}: ${fmt(Math.min(...mn))} to ${fmt(Math.max(...mx))}, rain likely on ${rainDays} of ${b - a} days.`;
+    savePack(); renderPack();
+  } catch { $("packWx").textContent = "Couldn't get that forecast. Check your connection or pick the weather yourself."; }
+}
+function packText() {
+  const its = pack.ids.map(byId).filter(Boolean), lines = [`Packing list: ${pack.days} days, ${pack.weather}${pack.rain ? ", rain likely" : ""}`];
+  for (const c of CATS.filter(c => c.id !== "unsorted")) { const g = its.filter(i => i.category === c.id); if (g.length) lines.push("", c.label + ":", ...g.map(i => `${pack.checked[i.id] ? "[x]" : "[ ]"} ${i.name || i.color || LABEL[i.category]}`)); }
+  return lines.join("\n");
+}
+async function sharePack() {
+  const text = packText();
+  if (navigator.share) { try { await navigator.share({ title: "Packing list", text }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+  try { await navigator.clipboard.writeText(text); toast("Copied the list."); } catch { toast("Couldn't copy the list."); }
+}
+function renderPack() {
+  const el = $("viewPack"); if (!el) return;
+  const its = pack.ids.map(byId).filter(Boolean), done = its.filter(i => pack.checked[i.id]).length;
+  const dirtyN = items.filter(i => i.season === pack.season && isActiveCat(i.category) && isDirty(i)).length;
+  const chip = (attr, val, label, on) => `<button class="chip sm" ${attr}="${val}" aria-pressed="${on}">${label}</button>`;
+  const startOpts = Array.from({ length: 15 }, (_, k) => `<option value="${k}" ${k === pack.startIn ? "selected" : ""}>${k === 0 ? "Today" : k === 1 ? "Tomorrow" : "In " + k + " days"}</option>`).join("");
+  let h = `<div class="actions"><button class="chip" data-tab="more">← Back</button></div><h2 class="cat-title" style="font-size:24px">Packing list</h2>
+  <div class="card">
+    <div class="formrow"><span>How many days?</span><div class="stepper"><button class="chip sm" data-packdays="-1" aria-label="Fewer days">−</button><b>${pack.days}</b><button class="chip sm" data-packdays="1" aria-label="More days">+</button></div></div>
+    <label class="tip">Trip starts<select id="packStart">${startOpts}</select></label>
+    <div class="formrow"><input type="text" id="packCity" placeholder="Destination city, optional" value="${esc(pack.dest || "")}" aria-label="Destination"><button class="btn" id="packFind">Forecast</button></div>
+    <div class="tip" id="packWx">${esc(pack.wxNote || "Enter a city to use its forecast, or pick the weather below.")}</div>
+    <div><div class="tip" style="margin-bottom:6px">Weather</div><div class="cats">${WCLASS.map(([v, l, r]) => chip("data-packw", v, `${l} <span class="n">${r}</span>`, pack.weather === v)).join("")}${`<button class="chip sm" id="packRain" aria-pressed="${pack.rain}">Rain likely</button>`}</div></div>
+    <div><div class="tip" style="margin-bottom:6px">Closet to pack from</div><div class="cats">${SEASONS.map(s => chip("data-packseason", s.id, s.label, pack.season === s.id)).join("")}</div></div>
+    <label class="tip">Laundry on the trip<select id="packLaundry"><option value="none" ${pack.laundry === "none" ? "selected" : ""}>No laundry, pack for every day</option><option value="once" ${pack.laundry === "once" ? "selected" : ""}>One wash halfway</option><option value="often" ${pack.laundry === "often" ? "selected" : ""}>I can wash as needed</option></select></label>
+    <div><div class="tip" style="margin-bottom:6px">Any of these on the trip?</div><div class="cats">${["Work", "Dressy", "Active"].map(o => chip("data-packocc", o, o, pack.occasions.includes(o))).join("")}</div></div>
+    <button class="btn primary" id="packGen">${pack.made ? "Build it again" : "Build my packing list"}</button>
+    ${dirtyN ? `<p class="tip">${dirtyN} ${dirtyN === 1 ? "piece is" : "pieces are"} in the hamper and left out. Wash ${dirtyN === 1 ? "it" : "them"} first to include ${dirtyN === 1 ? "it" : "them"}.</p>` : ""}
+  </div>`;
+  if (pack.made && its.length) {
+    const st = packStats();
+    h += `<div class="note-style"><b>${its.length} pieces for ${pack.days} ${pack.days === 1 ? "day" : "days"}.</b><br>About ${st.combos} outfit combinations. Tops cover ${st.topDays} days and bottoms ${st.botDays}${pack.laundry === "none" ? "" : ", with laundry on the trip"}.</div>
+    <div class="actions"><span class="tip" style="align-self:center">${done} of ${its.length} packed</span></div>`;
+    for (const c of CATS.filter(c => c.id !== "unsorted")) {
+      const g = its.filter(i => i.category === c.id); if (!g.length) continue;
+      h += `<h2 class="cat-title">${c.label} <span class="tip">(${g.length})</span></h2><div class="hist">${g.map(i => `<div class="prow ${pack.checked[i.id] ? "done" : ""}"><img src="${picT(i)}" ${ca(i)} alt=""><div class="grow"><b>${esc(i.name || i.color || LABEL[i.category])}</b><span class="tip">${maxWears(i) > 1 ? "Re-wear up to " + Math.min(4, maxWears(i)) + " times" : "One wear"}</span></div><button class="chip sm" data-packcheck="${i.id}" aria-pressed="${!!pack.checked[i.id]}">${pack.checked[i.id] ? "Packed ✓" : "Pack"}</button><button class="chip sm" data-packdel="${i.id}" aria-label="Remove from list">✕</button></div>`).join("")}</div>`;
+    }
+    h += `<div class="actions"><button class="btn" id="packEdit">Add or remove pieces</button><button class="btn" id="packShare">Share list</button><button class="btn" id="packReset">Uncheck all</button></div>`;
+  } else if (pack.made) h += `<div class="empty">Nothing in this closet fits that weather. Try another season or weather, or add pieces in Photos.</div>`;
+  el.innerHTML = h;
+  $("packStart").onchange = (e) => { pack.startIn = +e.target.value; savePack(); };
+  $("packLaundry").onchange = (e) => { pack.laundry = e.target.value; savePack(); };
+  $("packCity").onchange = (e) => { pack.dest = e.target.value; savePack(); };
+}
+
 /* ---------- More tab ---------- */
 function renderMore() {
   renderCut(); renderMem(); renderRec();
@@ -1738,17 +1947,31 @@ $("obAgain").addEventListener("click", openOnboard);
 /* ---------- Tabs and clicks ---------- */
 function showTab(name) {
   tab = name; if (tab !== "capture") stopCam();
-  const navTab = tab === "stats" ? "more" : tab;
+  const navTab = (tab === "stats" || tab === "pack") ? "more" : tab;
   document.querySelectorAll(".nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === navTab));
-  const V = { today: "viewToday", week: "viewWeek", capture: "viewCapture", laundry: "viewLaundry", more: "viewMore", stats: "viewStats" };
+  const V = { today: "viewToday", week: "viewWeek", capture: "viewCapture", laundry: "viewLaundry", more: "viewMore", stats: "viewStats", pack: "viewPack" };
   for (const [k, id] of Object.entries(V)) $(id).hidden = tab !== k;
   $("seasons").hidden = tab === "more";
-  if (tab === "more") renderMore(); if (tab === "laundry") renderLaundry(); if (tab === "week") renderWeek(); if (tab === "stats") renderStats();
+  if (tab === "more") renderMore(); if (tab === "laundry") renderLaundry(); if (tab === "week") renderWeek(); if (tab === "stats") renderStats(); if (tab === "pack") renderPack();
   window.scrollTo(0, 0);
 }
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("button"); if (!t) return;
-  if (t.id === "smartOn") {
+  if (t.dataset.logday) openLogDay(t.dataset.logday);
+  else if (t.id === "logMissed") openLogDay();
+  else if (t.dataset.packdays) { pack.days = Math.max(1, Math.min(30, pack.days + (+t.dataset.packdays))); savePack(); renderPack(); }
+  else if (t.dataset.packw) { pack.weather = t.dataset.packw; if (pack.seasonAuto) pack.season = autoSeason(); savePack(); renderPack(); }
+  else if (t.id === "packRain") { pack.rain = !pack.rain; savePack(); renderPack(); }
+  else if (t.dataset.packocc) { const o = t.dataset.packocc; pack.occasions = pack.occasions.includes(o) ? pack.occasions.filter(x => x !== o) : [...pack.occasions, o]; savePack(); renderPack(); }
+  else if (t.dataset.packseason) { pack.season = t.dataset.packseason; pack.seasonAuto = false; savePack(); renderPack(); }
+  else if (t.id === "packFind") findTrip();
+  else if (t.id === "packGen") { generatePack(); renderPack(); }
+  else if (t.dataset.packcheck) { pack.checked[t.dataset.packcheck] = !pack.checked[t.dataset.packcheck]; savePack(); renderPack(); }
+  else if (t.dataset.packdel) { pack.ids = pack.ids.filter(x => x !== t.dataset.packdel); savePack(); renderPack(); }
+  else if (t.id === "packEdit") openPicker({ title: "Edit your packing list", mode: "pack", ids: pack.ids, onSave: (ids) => { pack.ids = ids; savePack(); renderPack(); } });
+  else if (t.id === "packShare") sharePack();
+  else if (t.id === "packReset") { pack.checked = {}; savePack(); renderPack(); }
+  else if (t.id === "smartOn") {
     smart.ai = true; smart.color = true; cutPrefs.auto = true; lsSet("closet-smart", smart); lsSet("closet-cut", cutPrefs);
     cat = "unsorted"; render(); renderCut(); renderRec();
     toast("Smart photos on. New photos get cleaned and sorted.");
@@ -1803,7 +2026,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 20;
+const APP_VERSION = 21;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
