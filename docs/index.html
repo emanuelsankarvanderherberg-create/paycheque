@@ -197,6 +197,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 
   <section id="viewToday" class="stack">
     <div id="installBanner"></div>
+    <div id="remPrompt"></div>
     <div class="readout" id="readout"></div>
     <div class="stagewrap"><div class="stage" id="stage"></div></div>
     <div id="styleNote"></div>
@@ -344,6 +345,15 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 </nav>
 
 <div class="toast" id="toast" hidden></div>
+<div class="sheet" id="remSheet" hidden><div class="panel" role="dialog" aria-label="Morning reminder">
+  <h2 class="cat-title" style="font-size:24px">Morning reminder</h2>
+  <p>Every morning your phone will say "Choose your outfit for today", with a link that opens this app. It uses your phone's calendar, so it works even when the app is closed.</p>
+  <label class="tip">Remind me at<input type="time" id="remTime2" value="07:30"></label>
+  <a class="btn primary" id="remGcal2" href="#" target="_blank" rel="noopener">Add to Google Calendar</a>
+  <button class="btn" id="remIcs2">Download calendar file (.ics)</button>
+  <p class="tip">Google Calendar: tap Save, then make sure the event has a notification. iPhone and other calendars: open the downloaded file and tap Add.</p>
+  <button class="btn" id="remClose2">Done</button>
+</div></div>
 <div class="sheet" id="pickSheet" hidden><div class="panel" id="pickPanel" role="dialog" aria-label="Pick pieces"></div></div>
 <div class="sheet" id="onboard" hidden><div class="panel ob" id="obPanel" role="dialog" aria-label="Welcome"></div></div>
 <div class="sheet" id="sheet" hidden>
@@ -942,7 +952,7 @@ function renderToday() {
   const done = worn.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
   $("history").innerHTML = done.length ? done.map(h => `<div class="hrow"><div class="d">${new Date(h.date + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div><div class="th">${(h.itemIds || []).map(byId).filter(Boolean).map(i => `<img src="${picT(i)}" decoding="async" ${ca(i)} alt="">`).join("")}</div>${h.date !== todayStr() ? `<button class="chip sm" data-logday="${h.date}">Edit</button>` : ""}</div>`).join("")
     : `<div class="empty">Nothing logged yet. Tap "I'm wearing this today" and it shows up here.</div>`;
-  renderSaved();
+  renderSaved(); renderRemPrompt();
 }
 
 /* ---------- Backup ---------- */
@@ -1766,11 +1776,29 @@ function renderRem() {
   t.value = remTimeVal(); $("remGcal").href = gcalUrl();
 }
 $("remTime").addEventListener("change", (e) => { lsSet("closet-remTime", e.target.value || "07:30"); renderRem(); });
-$("remIcs").addEventListener("click", () => {
+function downloadIcs() {
   const blob = new Blob([buildIcs()], { type: "text/calendar;charset=utf-8" }), a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = "my-closet-morning-reminder.ics"; document.body.appendChild(a); a.click(); a.remove();
   toast("Saved. Open the file to add it to your calendar.");
-});
+  remDone();
+}
+function remDone() { lsSet("closet-remDone", true); renderRemPrompt(); }
+$("remIcs").addEventListener("click", downloadIcs);
+$("remGcal").addEventListener("click", remDone);
+
+/* ---------- Ask people if they want the reminder ---------- */
+function openRemSheet() { $("remTime2").value = remTimeVal(); $("remGcal2").href = gcalUrl(); $("remSheet").hidden = false; }
+function renderRemPrompt() {
+  const el = $("remPrompt"); if (!el) return;
+  const d = lsGet("closet-remDismiss"), installShown = $("installBanner") && $("installBanner").innerHTML.trim() !== "";
+  if (lsGet("closet-remDone") || lsGet("closet-remNever") || (d && Date.now() - d < 7 * 864e5) || !lsGet("closet-onboarded") || installShown) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="install"><b>Want a morning reminder?</b><p>Get a nudge every morning at the time you pick: "Choose your outfit for today". It uses your phone's calendar, so it works even when the app is closed.</p><div class="actions"><button class="chip" id="remYes" style="background:var(--accent);color:var(--accent-fg)">Set it up</button><button class="chip" id="remNo">Not now</button><button class="chip" id="remNever">Don't ask again</button></div></div>`;
+}
+$("remTime2").addEventListener("change", (e) => { lsSet("closet-remTime", e.target.value || "07:30"); $("remGcal2").href = gcalUrl(); renderRem(); });
+$("remGcal2").addEventListener("click", remDone);
+$("remIcs2").addEventListener("click", downloadIcs);
+$("remClose2").addEventListener("click", () => { $("remSheet").hidden = true; });
+$("remSheet").addEventListener("click", (e) => { if (e.target.id === "remSheet") $("remSheet").hidden = true; });
 
 /* ---------- More tab ---------- */
 function renderMore() {
@@ -1812,7 +1840,7 @@ function renderInstall() {
   el.innerHTML = `<div class="install"><b>Use it as an app</b>${body}</div>`;
 }
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredPrompt = e; renderInstall(); });
-window.addEventListener("appinstalled", () => { lsSet("closet-installed", true); deferredPrompt = null; renderInstall(); });
+window.addEventListener("appinstalled", () => { lsSet("closet-installed", true); deferredPrompt = null; renderInstall(); renderRemPrompt(); });
 
 /* ---------- Thumbnails (small copies for lists, so big closets stay fast) ---------- */
 async function makeThumb(blob, max = 240) {
@@ -1973,7 +2001,7 @@ function renderOnboard() {
   else if (st === 1) body = `<h2 class="cat-title">What do you wear?</h2><p class="tip">Turn off anything you don't wear. You can change this later in More.</p><div class="cats">${CATS.filter(c => c.id !== "unsorted").map(c => `<button class="chip" data-obcat="${c.id}" aria-pressed="${isActiveCat(c.id)}">${c.label}</button>`).join("")}</div>`;
   else if (st === 2) body = `<h2 class="cat-title">Where are you?</h2><p class="tip">Outfits use today's forecast, so you get a coat on cold days. Optional. Only the city is sent, to a free weather service.</p><div class="formrow"><input type="text" id="obCity" placeholder="City, e.g. Toronto" aria-label="City" value="${place ? esc(place.name.split(",")[0]) : ""}"><button class="btn" id="obFind">Find</button></div><button class="btn" id="obGeo">Use my location</button><div class="tip" id="obWx">${place ? "Saved: " + esc(place.name) : ""}</div><div class="formrow"><span>Temperature units</span><button class="chip" data-obunit="C" aria-pressed="${!unitF}">°C</button><button class="chip" data-obunit="F" aria-pressed="${unitF}">°F</button></div>`;
   else if (st === 3) body = `<h2 class="cat-title">Laundry day</h2><p class="tip">When do you usually do laundry? It plans your week around it and warns you before you run out of clean clothes.</p><select id="obDay">${[["-1", "No set day"], ...DAYS.map((d, k) => [String(k), d])].map(([v, t]) => `<option value="${v}" ${+v === laundry.day ? "selected" : ""}>${t}</option>`).join("")}</select>`;
-  else { body = `<h2 class="cat-title">Take your photos</h2><ul><li>Lay each piece flat on one plain surface, like a bed with a solid sheet.</li><li>Pick a color that contrasts with the piece.</li><li>Fill the frame, one piece per photo.</li><li>Use <b>Auto-sort</b> if you don't want to pick categories. It reads each photo for you.</li></ul><div class="actions"><button class="btn primary" id="obPhotos">Open the camera</button><button class="btn" id="obDemo">Try sample clothes first</button></div>`; next = "Done"; }
+  else { body = `<h2 class="cat-title">Take your photos</h2><ul><li>Lay each piece flat on one plain surface, like a bed with a solid sheet.</li><li>Pick a color that contrasts with the piece.</li><li>Fill the frame, one piece per photo.</li><li>Use <b>Auto-sort</b> if you don't want to pick categories. It reads each photo for you.</li></ul><div class="actions"><button class="btn primary" id="obPhotos">Open the camera</button><button class="btn" id="obDemo">Try sample clothes first</button><button class="btn" id="obRem">Set a morning reminder</button></div>`; next = "Done"; }
   $("obPanel").innerHTML = `<div class="dots">${Array.from({ length: OB_LAST + 1 }, (_, k) => `<i class="${k === st ? "on" : ""}"></i>`).join("")}</div>${body}
     <div class="actions">${st > 0 ? `<button class="btn" id="obBack">Back</button>` : ""}<button class="btn primary" id="obNext">${next}</button></div><button class="skip" id="obSkip">Skip setup</button>`;
 }
@@ -1990,6 +2018,7 @@ $("onboard").addEventListener("click", async (e) => {
   else if (t.id === "obBack") { obStep = Math.max(0, obStep - 1); renderOnboard(); }
   else if (t.id === "obSkip") { closeOnboard(true); }
   else if (t.id === "obPhotos") { closeOnboard(true); showTab("capture"); }
+  else if (t.id === "obRem") { closeOnboard(true); openRemSheet(); }
   else if (t.id === "obDemo") { closeOnboard(true); showTab("more"); await loadDemo(); showTab("today"); }
 });
 $("obAgain").addEventListener("click", openOnboard);
@@ -2007,7 +2036,10 @@ function showTab(name) {
 }
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("button"); if (!t) return;
-  if (t.dataset.logday) openLogDay(t.dataset.logday);
+  if (t.id === "remYes") openRemSheet();
+  else if (t.id === "remNo") { lsSet("closet-remDismiss", Date.now()); renderRemPrompt(); }
+  else if (t.id === "remNever") { lsSet("closet-remNever", true); renderRemPrompt(); }
+  else if (t.dataset.logday) openLogDay(t.dataset.logday);
   else if (t.id === "logMissed") openLogDay();
   else if (t.dataset.packdays) { pack.days = Math.max(1, Math.min(30, pack.days + (+t.dataset.packdays))); savePack(); renderPack(); }
   else if (t.dataset.packw) { pack.weather = t.dataset.packw; if (pack.seasonAuto) pack.season = autoSeason(); savePack(); renderPack(); }
@@ -2031,7 +2063,7 @@ document.addEventListener("click", async (e) => {
   else if (t.id === "smartNo") { lsSet("closet-smartDismiss", Date.now()); renderSmartPrompt(); }
   else if (t.dataset.undoshot && lastShot) { const id = lastShot.id; lastShot = null; renderShotNote(); try { await db.collection("closet").doc(id).delete(); toast("Photo removed. Try again."); } catch {} }
   else if (t.id === "installGo" && deferredPrompt) { deferredPrompt.prompt(); try { await deferredPrompt.userChoice; } catch {} deferredPrompt = null; renderInstall(); }
-  else if (t.id === "installNo") { lsSet("closet-installDismiss", Date.now()); renderInstall(); }
+  else if (t.id === "installNo") { lsSet("closet-installDismiss", Date.now()); renderInstall(); renderRemPrompt(); }
   else if (t.dataset.dayshuf !== undefined) {
     const k = +t.dataset.dayshuf;
     if (k === 0) { generate(); renderToday(); buildPlan(1); } else buildPlan(k);
@@ -2076,7 +2108,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 22;
+const APP_VERSION = 23;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
