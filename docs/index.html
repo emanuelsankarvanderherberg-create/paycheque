@@ -947,13 +947,21 @@ function stageHTML() {
   }
   return `<div style="height:${cq(Lo.height)};position:relative">${html}</div>`;
 }
+function unsortedMsg(n) {
+  const un = items.filter(i => i.season === season && i.category === "unsorted").length;
+  if (n && un && !poolAllAny("tops") && !poolAllAny("bottoms") && !poolAllAny("onepiece")) {
+    const ios = platformInfo().ios;
+    return `<div class="empty" style="margin:14px"><b>${un} ${un === 1 ? "photo isn't" : "photos aren't"} sorted yet.</b><br>The outfit maker needs to know which are tops, bottoms and shoes.<div class="row" style="margin-top:10px;gap:8px;justify-content:center"><button class="btn primary" id="sortNow">${ios ? "Sort by hand" : "Sort them for me"}</button>${ios ? "" : '<button class="btn" id="sortHand">Sort by hand</button>'}</div></div>`;
+  }
+  return `<div class="empty" style="margin:14px">${n ? (items.some(i => i.season === season && isDirty(i)) ? "Everything clean is already used up. Check the Laundry tab." : "Building your outfit...") : "No photos in this season yet. Open Photos and take a few tops, bottoms and shoes."}</div>`;
+}
 function renderToday() {
   refreshCnt();
   const w = worn.find(x => x.id === todayStr());
   const n = items.filter(i => i.season === season && isActiveCat(i.category)).length;
   renderWx(); renderMood();
   $("stage").innerHTML = outfit.length ? stageHTML()
-    : `<div class="empty" style="margin:14px">${n ? (items.some(i => i.season === season && isDirty(i)) ? "Everything clean is already used up. Check the Laundry tab." : "Building your outfit...") : "No photos in this season yet. Open Photos and take a few tops, bottoms and shoes."}</div>`;
+    : unsortedMsg(n);
   const asked = [mood.event, mood.feeling, mood.energy && mood.energy + " energy"].filter(Boolean);
   const tp = tips();
   $("styleNote").innerHTML = (outfitFrom === "saved" ? '<div class="rd">From your saved looks</div>' : "") + (asked.length ? `<div class="rd">Styled for ${asked.map(a => `<mark>${esc(a)}</mark>`).join(" / ")}</div>` : "")
@@ -1044,56 +1052,92 @@ function rgb2hsl(r, g, b) {
   let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
   h = (h * 60 + 360) % 360; return [h, s, l];
 }
-function nameColor(r, g, b) {
-  const [h, s, l] = rgb2hsl(r, g, b);
-  if (l < 0.14) return "Black";
-  if (l > 0.9 && s < 0.3) return "White";
-  if (s < 0.10) return l > 0.82 ? "White" : (l < 0.22 ? "Black" : "Gray");
-  if (h < 12 || h >= 345) return l > 0.72 ? "Pink" : (l < 0.26 && s < 0.5 ? "Brown" : "Red");
-  if (h < 45) { if (s > 0.6 && l > 0.45) return "Orange"; if (l < 0.40) return "Brown"; return "Beige"; }
-  if (h < 70) return (l > 0.5 && s > 0.5) ? "Yellow" : (l < 0.4 ? "Brown" : "Beige");
+// Names a color. `rel` is the lightness compared with the brightest part of the photo, so dim or warm lighting doesn't turn black into gray.
+function nameColor(r, g, b, rel) {
+  const [h, s, l] = rgb2hsl(r, g, b), rl = rel == null ? l : rel;
+  const warm = (h >= 12 && h < 70) || h >= 345;
+  if (s < (warm ? 0.15 : 0.045)) return rl < 0.46 ? "Black" : (l < 0.8 ? "Gray" : "White");
+  if (rl < 0.3 && s < 0.45) return "Black";
+  if (l > 0.86 && s < 0.5) return "White";
+  if (h < 12 || h >= 345) return l > 0.72 ? "Pink" : (l < 0.3 && s < 0.5 ? "Brown" : "Red");
+  if (h < 48) { if (s > 0.5 && l > 0.3) return h < 30 ? "Orange" : "Yellow"; if (l < 0.48) return "Brown"; return "Beige"; }
+  if (h < 70) return (s > 0.4 && l > 0.35) ? "Yellow" : (l < 0.3 ? "Brown" : "Beige");
   if (h < 170) return "Green";
-  if (h < 255) return l < 0.28 ? "Navy" : "Blue";
+  if (h < 255) return l < 0.24 ? "Navy" : "Blue";
   if (h < 320) return "Purple";
   return "Pink";
+}
+// Groups pixels into k color clusters (deterministic k-means).
+function kmeans(px, k, iters) {
+  const n = px.length / 3, lum = (i) => px[i * 3] * 0.299 + px[i * 3 + 1] * 0.587 + px[i * 3 + 2] * 0.114;
+  const order = Array.from({ length: n }, (_, i) => i).sort((p, q) => lum(p) - lum(q));
+  let C = []; for (let j = 0; j < k; j++) { const i = order[Math.min(n - 1, Math.floor((j + 0.5) * n / k))]; C.push([px[i * 3], px[i * 3 + 1], px[i * 3 + 2]]); }
+  const asg = new Uint8Array(n);
+  for (let it = 0; it < iters; it++) {
+    const sum = C.map(() => [0, 0, 0, 0]);
+    for (let i = 0; i < n; i++) {
+      let best = 0, bd = 1e9;
+      for (let j = 0; j < k; j++) { const dr = px[i * 3] - C[j][0], dg = px[i * 3 + 1] - C[j][1], db = px[i * 3 + 2] - C[j][2], dd = dr * dr + dg * dg + db * db; if (dd < bd) { bd = dd; best = j; } }
+      asg[i] = best; const m = sum[best]; m[0] += px[i * 3]; m[1] += px[i * 3 + 1]; m[2] += px[i * 3 + 2]; m[3]++;
+    }
+    C = C.map((c, j) => sum[j][3] ? [sum[j][0] / sum[j][3], sum[j][1] / sum[j][3], sum[j][2] / sum[j][3]] : c);
+  }
+  return { asg, C };
 }
 async function analyzeLook(it) {
   const src = it.cutUrl || it.url; if (!src) return null;
   const img = new Image(); img.src = src;
   try { await img.decode(); } catch { return null; }
-  const sc = 72 / Math.max(img.naturalWidth, img.naturalHeight);
+  const sc = 64 / Math.max(img.naturalWidth, img.naturalHeight);
   const w = Math.max(8, Math.round(img.naturalWidth * sc)), h = Math.max(8, Math.round(img.naturalHeight * sc));
   const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
   const g = cv.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0, w, h);
-  const d = g.getImageData(0, 0, w, h).data, N = w * h, fg = new Uint8Array(N);
-  if (it.cutUrl) { for (let i = 0; i < N; i++) fg[i] = d[i * 4 + 3] > 200 ? 1 : 0; }
-  else {
-    // photo with a background: look at the middle of the frame, ignoring pixels that match the border color
-    const ring = []; for (let x = 0; x < w; x++) { ring.push((x) * 4, ((h - 1) * w + x) * 4); } for (let y = 0; y < h; y++) { ring.push((y * w) * 4, (y * w + w - 1) * 4); }
-    const med = (k) => { const v = ring.map(i => d[i + k]).sort((p, q) => p - q); return v[v.length >> 1]; };
-    const br = med(0), bg = med(1), bb = med(2);
-    let inE = 0, keep = 0;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const dx = (x / w - 0.5) / 0.34, dy = (y / h - 0.5) / 0.40, i = y * w + x;
-      if (dx * dx + dy * dy > 1) continue; inE++;
-      const dist = Math.abs(d[i * 4] - br) + Math.abs(d[i * 4 + 1] - bg) + Math.abs(d[i * 4 + 2] - bb);
-      if (dist > 60) { fg[i] = 1; keep++; }
-    }
-    if (keep < inE * 0.08) { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const dx = (x / w - 0.5) / 0.34, dy = (y / h - 0.5) / 0.40; fg[y * w + x] = dx * dx + dy * dy <= 1 ? 1 : 0; } }
-  }
-  const counts = {}; let total = 0, edge = 0, pairs = 0;
+  const d = g.getImageData(0, 0, w, h).data, N = w * h;
   const L = (i) => 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x; if (!fg[i]) continue;
-    const c = nameColor(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]); counts[c] = (counts[c] || 0) + 1; total++;
-    if (x + 1 < w && fg[i + 1]) { edge += Math.abs(L(i) - L(i + 1)); pairs++; }
-    if (y + 1 < h && fg[i + w]) { edge += Math.abs(L(i) - L(i + w)); pairs++; }
+  // how bright the scene is (for judging black vs gray in dim photos)
+  const lums = []; for (let i = 0; i < N; i++) if (d[i * 4 + 3] > 200) lums.push(L(i)); lums.sort((p, q) => p - q);
+  if (lums.length < 30) return null;
+  const P = it.cutUrl ? 235 : Math.min(255, Math.max(150, lums[Math.floor(lums.length * 0.95)]));
+  const group = []; // pixels the garment colour is measured from
+  const grpIdx = [];
+  if (it.cutUrl) { for (let i = 0; i < N; i++) if (d[i * 4 + 3] > 200) grpIdx.push(i); }
+  else {
+    // photo with a background: group all pixels by color, then pick the group that sits in the middle and doesn't reach the edges
+    const px = new Float32Array(N * 3); for (let i = 0; i < N; i++) { px[i * 3] = d[i * 4]; px[i * 3 + 1] = d[i * 4 + 1]; px[i * 3 + 2] = d[i * 4 + 2]; }
+    const { asg, C } = kmeans(px, 6, 10), score = new Array(6).fill(0), cnt = new Array(6).fill(0), ring = new Array(6).fill(0);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x, j = asg[i], r = Math.hypot((x / w - 0.5) / 0.5, (y / h - 0.5) / 0.5);
+      score[j] += Math.exp(-Math.pow(r / 0.55, 2)); cnt[j]++; if (r > 0.8) ring[j]++;
+    }
+    let bj = -1, bs = -1; for (let j = 0; j < 6; j++) { if (cnt[j] < 20) continue; const s = score[j] * (1 - ring[j] / cnt[j]); if (s > bs) { bs = s; bj = j; } }
+    if (bj < 0) return null;
+    // measure the garment from its group plus similar-colored neighbors inside the central area
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x, dx = (x / w - 0.5) / 0.46, dy = (y / h - 0.5) / 0.5; if (dx * dx + dy * dy > 1) continue;
+      if (asg[i] === bj) grpIdx.push(i);
+    }
+    if (grpIdx.length < 20) return null;
   }
-  if (total < 30) return null;
-  const ranked = Object.entries(counts).sort((p, q) => q[1] - p[1]).map(([c, n]) => [c, n / total]);
-  const edgeAvg = pairs ? edge / pairs : 0, top = ranked[0], second = ranked[1];
-  const patterned = edgeAvg >= 11 || (!!second && second[1] >= 0.2 && edgeAvg >= 6);
-  return { color: patterned && top[1] < 0.6 ? "Multi" : top[0], pattern: patterned ? "patterned" : "solid", edge: edgeAvg, ranked };
+  const counts = {}, ranked = []; let total = 0, edge = 0, pairs = 0;
+  // second pass: split the garment's own pixels into a few colors to see if it is patterned
+  const gp = new Float32Array(grpIdx.length * 3); grpIdx.forEach((i, n) => { gp[n * 3] = d[i * 4]; gp[n * 3 + 1] = d[i * 4 + 1]; gp[n * 3 + 2] = d[i * 4 + 2]; });
+  const inGrp = new Uint8Array(N); grpIdx.forEach(i => inGrp[i] = 1);
+  for (const i of grpIdx) {
+    const c = nameColor(d[i * 4], d[i * 4 + 1], d[i * 4 + 2], L(i) / P); counts[c] = (counts[c] || 0) + 1; total++;
+    const x = i % w, y = (i / w) | 0;
+    if (x + 1 < w && inGrp[i + 1]) { edge += Math.abs(L(i) - L(i + 1)); pairs++; }
+    if (y + 1 < h && inGrp[i + w]) { edge += Math.abs(L(i) - L(i + w)); pairs++; }
+  }
+  // the garment's main color: the average of its pixels, named with the lighting taken into account
+  let mr = 0, mg = 0, mb = 0; for (const i of grpIdx) { mr += d[i * 4]; mg += d[i * 4 + 1]; mb += d[i * 4 + 2]; }
+  const n = grpIdx.length, main = nameColor(mr / n, mg / n, mb / n, (0.299 * mr + 0.587 * mg + 0.114 * mb) / n / P);
+  Object.entries(counts).sort((p, q) => q[1] - p[1]).forEach(([c, m]) => ranked.push([c, m / total]));
+  const edgeAvg = pairs ? edge / pairs : 0;
+  const NEUTRALISH = new Set(["Black", "White", "Gray", "Beige"]);
+  const strong = ranked.filter(r => r[1] >= 0.25);
+  const chromatic = strong.filter(r => !NEUTRALISH.has(r[0]));
+  const patterned = edgeAvg >= 9 && strong.length >= 2 && (chromatic.length >= 2 || strong.length >= 3);
+  return { color: patterned ? "Multi" : ranked[0][0], pattern: patterned ? "patterned" : "solid", edge: edgeAvg, ranked, ver: 2 };
 }
 const wq = { p: Promise.resolve() };
 function serial(fn) { const run = wq.p.then(fn, fn); wq.p = run.catch(() => {}); return run; }
@@ -1102,7 +1146,7 @@ async function analyzeAndSave(id) {
   const res = await analyzeLook(it0); if (!res) return;
   return serial(async () => {
     const it = byId(id); if (!it) return;
-    const a = { ...(it.auto || {}) }, upd = { analyzedAt: new Date().toISOString() };
+    const a = { ...(it.auto || {}) }, upd = { analyzedAt: new Date().toISOString(), colVer: 2 };
     if (a.color === true || !it.color) { upd.color = res.color; a.color = true; }
     if (a.pattern === true || !it.pattern) { upd.pattern = res.pattern; a.pattern = true; }
     upd.auto = a;
@@ -1137,6 +1181,11 @@ const TYPES = [
 ];
 const TYPE_LABELS = TYPES.map(t => t[0]);
 const TF_LIB = "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
+const REC_VER = 2;
+// Plainer descriptions help the model tell similar pieces apart.
+const PHRASE = { "t-shirt": "short sleeve t-shirt", "hoodie": "hoodie with a hood", "sweatshirt": "crewneck sweatshirt without a hood", "fleece jacket": "zip-up fleece jacket", "joggers": "joggers with elastic ankles", "sweatpants": "loose sweatpants", "long sleeve shirt": "long sleeve cotton shirt", "dress pants": "dress trousers", "puffer jacket": "quilted puffer jacket", "athletic shirt": "athletic performance shirt", "sweater": "knit sweater", "jeans": "blue denim jeans", "button-up dress shirt": "collared button-up dress shirt", "polo shirt": "polo shirt with a collar and buttons" };
+const TYPE_PROMPTS = TYPES.map(t => PHRASE[t[0]] || t[0]);
+const TEMPLATES = ["a photo of a {}.", "a photo of a {}, a piece of clothing laid flat."];
 const recState = { queue: [], running: false, stop: false, done: 0, total: 0, msg: "", err: "", unclear: 0 };
 let tfMod = null, clf = null;
 async function loadClip() {
@@ -1145,34 +1194,50 @@ async function loadClip() {
   if (!tfMod) tfMod = await import(TF_LIB);
   tfMod.env.allowLocalModels = false;
   recState.msg = "Downloading the recognition model. One time only, about 150 MB..."; renderRec();
-  clf = await tfMod.pipeline("zero-shot-image-classification", "Xenova/clip-vit-base-patch32", {
-    progress_callback: (p) => { if (p && p.status === "progress" && typeof p.progress === "number") { recState.msg = "Downloading the recognition model, " + Math.round(p.progress) + "%. One time only."; renderRec(); } },
-  });
+  const progress_callback = (p) => { if (p && p.status === "progress" && typeof p.progress === "number") { recState.msg = "Downloading the recognition model, " + Math.round(p.progress) + "%. One time only."; renderRec(); } };
+  try { clf = await tfMod.pipeline("zero-shot-image-classification", "Xenova/clip-vit-base-patch16", { progress_callback }); }
+  catch { clf = await tfMod.pipeline("zero-shot-image-classification", "Xenova/clip-vit-base-patch32", { progress_callback }); }
   return clf;
 }
+// The model sees just the garment: the cutout on white if there is one, otherwise the middle of the photo.
+async function recInput(it) {
+  try {
+    const img = new Image(); img.src = it.cutUrl || it.url; await img.decode();
+    const S = 336, cv = document.createElement("canvas"); cv.width = cv.height = S; const g = cv.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, S, S);
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    if (it.cutUrl) { const k = Math.min(S / iw, S / ih) * 0.92; g.drawImage(img, (S - iw * k) / 2, (S - ih * k) / 2, iw * k, ih * k); }
+    else { const side = Math.min(iw, ih) * 0.88, sx = (iw - side) / 2, sy = (ih - side) / 2; g.drawImage(img, sx, sy, side, side, 0, 0, S, S); }
+    return cv.toDataURL("image/jpeg", 0.92);
+  } catch { return it.url; }
+}
 async function recognizeOne(it) {
-  const c = await loadClip();
-  const out = await c(it.url, TYPE_LABELS, { hypothesis_template: "a photo of a {}." });
-  const top = out[0], T = TYPES.find(t => t[0] === top.label);
-  return { label: top.label, score: top.score, category: T[1], display: T[2], tags: T[3] };
+  const c = await loadClip(), src = await recInput(it), score = new Array(TYPES.length).fill(0);
+  for (const tpl of TEMPLATES) {
+    const out = await c(src, TYPE_PROMPTS, { hypothesis_template: tpl });
+    for (const o of out) score[TYPE_PROMPTS.indexOf(o.label)] += o.score / TEMPLATES.length;
+  }
+  let bi = 0; score.forEach((v, i) => { if (v > score[bi]) bi = i; });
+  const T = TYPES[bi];
+  return { label: T[0], score: score[bi], category: T[1], display: T[2], tags: T[3] };
 }
 function applyRecognition(it, r) {
   return serial(async () => {
     const cur = byId(it.id) || it, a = { ...(cur.auto || {}) };
-    const upd = { typeLabel: r.label, typeScore: Math.round(r.score * 1000) / 1000, recognizedAt: new Date().toISOString() };
+    const upd = { typeLabel: r.label, typeScore: Math.round(r.score * 1000) / 1000, recognizedAt: new Date().toISOString(), recVer: REC_VER };
     const confident = r.score >= 0.2;
     if (confident) {
-      if (cur.category === "unsorted") { upd.category = r.category; a.category = true; }
+      if (cur.category === "unsorted" || a.category === true) { upd.category = r.category; a.category = true; }
       const nm = cur.color ? `${cur.color} ${r.display.toLowerCase()}` : r.display;
       if (a.name !== false && (!cur.name || (a.name && cur.name === cur.autoName))) { upd.name = nm; upd.autoName = nm; a.name = true; }
-      if (a.tags !== false && (!(cur.tags || []).length || a.tags)) { upd.tags = r.tags; a.tags = true; }
+      if (a.tags !== false && (!(cur.tags || []).length || a.tags)) { upd.tags = r.tags; a.tags = true; upd.formality = undefined; }
     }
     upd.auto = a;
     await db.collection("closet").doc(it.id).update(upd);
     return confident;
   });
 }
-const eligibleRec = () => items.filter(i => !i.demo && i.url && !i.recognizedAt && (i.category === "unsorted" || !i.name || !(i.tags || []).length));
+const eligibleRec = () => items.filter(i => !i.demo && i.url && (!i.recognizedAt || ((i.recVer || 1) < REC_VER && i.auto && (i.auto.name || i.auto.category || i.auto.tags))) && (i.category === "unsorted" || !i.name || !(i.tags || []).length || (i.recVer || 1) < REC_VER));
 function enqueueRec(ids) {
   for (const id of ids) if (!recState.queue.includes(id)) { recState.queue.push(id); recState.total++; }
   drainRec();
@@ -1185,7 +1250,7 @@ async function drainRec() {
     let lock = null; try { lock = navigator.wakeLock && await navigator.wakeLock.request("screen"); } catch {}
     while (recState.queue.length && !recState.stop) {
       const id = recState.queue.shift(), it = byId(id);
-      if (!it || it.recognizedAt) { recState.done++; continue; }
+      if (!it || (it.recognizedAt && (it.recVer || 1) >= REC_VER)) { recState.done++; continue; }
       recState.msg = `Reading photo ${recState.done + 1} of ${recState.total}...`; renderRec();
       try { const r = await recognizeOne(it); if (!(await applyRecognition(it, r))) recState.unclear++; recState.done++; }
       catch (e) {
@@ -1949,6 +2014,13 @@ async function makeThumb(blob, max = 240) {
   } catch { return null; }
 }
 const thumbTried = new Set(); let thumbBusy = false;
+let colorsRefreshed = false;
+// Older photos were colored with the first version of the detector; redo the ones the app colored itself (never ones you set by hand).
+async function refreshColors() {
+  if (colorsRefreshed || !smart.color) return; colorsRefreshed = true;
+  const todo = items.filter(i => !i.demo && i.url && i.auto && i.auto.color && (i.colVer || 1) < 2);
+  for (const it of todo) { try { await analyzeAndSave(it.id); } catch {} }
+}
 async function ensureThumbs() {
   if (thumbBusy || !db) return;
   const todo = items.filter(i => i.url && ((!i.thumbUrl) || (i.cutUrl && !i.cutThumbUrl)) && !thumbTried.has(i.id));
@@ -2161,6 +2233,8 @@ document.addEventListener("click", async (e) => {
     const c1 = eligible().map(i => i.id), c2 = ios ? [] : eligibleRec().map(i => i.id);
     if (c1.length) enqueueCut(c1); if (c2.length) enqueueRec(c2);
   }
+  else if (t.id === "sortNow" && !platformInfo().ios) { smart.ai = true; lsSet("closet-smart", smart); toast("Sorting your photos. Keep this page open."); enqueueRec(eligibleRec().map(i => i.id)); showTab("more"); }
+  else if (t.id === "sortNow" || t.id === "sortHand") { cat = "unsorted"; render(); showTab("capture"); }
   else if (t.id === "smartNo") { lsSet("closet-smartDismiss", Date.now()); renderSmartPrompt(); }
   else if (t.dataset.undoshot && lastShot) { const id = lastShot.id; lastShot = null; renderShotNote(); try { await db.collection("closet").doc(id).delete(); toast("Photo removed. Try again."); } catch {} }
   else if (t.id === "installGo" && deferredPrompt) { deferredPrompt.prompt(); try { await deferredPrompt.userChoice; } catch {} deferredPrompt = null; renderInstall(); }
@@ -2209,7 +2283,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 24;
+const APP_VERSION = 25;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
@@ -2224,7 +2298,7 @@ applySkin(); render(); renderInstall();
     items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (items.length !== before && !worn.find(w => w.id === todayStr())) outfit = [];
     render(); syncToday(); renderCut(); renderRec(); if (tab === "stats") renderStats();
-    ensureThumbs();
+    ensureThumbs(); refreshColors();
     if (!obChecked) { obChecked = true; if (!lsGet("closet-onboarded")) { if (items.length === 0 && !place) openOnboard(); else lsSet("closet-onboarded", true); } }
   });
   db.collection("worn").onSnapshot((snap) => { worn = snap.docs.map(d => ({ id: d.id, ...d.data() })); render(); syncToday(); });
