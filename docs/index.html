@@ -1803,7 +1803,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 19;
+const APP_VERSION = 20;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
@@ -1824,6 +1824,15 @@ applySkin(); render(); renderInstall();
   renderMore();
   if (place) { await fetchWx(); renderMore(); if (!worn.find(w => w.id === todayStr())) outfit = []; syncToday(); }
 })();
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  // When a new version takes over, reload (once nothing heavy is running) so a long-lived installed app never keeps running old code.
+  const hadController = !!navigator.serviceWorker.controller; let reloading = false;
+  const reloadWhenIdle = () => { if (cutState.running || recState.running) { setTimeout(reloadWhenIdle, 4000); return; } location.reload(); };
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (!hadController || reloading) return; reloading = true; try { toast("Updated. Reloading..."); } catch {} setTimeout(reloadWhenIdle, 800); });
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    reg.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+  }).catch(() => {});
+}
 </script>
 </body></html>
