@@ -116,6 +116,7 @@ a.btn.primary { color: var(--accent-fg); }
 .closecam { border: 3px solid var(--fg); background: var(--surface); border-radius: var(--r); padding: 20px 18px; font-weight: 700; }
 .wxline { display: block; width: 100%; text-align: left; background: var(--surface); border: 2px solid var(--fg); border-radius: 16px; padding: 11px 14px; font-size: 14px; color: var(--muted); }
 .wxline b { color: var(--fg); }
+textarea { background: var(--surface); border: 2px solid var(--fg); border-radius: 14px; padding: 10px 12px; width: 100%; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; color: inherit; resize: vertical; }
 input[type=text], input[type=search], input[type=number], select { background: var(--surface); border: 2px solid var(--fg); border-radius: 14px; padding: 11px 12px; width: 100%; min-width: 0; }
 .formrow { display: flex; gap: 8px; align-items: center; }
 .formrow > span { flex: 1; }
@@ -281,6 +282,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
     </div>
     <div class="card">
       <h2 class="cat-title">Smart sort</h2>
+      <p class="tip" id="iosNote" hidden>On iPhone the AI steps use a lot of memory and can be slow or crash the page. Quick cleanup for backgrounds is recommended. Type recognition is off by default and experimental.</p>
       <p class="tip">Reads each photo to fill in its color, pattern and type, for example "Navy hoodie", and moves photos you shot in Auto-sort to the right category. Color and pattern work instantly with no download. Recognizing the type uses an AI model that downloads once (about 150 MB), so use Wi-Fi. It can be wrong, so check the names and fix any in one tap. Anything you edit yourself is never overwritten.</p>
       <div class="tip" id="recStatus"></div>
       <div class="actions"><button class="btn primary" id="recAll">Recognize my photos</button><button class="btn" id="recStop" hidden>Stop</button></div>
@@ -331,6 +333,15 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <button class="btn" id="shareBtn" hidden>Share backup (Drive, email...)</button>
       <div class="btn pick" style="text-align:center">Restore from a backup file<input id="importFile" type="file" accept="application/json,.json" aria-label="Restore from backup"></div>
       <div class="tip" id="bkStatus"></div>
+      <div class="tip" id="storeInfo"></div>
+    </div>
+    <div class="card">
+      <h2 class="cat-title">Report a problem</h2>
+      <p class="tip">Something broken or confusing? Copy this report and send it with a short message about what happened. It has the app version, your phone and browser, and recent errors. It does not include photos, piece names or your city.</p>
+      <textarea id="reportText" readonly rows="8" aria-label="Report"></textarea>
+      <div class="actions"><button class="btn primary" id="repCopy">Copy report</button><button class="btn" id="repShare">Share report</button></div>
+      <a class="btn" id="repLink" href="#" target="_blank" rel="noopener" hidden>Send feedback</a>
+      <a class="btn" href="test-guide.html" target="_blank" rel="noopener">Open the tester guide</a>
     </div>
   </section>
   <div id="msg"></div>
@@ -376,6 +387,13 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 </div>
 
 <script>
+const FEEDBACK_URL = "";   // set to a feedback form or mailto: link to show a "Send feedback" button
+const errLog = (() => { try { return JSON.parse(localStorage.getItem("closet-errlog")) || []; } catch { return []; } })();
+function logErr(kind, msg) {
+  try { errLog.push({ t: new Date().toISOString(), kind, msg: String(msg || "").replace(/\s+/g, " ").slice(0, 200) }); while (errLog.length > 20) errLog.shift(); localStorage.setItem("closet-errlog", JSON.stringify(errLog)); } catch {}
+}
+window.addEventListener("error", (e) => logErr("error", (e.message || "") + (e.filename ? " @" + String(e.filename).split("/").pop() + ":" + e.lineno : "")));
+window.addEventListener("unhandledrejection", (e) => logErr("promise", e.reason && (e.reason.message || e.reason)));
 const SEASONS = [{ id: "fall-winter", label: "Fall / Winter" }, { id: "spring-summer", label: "Spring / Summer" }];
 const CATS = [
   { id: "unsorted", label: "Auto-sort", tip: "Shoot anything without choosing a category. Smart sort reads each photo and moves it to the right category." },
@@ -418,7 +436,7 @@ let activeCats = lsGet("closet-cats") || ["tops", "bottoms", "outerwear", "shoes
 let laundry = Object.assign({ day: 0, low: 2 }, lsGet("closet-laundry") || {});
 let skin = lsGet("closet-skin") || "editorial";
 let accent = lsGet("closet-accent") || "";
-let cutPrefs = Object.assign({ use: true, auto: false, method: "smart" }, lsGet("closet-cut") || {});
+let cutPrefs = Object.assign({ use: true, auto: false, method: platformInfo().ios ? "quick" : "smart" }, lsGet("closet-cut") || {});
 const cutState = { queue: [], running: false, stop: false, done: 0, total: 0, msg: "", err: "", t0: 0, stage: "", aiFailed: false, note: "" };
 let CUT_TIMEOUT = 150000;
 const pic = (i) => (cutPrefs.use && i.cutUrl) ? i.cutUrl : i.url;
@@ -458,7 +476,7 @@ const openDb = () => idbp || (idbp = new Promise((res, rej) => {
 }));
 async function tx(name, mode, fn) {
   const d = await openDb();
-  return new Promise((res, rej) => { const t = d.transaction(name, mode); const out = fn(t.objectStore(name)); t.oncomplete = () => res(out && out.result); t.onerror = () => rej(t.error); });
+  return new Promise((res, rej) => { const t = d.transaction(name, mode); const out = fn(t.objectStore(name)); t.oncomplete = () => res(out && out.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error("The storage write was cancelled")); });
 }
 async function notify(name) {
   const rows = await tx(name, "readonly", s => s.getAll());
@@ -615,13 +633,14 @@ async function handleFiles(files) {
       const issue = qualityIssue(await photoQuality(blob));
       const newId = await db.collection("closet").add({ season: p.season, category: p.category, blob, thumb: await makeThumb(blob), createdAt: new Date().toISOString() });
       pending = pending.filter(x => x !== p);
+      if (items.filter(i => !i.demo).length === 10 && !lsGet("closet-lastBackup")) toast("10 pieces! Save a backup so you never lose them: More, then Backup.");
       lastShot = { id: newId, issue }; renderShotNote(); clearTimeout(shotT); if (issue) shotT = setTimeout(() => { lastShot = null; renderShotNote(); }, 9000);
       (async () => {
         if (smart.color) { try { await analyzeAndSave(newId); } catch {} }
         if (cutPrefs.auto) enqueueCut([newId]);
         if (smart.ai || p.category === "unsorted") enqueueRec([newId]);
       })();
-    } catch (err) { p.status = "error"; p.error = (err && err.message) || "try again"; }
+    } catch (err) { p.status = "error"; p.error = isQuota(err) ? "Storage is full" : ((err && err.message) || "try again"); logErr("save", p.error); if (isQuota(err)) storageFull(); }
     render();
   }
 }
@@ -947,8 +966,9 @@ function renderToday() {
   const L = laundryInfo();
   $("laundryNag").innerHTML = L.due ? `<button class="wxline" data-tab="laundry" style="border-color:var(--warn)"><b>${esc(L.due)}</b> Open Laundry.</button>` : "";
   $("navDot").hidden = !L.due;
-  const last = lsGet("closet-lastBackup"), stale = !last || Date.now() - last > 3 * 864e5;
-  $("backupNag").innerHTML = items.length >= 5 && stale ? `<button class="wxline" data-tab="more"><b>Back up your closet.</b> Your photos exist only on this phone.</button>` : "";
+  const last = lsGet("closet-lastBackup"), snooze = lsGet("closet-bkSnooze"), realN = items.filter(i => !i.demo).length;
+  const needBk = realN >= 10 && (!last || Date.now() - last > 7 * 864e5) && !(snooze && Date.now() - snooze < 2 * 864e5);
+  $("backupNag").innerHTML = needBk ? `<div class="install"><b>${last ? "Time for a backup" : "Save a backup"}</b><p>${last ? "It's been a week since your last backup." : `You've added ${realN} pieces. Your closet lives only on this phone. If the browser clears its data or the phone is lost, it's gone.`}</p><div class="actions"><button class="chip" id="bkNow" style="background:var(--accent);color:var(--accent-fg)">Save backup now</button><button class="chip" id="bkLater">Later</button></div></div>` : "";
   const done = worn.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
   $("history").innerHTML = done.length ? done.map(h => `<div class="hrow"><div class="d">${new Date(h.date + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div><div class="th">${(h.itemIds || []).map(byId).filter(Boolean).map(i => `<img src="${picT(i)}" decoding="async" ${ca(i)} alt="">`).join("")}</div>${h.date !== todayStr() ? `<button class="chip sm" data-logday="${h.date}">Edit</button>` : ""}</div>`).join("")
     : `<div class="empty">Nothing logged yet. Tap "I'm wearing this today" and it shows up here.</div>`;
@@ -1161,6 +1181,7 @@ async function drainRec() {
   if (recState.running) return;
   recState.running = true; recState.stop = false; recState.err = ""; recState.unclear = 0;
   await withHeavy(async () => {
+    lsSet("closet-heavy", { kind: "rec", t: Date.now() });
     let lock = null; try { lock = navigator.wakeLock && await navigator.wakeLock.request("screen"); } catch {}
     while (recState.queue.length && !recState.stop) {
       const id = recState.queue.shift(), it = byId(id);
@@ -1173,6 +1194,7 @@ async function drainRec() {
       }
     }
     if (lock) try { lock.release(); } catch {}
+    try { localStorage.removeItem("closet-heavy"); } catch {}
   });
   const unclear = recState.unclear;
   recState.running = false; recState.queue.length = 0; recState.msg = ""; recState.total = 0; recState.done = 0;
@@ -1180,6 +1202,7 @@ async function drainRec() {
   renderRec(); render(); renderToday();
 }
 function renderRec() {
+  const iosNote = $("iosNote"); if (iosNote) iosNote.hidden = !platformInfo().ios;
   const left = eligibleRec().length, unsorted = items.filter(i => i.category === "unsorted").length;
   const t = recState.msg || recState.err || (items.some(i => !i.demo) ? `${items.filter(i => !i.demo && i.recognizedAt).length} of ${items.filter(i => !i.demo).length} photos recognized.` : "No photos yet.");
   $("recStatus").textContent = t;
@@ -1222,7 +1245,12 @@ async function trimCutout(blob) {
   out.getContext("2d").drawImage(cv, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
   return new Promise(r => out.toBlob(r, "image/webp", 0.85));
 }
-const errText = (e) => { const m = (e && (e.message || String(e))) || ""; return m ? " Details: " + m.replace(/\s+/g, " ").slice(0, 140) : ""; };
+const errText = (e) => {
+  const m = (e && (e.message || String(e))) || ""; logErr("job", m);
+  if (!m) return "";
+  const mem = /memory|alloc|RangeError|out of|abort/i.test(m) ? " This looks like a memory problem, which is common on older phones. Try Quick cleanup in More." : "";
+  return " Details: " + m.replace(/\s+/g, " ").slice(0, 140) + "." + mem;
+};
 async function loadBg() {
   if (bgMod) return bgMod;
   const sources = ["./vendor/imgly-bg-1.4.5.mjs", BG_LIB, "https://esm.sh/@imgly/background-removal@1.4.5"];
@@ -1298,6 +1326,7 @@ async function drainCut() {
   cutState.running = true; cutState.stop = false; cutState.err = ""; cutState.note = "";
   const tick = setInterval(() => { if (cutState.running) renderCut(); }, 1000);
   await withHeavy(async () => {
+    lsSet("closet-heavy", { kind: "cut", t: Date.now() });
     let lock = null; try { lock = navigator.wakeLock && await navigator.wakeLock.request("screen"); } catch {}
     while (cutState.queue.length && !cutState.stop) {
       const id = cutState.queue.shift(), it = byId(id);
@@ -1310,18 +1339,20 @@ async function drainCut() {
       }
     }
     if (lock) try { lock.release(); } catch {}
+    try { localStorage.removeItem("closet-heavy"); } catch {}
   });
   clearInterval(tick);
   cutState.running = false; cutState.queue.length = 0; cutState.msg = ""; cutState.total = 0; cutState.done = 0; cutState.t0 = 0;
   if (cutState.note) { cutState.err = cutState.err || cutState.note; cutState.note = ""; }
   renderCut(); render(); renderToday();
 }
-const smartOn = () => smart.ai && cutPrefs.auto;
+const smartOn = () => cutPrefs.auto && (smart.ai || platformInfo().ios);
 function renderSmartPrompt() {
   const el = $("smartPrompt"); if (!el) return;
   const d = lsGet("closet-smartDismiss");
   if (smartOn() || (d && Date.now() - d < 7 * 864e5)) { el.innerHTML = ""; return; }
-  el.innerHTML = `<div class="install"><b>Let the app clean and sort your photos</b><p>It removes the background, reads each piece's type, color and pattern, and puts it in the right category for you. The first time it downloads about 200 MB, so use Wi-Fi. It all runs on your phone.</p><div class="actions"><button class="chip" id="smartOn" style="background:var(--accent);color:var(--accent-fg)">Turn on</button><button class="chip" id="smartNo">Not now</button></div></div>`;
+  const ios = platformInfo().ios;
+  el.innerHTML = `<div class="install"><b>Let the app clean up your photos</b><p>${ios ? "It removes plain backgrounds and reads each piece's color and pattern. It's instant and needs no big download. Type recognition uses a large AI model that can crash iPhones, so it's off by default. You can try it in More." : "It removes the background, reads each piece's type, color and pattern, and puts it in the right category for you. The first time it downloads about 200 MB, so use Wi-Fi. It all runs on your phone."}</p><div class="actions"><button class="chip" id="smartOn" style="background:var(--accent);color:var(--accent-fg)">Turn on</button><button class="chip" id="smartNo">Not now</button></div></div>`;
 }
 function renderCut() {
   const left = eligible().length, total = items.filter(i => !i.demo).length, done = items.filter(i => !i.demo && i.cutUrl).length;
@@ -1330,6 +1361,7 @@ function renderCut() {
   if (cutState.msg) t = cutState.msg + el; else if (cutState.err) t = cutState.err;
   $("cutStatus").textContent = t;
   $("cutMethod").value = cutPrefs.method;
+  { const q = $("cutMethod").querySelector("option[value=quick]"); if (q) q.textContent = "Quick: instant, needs a plain background" + (platformInfo().ios ? " (recommended on iPhone)" : ""); const sm = $("cutMethod").querySelector("option[value=smart]"); if (sm) sm.textContent = "Smart (AI): works on any background, slower" + (platformInfo().ios ? " (experimental on iPhone)" : ""); }
   $("cutAll").disabled = cutState.running || !left; $("cutAll").textContent = left ? `Remove backgrounds (${left})` : "All photos cleaned";
   $("cutStop").hidden = !cutState.running;
   $("cutAuto").checked = cutPrefs.auto; $("cutShow").checked = cutPrefs.use;
@@ -1800,9 +1832,74 @@ $("remIcs2").addEventListener("click", downloadIcs);
 $("remClose2").addEventListener("click", () => { $("remSheet").hidden = true; });
 $("remSheet").addEventListener("click", (e) => { if (e.target.id === "remSheet") $("remSheet").hidden = true; });
 
+/* ---------- Backups, storage and problem reports ---------- */
+const isQuota = (e) => !!e && (e.name === "QuotaExceededError" || /quota|storage is full/i.test(e.message || ""));
+function storageFull() { logErr("storage", "quota exceeded"); setMsg("This app's storage on your phone is full. Save a backup (More, then Backup), then delete photos you don't need.", true); }
+async function backupNow() {
+  let canShareFiles = false; try { const f = new File(["x"], "t.json", { type: "application/json" }); canShareFiles = !!(navigator.canShare && navigator.canShare({ files: [f] })); } catch {}
+  if (canShareFiles) await shareBackup(); else await exportBackup();
+  renderToday();
+}
+async function renderStorage() {
+  const el = $("storeInfo"); if (!el) return;
+  let est = null, persisted = null;
+  try { est = navigator.storage && navigator.storage.estimate && await navigator.storage.estimate(); } catch {}
+  try { persisted = navigator.storage && navigator.storage.persisted && await navigator.storage.persisted(); } catch {}
+  const mb = (n) => n >= 1073741824 ? (n / 1073741824).toFixed(1) + " GB" : Math.round(n / 1048576) + " MB";
+  const last = lsGet("closet-lastBackup"), days = last ? Math.floor((Date.now() - last) / 864e5) : null;
+  const parts = [est && est.quota ? `Using ${mb(est.usage)} of about ${mb(est.quota)} on this phone.` : "", persisted === null ? "" : (persisted ? "Protected from automatic clearing." : "Not marked as protected from automatic clearing."), last ? `Last backup: ${days === 0 ? "today" : days + (days === 1 ? " day" : " days") + " ago"}.` : "You haven't saved a backup yet."];
+  if (platformInfo().ios && !isInstalled()) parts.push("Safari can clear data from sites you don't use for about a week. Adding the app to your Home Screen avoids that.");
+  el.textContent = parts.filter(Boolean).join(" ");
+}
+async function buildReport() {
+  const P = platformInfo(); let est = null, persisted = null;
+  try { est = navigator.storage && navigator.storage.estimate && await navigator.storage.estimate(); } catch {}
+  try { persisted = navigator.storage && navigator.storage.persisted && await navigator.storage.persisted(); } catch {}
+  const real = items.filter(i => !i.demo), last = lsGet("closet-lastBackup");
+  const L = [`My Closet report (version ${APP_VERSION})`, `Time: ${new Date().toISOString()}`,
+    `Device: ${P.ios ? "iPhone or iPad" : P.android ? "Android" : "Other"} | ${navigator.userAgent}`,
+    `Screen: ${screen.width}x${screen.height} at ${window.devicePixelRatio || 1}x | Installed as app: ${isInstalled() ? "yes" : "no"} | Online: ${navigator.onLine ? "yes" : "no"} | Language: ${navigator.language}`,
+    `Storage: ${est && est.quota ? Math.round(est.usage / 1048576) + " MB used of about " + Math.round(est.quota / 1048576) + " MB" : "unknown"} | Protected from clearing: ${persisted === null ? "unknown" : persisted ? "yes" : "no"}`,
+    `Closet: ${real.length} real pieces (${items.length - real.length} samples), ${real.filter(i => i.cutUrl).length} with cutouts, ${real.filter(i => i.recognizedAt).length} recognized, ${real.filter(i => i.thumbUrl).length} with thumbnails, ${worn.length} logged days`,
+    `By category: ${CATS.map(c => c.id + "=" + items.filter(i => i.category === c.id).length).join(", ")}`,
+    `Last backup: ${last ? new Date(last).toISOString() : "never"}`,
+    `Settings: color detection ${smart.color}, type recognition ${smart.ai}, auto cleanup ${cutPrefs.auto}, cleanup method ${cutPrefs.method}, look ${skin}`,
+    `Cleanup status: ${($("cutStatus") && $("cutStatus").textContent) || "-"}`, `Recognition status: ${($("recStatus") && $("recStatus").textContent) || "-"}`];
+  const recent = errLog.slice(-10);
+  L.push("", recent.length ? "Recent errors:" : "Recent errors: none", ...recent.map(e => `- ${e.t} [${e.kind}] ${e.msg}`));
+  return L.join("\n");
+}
+async function renderReport() {
+  const ta = $("reportText"); if (!ta) return;
+  ta.value = await buildReport();
+  const a = $("repLink"); if (a) { a.hidden = !FEEDBACK_URL; if (FEEDBACK_URL) a.href = FEEDBACK_URL; }
+}
+$("repCopy").addEventListener("click", async () => {
+  const text = $("reportText").value;
+  try { await navigator.clipboard.writeText(text); toast("Copied. Paste it into your message."); }
+  catch { $("reportText").select(); try { document.execCommand("copy"); toast("Copied. Paste it into your message."); } catch { toast("Select the text and copy it."); } }
+});
+$("repShare").addEventListener("click", async () => {
+  const text = $("reportText").value;
+  if (navigator.share) { try { await navigator.share({ title: "My Closet report", text }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+  try { await navigator.clipboard.writeText(text); toast("Sharing isn't available here, so I copied it."); } catch { toast("Select the text and copy it."); }
+});
+// If a heavy job (cleanup or recognition) never finished last time, the page was probably killed for using too much memory.
+let crashNote = "";
+(function crashCheck() {
+  const hv = lsGet("closet-heavy"); if (!hv) return;
+  try { localStorage.removeItem("closet-heavy"); } catch {}
+  if (Date.now() - hv.t > 20 * 60000) return;
+  logErr("interrupted", `${hv.kind === "cut" ? "cleanup" : "recognition"} did not finish`);
+  if (platformInfo().ios) {
+    if (hv.kind === "cut") { cutPrefs.method = "quick"; lsSet("closet-cut", cutPrefs); } else { smart.ai = false; lsSet("closet-smart", smart); }
+    crashNote = "The last " + (hv.kind === "cut" ? "cleanup" : "recognition") + " didn't finish, probably because the phone ran out of memory. I switched to the lighter option. You can change it in More.";
+  }
+})();
+
 /* ---------- More tab ---------- */
 function renderMore() {
-  renderCut(); renderMem(); renderRec(); renderRem();
+  renderCut(); renderMem(); renderRec(); renderRem(); renderStorage(); renderReport();
   $("unitC").setAttribute("aria-pressed", !unitF); $("unitF").setAttribute("aria-pressed", unitF);
   if (place && !$("wxStatus").textContent.startsWith("Couldn't")) {
     $("wxStatus").textContent = wx ? `${place.name}: ${fmt(wx.tmin)} to ${fmt(wx.tmax)}, ${wx.rain}% chance of rain today.` : `${place.name} saved. Loading forecast...`;
@@ -2036,7 +2133,9 @@ function showTab(name) {
 }
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("button"); if (!t) return;
-  if (t.id === "remYes") openRemSheet();
+  if (t.id === "bkNow") { backupNow(); }
+  else if (t.id === "bkLater") { lsSet("closet-bkSnooze", Date.now()); renderToday(); }
+  else if (t.id === "remYes") openRemSheet();
   else if (t.id === "remNo") { lsSet("closet-remDismiss", Date.now()); renderRemPrompt(); }
   else if (t.id === "remNever") { lsSet("closet-remNever", true); renderRemPrompt(); }
   else if (t.dataset.logday) openLogDay(t.dataset.logday);
@@ -2054,10 +2153,12 @@ document.addEventListener("click", async (e) => {
   else if (t.id === "packShare") sharePack();
   else if (t.id === "packReset") { pack.checked = {}; savePack(); renderPack(); }
   else if (t.id === "smartOn") {
-    smart.ai = true; smart.color = true; cutPrefs.auto = true; lsSet("closet-smart", smart); lsSet("closet-cut", cutPrefs);
-    cat = "unsorted"; render(); renderCut(); renderRec();
-    toast("Smart photos on. New photos get cleaned and sorted.");
-    const c1 = eligible().map(i => i.id), c2 = eligibleRec().map(i => i.id);
+    const ios = platformInfo().ios;
+    smart.ai = !ios; smart.color = true; cutPrefs.auto = true; if (ios) cutPrefs.method = "quick";
+    lsSet("closet-smart", smart); lsSet("closet-cut", cutPrefs);
+    if (!ios) cat = "unsorted"; render(); renderCut(); renderRec();
+    toast(ios ? "Smart photos on. Backgrounds and colors are handled on this phone." : "Smart photos on. New photos get cleaned and sorted.");
+    const c1 = eligible().map(i => i.id), c2 = ios ? [] : eligibleRec().map(i => i.id);
     if (c1.length) enqueueCut(c1); if (c2.length) enqueueRec(c2);
   }
   else if (t.id === "smartNo") { lsSet("closet-smartDismiss", Date.now()); renderSmartPrompt(); }
@@ -2108,11 +2209,12 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 23;
+const APP_VERSION = 24;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
 if (smart.ai) cat = "unsorted";
+if (crashNote) setTimeout(() => toast(crashNote), 1500);
 applySkin(); render(); renderInstall();
 (async () => {
   db = makeDb(); ready = true;
