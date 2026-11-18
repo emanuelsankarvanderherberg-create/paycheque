@@ -265,6 +265,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
     <div class="card">
       <h2 class="cat-title">Photo cleanup</h2>
       <p class="tip">Removes the background so each piece sits cleanly on the outfit board. It runs on this phone. The first time it downloads a model of about 45 MB, so use Wi-Fi. Each photo takes a few seconds. Your original photos are always kept.</p>
+      <label class="tip">Method<select id="cutMethod"><option value="smart">Smart (AI): works on any background, slower</option><option value="quick">Quick: instant, needs a plain background</option></select></label>
       <div class="tip" id="cutStatus"></div>
       <div class="actions"><button class="btn primary" id="cutAll">Remove backgrounds</button><button class="btn" id="cutStop" hidden>Stop</button></div>
       <label class="formrow" style="gap:10px"><input type="checkbox" id="cutAuto" style="width:22px;height:22px;accent-color:var(--accent)"><span>Clean new photos automatically</span></label>
@@ -381,8 +382,9 @@ let activeCats = lsGet("closet-cats") || ["tops", "bottoms", "outerwear", "shoes
 let laundry = Object.assign({ day: 0, low: 2 }, lsGet("closet-laundry") || {});
 let skin = lsGet("closet-skin") || "editorial";
 let accent = lsGet("closet-accent") || "";
-let cutPrefs = Object.assign({ use: true, auto: false }, lsGet("closet-cut") || {});
-const cutState = { queue: [], running: false, stop: false, done: 0, total: 0, msg: "", err: "" };
+let cutPrefs = Object.assign({ use: true, auto: false, method: "smart" }, lsGet("closet-cut") || {});
+const cutState = { queue: [], running: false, stop: false, done: 0, total: 0, msg: "", err: "", t0: 0, stage: "", aiFailed: false, note: "" };
+let CUT_TIMEOUT = 150000;
 const pic = (i) => (cutPrefs.use && i.cutUrl) ? i.cutUrl : i.url;
 const picT = (i) => (cutPrefs.use && i.cutUrl) ? (i.cutThumbUrl || i.cutUrl) : (i.thumbUrl || i.url);
 const ca = (i) => (cutPrefs.use && i.cutUrl) ? "data-cut" : "";
@@ -1191,20 +1193,63 @@ async function loadBg() {
   for (const src of sources) { try { bgMod = await import(src); return bgMod; } catch (e) { last = e; } }
   throw last;
 }
-async function cutOne(it) {
+const STAGES = { "compute:decode": "Reading the photo", "compute:inference": "Finding the outline (the slowest step)", "compute:mask": "Cutting it out", "compute:encode": "Saving" };
+async function smartCut(src) {
   if (!bgMod) { cutState.msg = "Loading the cleanup tool..."; renderCut(); await loadBg(); }
-  const src = await (await fetch(it.url)).blob();
   const opts = { model: "small", output: { format: "image/webp", quality: 0.9 }, progress: (key, cur, tot) => {
-    if (/fetch|download/i.test(key) && tot) { cutState.msg = "Downloading the model, " + Math.round(100 * cur / tot) + "%. One time only."; renderCut(); }
+    if (/^fetch|download/i.test(key) && tot) { const pct = Math.round(100 * cur / tot); cutState.stage = "downloading"; cutState.msg = pct < 100 ? "Downloading the model, " + pct + "%. One time only." : "Download finished. Preparing the model..."; renderCut(); }
+    else if (STAGES[key]) { cutState.stage = STAGES[key]; cutState.msg = STAGES[key] + "..."; renderCut(); }
   } };
-  let out, lastE;
-  for (const pp of [undefined, "https://unpkg.com/@imgly/background-removal-data@1.4.5/dist/", BG_DATA_FALLBACK]) {
-    try { out = await bgMod.removeBackground(src, pp ? { ...opts, publicPath: pp } : opts); lastE = null; break; } catch (e) { lastE = e; }
+  const attempts = async () => {
+    let lastE;
+    for (const pp of [undefined, "https://unpkg.com/@imgly/background-removal-data@1.4.5/dist/", BG_DATA_FALLBACK]) {
+      try { return await bgMod.removeBackground(src, pp ? { ...opts, publicPath: pp } : opts); } catch (e) { lastE = e; }
+    }
+    throw lastE;
+  };
+  let timer; const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`Timed out after ${Math.round(CUT_TIMEOUT / 1000)} s while: ${cutState.stage || "starting"}`)), CUT_TIMEOUT); });
+  try { return await Promise.race([attempts(), timeout]); } finally { clearTimeout(timer); }
+}
+async function quickCut(blob) {
+  const bmp = await createImageBitmap(blob), sc = Math.min(1, 700 / Math.max(bmp.width, bmp.height));
+  const w = Math.max(8, Math.round(bmp.width * sc)), h = Math.max(8, Math.round(bmp.height * sc));
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const g = cv.getContext("2d", { willReadFrequently: true }); g.drawImage(bmp, 0, 0, w, h);
+  const img = g.getImageData(0, 0, w, h), d = img.data, N = w * h, border = [], t = 3;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (x < t || y < t || x >= w - t || y >= h - t) border.push((y * w + x) * 4);
+  const med = (k) => { const v = border.map(i => d[i + k]).sort((p, q) => p - q); return v[v.length >> 1]; };
+  const br = med(0), bg = med(1), bb = med(2);
+  const dist = (i) => Math.abs(d[i] - br) + Math.abs(d[i + 1] - bg) + Math.abs(d[i + 2] - bb);
+  const bd = border.map(dist).sort((p, q) => p - q);
+  const T = Math.max(45, Math.min(120, bd[Math.floor(bd.length * 0.95)] * 1.4 + 30));
+  const isBg = new Uint8Array(N), stack = new Int32Array(N); let sp = 0;
+  const push = (p) => { if (!isBg[p] && dist(p * 4) <= T) { isBg[p] = 1; stack[sp++] = p; } };
+  for (let x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+  while (sp) { const p = stack[--sp], x = p % w, y = (p / w) | 0; if (x > 0) push(p - 1); if (x < w - 1) push(p + 1); if (y > 0) push(p - w); if (y < h - 1) push(p + w); }
+  const a = new Float32Array(N); for (let i = 0; i < N; i++) a[i] = isBg[i] ? 0 : 255;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {   // 3x3 blur on the mask for soft edges
+    let sum = 0, n = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && xx < w && yy >= 0 && yy < h) { sum += a[yy * w + xx]; n++; } }
+    d[(y * w + x) * 4 + 3] = sum / n;
   }
-  if (!out) throw lastE;
-  const trimmed = await trimCutout(out);
+  g.putImageData(img, 0, 0);
+  const out = await new Promise(r => cv.toBlob(r, "image/webp", 0.9));
+  return trimCutout(out);
+}
+async function cutOne(it) {
+  const src = await (await fetch(it.url)).blob();
+  let trimmed = null, method = "smart";
+  if (cutPrefs.method === "quick" || cutState.aiFailed) { method = "quick"; trimmed = await quickCut(src); }
+  else {
+    try { const out = await smartCut(src); trimmed = await trimCutout(out); }
+    catch (e) {
+      cutState.aiFailed = true; method = "quick";
+      cutState.note = "Smart cleanup didn't work on this phone." + errText(e) + ". Used quick cleanup instead, which works best on plain backgrounds.";
+      trimmed = await quickCut(src);
+    }
+  }
   if (!trimmed) { await db.collection("closet").doc(it.id).update({ cutFail: true }); return false; }
-  await db.collection("closet").doc(it.id).update({ cutout: trimmed, cutThumb: await makeThumb(trimmed), cutAt: new Date().toISOString(), cutFail: false });
+  await db.collection("closet").doc(it.id).update({ cutout: trimmed, cutThumb: await makeThumb(trimmed), cutAt: new Date().toISOString(), cutFail: false, cutMethod: method });
   return true;
 }
 function enqueueCut(ids) {
@@ -1213,14 +1258,15 @@ function enqueueCut(ids) {
 }
 async function drainCut() {
   if (cutState.running) return;
-  cutState.running = true; cutState.stop = false; cutState.err = "";
+  cutState.running = true; cutState.stop = false; cutState.err = ""; cutState.note = "";
+  const tick = setInterval(() => { if (cutState.running) renderCut(); }, 1000);
   await withHeavy(async () => {
     let lock = null; try { lock = navigator.wakeLock && await navigator.wakeLock.request("screen"); } catch {}
     while (cutState.queue.length && !cutState.stop) {
       const id = cutState.queue.shift(), it = byId(id);
       if (!it || it.cutUrl) { cutState.done++; continue; }
-      cutState.msg = `Cleaning photo ${cutState.done + 1} of ${cutState.total}...`; renderCut();
-      try { await cutOne(it); cutState.done++; if (smart.color) await analyzeAndSave(id); }
+      cutState.msg = `Cleaning photo ${cutState.done + 1} of ${cutState.total}...`; cutState.t0 = Date.now(); cutState.stage = ""; renderCut();
+      try { await cutOne(it); cutState.done++; cutState.t0 = 0; if (smart.color) await analyzeAndSave(id); }
       catch (e) {
         cutState.err = "Couldn't load or run the cleanup tool. Check your connection and try again." + errText(e);
         cutState.queue.length = 0; break;
@@ -1228,7 +1274,9 @@ async function drainCut() {
     }
     if (lock) try { lock.release(); } catch {}
   });
-  cutState.running = false; cutState.queue.length = 0; cutState.msg = ""; cutState.total = 0; cutState.done = 0;
+  clearInterval(tick);
+  cutState.running = false; cutState.queue.length = 0; cutState.msg = ""; cutState.total = 0; cutState.done = 0; cutState.t0 = 0;
+  if (cutState.note) { cutState.err = cutState.err || cutState.note; cutState.note = ""; }
   renderCut(); render(); renderToday();
 }
 const smartOn = () => smart.ai && cutPrefs.auto;
@@ -1241,17 +1289,20 @@ function renderSmartPrompt() {
 function renderCut() {
   const left = eligible().length, total = items.filter(i => !i.demo).length, done = items.filter(i => !i.demo && i.cutUrl).length;
   let t = total ? `${done} of ${total} photos cleaned.` : "No photos yet.";
-  if (cutState.msg) t = cutState.msg; else if (cutState.err) t = cutState.err;
+  const el = cutState.running && cutState.t0 ? ` (${Math.round((Date.now() - cutState.t0) / 1000)} s)` : "";
+  if (cutState.msg) t = cutState.msg + el; else if (cutState.err) t = cutState.err;
   $("cutStatus").textContent = t;
+  $("cutMethod").value = cutPrefs.method;
   $("cutAll").disabled = cutState.running || !left; $("cutAll").textContent = left ? `Remove backgrounds (${left})` : "All photos cleaned";
   $("cutStop").hidden = !cutState.running;
   $("cutAuto").checked = cutPrefs.auto; $("cutShow").checked = cutPrefs.use;
   const nag = left >= 5 && !cutPrefs.auto && !cutState.running;
-  $("cutNag").innerHTML = cutState.running ? `<div class="wxline"><b>${esc(cutState.msg || "Cleaning photos...")}</b></div>`
+  $("cutNag").innerHTML = cutState.running ? `<div class="wxline"><b>${esc((cutState.msg || "Cleaning photos...") + (cutState.running && cutState.t0 ? ` (${Math.round((Date.now() - cutState.t0) / 1000)} s)` : ""))}</b></div>`
     : cutState.err ? `<div class="wxline" style="border-color:var(--danger)"><b>${esc(cutState.err)}</b></div>`
     : (nag ? `<button class="wxline" data-tab="more"><b>${left} photos still have backgrounds.</b> Clean them up in More.</button>` : "");
 }
-$("cutAll").addEventListener("click", () => enqueueCut(eligible().map(i => i.id)));
+$("cutAll").addEventListener("click", () => { cutState.aiFailed = false; enqueueCut(eligible().map(i => i.id)); });
+$("cutMethod").addEventListener("change", (e) => { cutPrefs.method = e.target.value; lsSet("closet-cut", cutPrefs); });
 $("cutStop").addEventListener("click", () => { cutState.stop = true; $("cutStatus").textContent = "Stopping after this photo..."; });
 $("cutAuto").addEventListener("change", (e) => { cutPrefs.auto = e.target.checked; lsSet("closet-cut", cutPrefs); });
 $("cutShow").addEventListener("change", (e) => { cutPrefs.use = e.target.checked; lsSet("closet-cut", cutPrefs); render(); renderToday(); if (tab === "laundry") renderLaundry(); });
@@ -1752,7 +1803,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 18;
+const APP_VERSION = 19;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
