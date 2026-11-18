@@ -43,6 +43,8 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 .seasons .chip { flex: 1; justify-content: center; border: 0; border-radius: 0; background: var(--surface); padding: 11px 8px; font-weight: 700; }
 .seasons .chip + .chip { border-left: 3px solid var(--fg); }
 .seasons .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.addrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 0; }
+.addrow:empty { display: none; }
 .cats { display: flex; gap: 8px; flex-wrap: wrap; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -201,6 +203,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
     <div id="remPrompt"></div>
     <div class="readout" id="readout"></div>
     <div class="stagewrap"><div class="stage" id="stage"></div></div>
+    <div class="addrow" id="addRow"></div>
     <div id="styleNote"></div>
     <details class="card" id="moodBox">
       <summary>Style it <span id="moodSum">Optional</span></summary>
@@ -397,9 +400,10 @@ window.addEventListener("unhandledrejection", (e) => logErr("promise", e.reason 
 const SEASONS = [{ id: "fall-winter", label: "Fall / Winter" }, { id: "spring-summer", label: "Spring / Summer" }];
 const CATS = [
   { id: "unsorted", label: "Auto-sort", tip: "Shoot anything without choosing a category. Smart sort reads each photo and moves it to the right category." },
-  { id: "tops", label: "Tops", tip: "Shirts, sweaters, hoodies, tees." },
+  { id: "tops", label: "Shirts & tees", tip: "T-shirts, button-ups, polos, tanks, long sleeves." },
+  { id: "layers", label: "Sweaters", tip: "Sweaters, hoodies, sweatshirts, cardigans, fleece. Worn over a tee." },
   { id: "bottoms", label: "Bottoms", tip: "Pants, jeans, shorts." },
-  { id: "outerwear", label: "Outerwear", tip: "Coats, jackets, vests." },
+  { id: "outerwear", label: "Jackets & coats", tip: "Coats, jackets, vests." },
   { id: "shoes", label: "Shoes", tip: "Each pair once." },
   { id: "accessories", label: "Accessories", tip: "Hats, scarves, gloves, belts, bags." },
   { id: "onepiece", label: "Dresses & sets", tip: "Dresses, jumpsuits, matching sets." },
@@ -415,7 +419,7 @@ const SKINS = [
 ];
 const COLORS = ["Black", "White", "Gray", "Beige", "Navy", "Brown", "Blue", "Green", "Red", "Pink", "Yellow", "Orange", "Purple", "Multi"];
 const NEUTRAL = new Set(["Black", "White", "Gray", "Beige", "Navy", "Brown"]);
-const LABEL = { tops: "Top", bottoms: "Bottom", outerwear: "Outerwear", shoes: "Shoes", accessories: "Accessory", onepiece: "Dress / set", unsorted: "Unsorted" };
+const LABEL = { tops: "Top", layers: "Sweater", bottoms: "Bottom", outerwear: "Outerwear", shoes: "Shoes", accessories: "Accessory", onepiece: "Dress / set", unsorted: "Unsorted" };
 const EVENTS = ["Casual", "Work", "Dressy", "Active", "Lounge"];
 const FEELINGS = ["Comfy", "Confident", "Playful", "Low-key"];
 const ENERGIES = ["Low", "Medium", "High"];
@@ -432,7 +436,9 @@ let place = lsGet("closet-place"), wx = lsGet("closet-wx");
 let unitF = lsGet("closet-unitF"); if (unitF === null) unitF = /^en-US/i.test(navigator.language || "");
 let editId = null, delArm = false, edTags = new Set();
 let mood = Object.assign({ weather: true, event: "", feeling: "", energy: "" }, lsGet("closet-mood") || {});
-let activeCats = lsGet("closet-cats") || ["tops", "bottoms", "outerwear", "shoes", "accessories"];
+let activeCats = lsGet("closet-cats") || ["tops", "layers", "bottoms", "outerwear", "shoes", "accessories"];
+// one-time: make sure the new Sweaters category (and shoes, accessories, jackets) are switched on
+if (!lsGet("closet-cats-v2")) { for (const c of ["tops", "layers", "bottoms", "outerwear", "shoes", "accessories"]) if (!activeCats.includes(c)) activeCats.push(c); lsSet("closet-cats", activeCats); lsSet("closet-cats-v2", 1); }
 let laundry = Object.assign({ day: 0, low: 2 }, lsGet("closet-laundry") || {});
 let skin = lsGet("closet-skin") || "editorial";
 let accent = lsGet("closet-accent") || "";
@@ -516,7 +522,7 @@ const fmt = (c) => unitF ? Math.round(c * 9 / 5 + 32) + "°F" : Math.round(c) + 
 function setMsg(text, bad) { $("msg").innerHTML = text ? `<div class="note ${bad ? "bad" : ""}">${esc(text)}</div>` : ""; }
 
 /* ---------- Wear tracking ---------- */
-const DEFAULT_MAX = { tops: 1, bottoms: 3, outerwear: 0, shoes: 0, accessories: 0, onepiece: 1 };
+const DEFAULT_MAX = { tops: 1, layers: 3, bottoms: 3, outerwear: 0, shoes: 0, accessories: 0, onepiece: 1 };
 function maxWears(i) {
   if (i.maxWears !== undefined && i.maxWears !== null && i.maxWears !== "") return +i.maxWears;
   const n = (i.name || "").toLowerCase();
@@ -765,6 +771,14 @@ function useLocation() {
     await afterPlaceChange();
   }, () => { $("wxStatus").textContent = "Location was blocked. Type your city instead."; }, { timeout: 15000 });
 }
+function wantLayer() {
+  const W = SIM ? SIM.wx : wx; if (mood.event === "Active") return false;
+  let p;
+  if (W && mood.weather) p = (W.tmin <= 6 || W.tmax <= 12) ? 0.9 : W.tmax <= 18 ? 0.6 : W.tmax <= 23 ? 0.25 : 0.05;
+  else p = season === "fall-winter" ? 0.6 : 0.15;
+  if (mood.feeling === "Comfy") p = Math.min(0.95, p + 0.2);
+  return Math.random() < p;
+}
 function wantOuter() {
   const W = SIM ? SIM.wx : wx;
   if (W && mood.weather) {
@@ -865,7 +879,7 @@ function pick(c, exclude, ctx) {
   if (exclude && p.length > 1) p = p.filter(i => i.id !== exclude);
   if (ctx) {
     if (ctx.patterned) { const q = p.filter(i => i.pattern !== "patterned"); if (q.length) p = q; }
-    if (ctx.accent && !relaxed() && ["tops", "bottoms", "outerwear"].includes(c)) { const q = p.filter(i => !i.color || NEUTRAL.has(i.color)); if (q.length) p = q; }
+    if (ctx.accent && !relaxed() && ["tops", "layers", "bottoms", "outerwear"].includes(c)) { const q = p.filter(i => !i.color || NEUTRAL.has(i.color)); if (q.length) p = q; }
   }
   const recent = recentIds(), fresh = p.filter(i => !recent.has(i.id)), from = fresh.length ? fresh : p;
   const w = from.map(i => weight(i, ctx)); let r = Math.random() * w.reduce((a, b) => a + b, 0);
@@ -883,8 +897,11 @@ function generate() {
   }
   const add = (c) => { const id = pick(c, null, ctxOf(slots.map(s => s.id))); if (id) slots.push({ cat: c, id }); };
   const oneP = mood.event === "Active" || mood.event === "Work" ? 0.1 : mood.event === "Dressy" ? 0.4 : 0.25;
-  const useOne = pool("onepiece").length && (Math.random() < oneP || !pool("tops").length || !pool("bottoms").length);
-  if (useOne) add("onepiece"); else { add("tops"); add("bottoms"); }
+  const baseOk = pool("tops").length || pool("layers").length;
+  const useOne = pool("onepiece").length && (Math.random() < oneP || !baseOk || !pool("bottoms").length);
+  if (useOne) add("onepiece"); else { if (pool("tops").length) add("tops"); add("bottoms"); }
+  // a sweater or hoodie over the tee when it's cool, or on its own if there's no tee
+  if (pool("layers").length && ((!useOne && !pool("tops").length) || wantLayer())) add("layers");
   if (pool("outerwear").length && wantOuter()) add("outerwear");
   if (pool("shoes").length) add("shoes");
   const accP = mood.energy === "High" || mood.feeling === "Confident" ? 0.9 : mood.energy === "Low" ? 0.2 : 0.5;
@@ -955,8 +972,15 @@ function unsortedMsg(n) {
   }
   return `<div class="empty" style="margin:14px">${n ? (items.some(i => i.season === season && isDirty(i)) ? "Everything clean is already used up. Check the Laundry tab." : "Building your outfit...") : "No photos in this season yet. Open Photos and take a few tops, bottoms and shoes."}</div>`;
 }
+function renderAddRow() {
+  const el = $("addRow"); if (!el) return;
+  const names = { shoes: "shoes", accessories: "accessories", outerwear: "a jacket", layers: "a sweater", tops: "a tee", bottoms: "pants" };
+  const miss = ["tops", "layers", "bottoms", "outerwear", "shoes", "accessories"].filter(c => isActiveCat(c) && !poolAllAny(c) && items.some(i => i.season === season && !i.demo));
+  const un = items.filter(i => i.season === season && i.category === "unsorted").length;
+  el.innerHTML = (miss.length || un) ? `<span class="lab2">Add to your closet</span>` + miss.map(c => `<button class="chip sm" data-addcat="${c}">+ ${names[c]}</button>`).join("") : "";
+}
 function renderToday() {
-  refreshCnt();
+  refreshCnt(); renderAddRow();
   const w = worn.find(x => x.id === todayStr());
   const n = items.filter(i => i.season === season && isActiveCat(i.category)).length;
   renderWx(); renderMood();
@@ -1159,9 +1183,9 @@ async function analyzeAndSave(id) {
 // label, category, display name, suggested event tags, dress level (0 lounge, 1.5 casual, 2.5 smart casual, 3.5 work, 4 dressy)
 const TYPES = [
   ["t-shirt", "tops", "T-shirt", ["Casual"], 1.5], ["polo shirt", "tops", "Polo shirt", ["Casual", "Work"], 2.5], ["button-up dress shirt", "tops", "Button-up shirt", ["Work", "Dressy"], 3.2],
-  ["blouse", "tops", "Blouse", ["Work", "Dressy"], 3.2], ["sweater", "tops", "Sweater", ["Casual", "Work"], 2.5], ["hoodie", "tops", "Hoodie", ["Casual", "Lounge"], 1],
-  ["sweatshirt", "tops", "Sweatshirt", ["Casual", "Lounge"], 1], ["cardigan", "tops", "Cardigan", ["Casual", "Work"], 2.5], ["tank top", "tops", "Tank top", ["Casual", "Active"], 1],
-  ["turtleneck sweater", "tops", "Turtleneck", ["Work", "Dressy"], 3], ["flannel shirt", "tops", "Flannel shirt", ["Casual"], 1.5], ["long sleeve shirt", "tops", "Long sleeve", ["Casual"], 1.5],
+  ["blouse", "tops", "Blouse", ["Work", "Dressy"], 3.2], ["sweater", "layers", "Sweater", ["Casual", "Work"], 2.5], ["hoodie", "layers", "Hoodie", ["Casual", "Lounge"], 1],
+  ["sweatshirt", "layers", "Sweatshirt", ["Casual", "Lounge"], 1], ["cardigan", "layers", "Cardigan", ["Casual", "Work"], 2.5], ["tank top", "tops", "Tank top", ["Casual", "Active"], 1],
+  ["turtleneck sweater", "layers", "Turtleneck", ["Work", "Dressy"], 3], ["flannel shirt", "tops", "Flannel shirt", ["Casual"], 1.5], ["long sleeve shirt", "tops", "Long sleeve", ["Casual"], 1.5],
   ["athletic shirt", "tops", "Athletic shirt", ["Active"], 0.5],
   ["jeans", "bottoms", "Jeans", ["Casual"], 1.5], ["dress pants", "bottoms", "Dress pants", ["Work", "Dressy"], 3.5], ["chinos", "bottoms", "Chinos", ["Work", "Casual"], 2.5],
   ["sweatpants", "bottoms", "Sweatpants", ["Lounge", "Active"], 0.5], ["joggers", "bottoms", "Joggers", ["Lounge", "Active"], 0.7], ["leggings", "bottoms", "Leggings", ["Active", "Lounge"], 0.5],
@@ -1193,6 +1217,7 @@ async function loadClip() {
   recState.msg = "Loading the recognition tool..."; renderRec();
   if (!tfMod) tfMod = await import(TF_LIB);
   tfMod.env.allowLocalModels = false;
+  try { tfMod.env.backends.onnx.wasm.proxy = true; tfMod.env.backends.onnx.wasm.numThreads = 1; } catch {}   // run the model on a separate thread so the app stays smooth
   recState.msg = "Downloading the recognition model. One time only, about 150 MB..."; renderRec();
   const progress_callback = (p) => { if (p && p.status === "progress" && typeof p.progress === "number") { recState.msg = "Downloading the recognition model, " + Math.round(p.progress) + "%. One time only."; renderRec(); } };
   try { clf = await tfMod.pipeline("zero-shot-image-classification", "Xenova/clip-vit-base-patch16", { progress_callback }); }
@@ -1249,6 +1274,7 @@ async function drainRec() {
     lsSet("closet-heavy", { kind: "rec", t: Date.now() });
     let lock = null; try { lock = navigator.wakeLock && await navigator.wakeLock.request("screen"); } catch {}
     while (recState.queue.length && !recState.stop) {
+      await calm();
       const id = recState.queue.shift(), it = byId(id);
       if (!it || (it.recognizedAt && (it.recVer || 1) >= REC_VER)) { recState.done++; continue; }
       recState.msg = `Reading photo ${recState.done + 1} of ${recState.total}...`; renderRec();
@@ -1394,6 +1420,7 @@ async function drainCut() {
     lsSet("closet-heavy", { kind: "cut", t: Date.now() });
     let lock = null; try { lock = navigator.wakeLock && await navigator.wakeLock.request("screen"); } catch {}
     while (cutState.queue.length && !cutState.stop) {
+      await calm();
       const id = cutState.queue.shift(), it = byId(id);
       if (!it || it.cutUrl) { cutState.done++; continue; }
       cutState.msg = `Cleaning photo ${cutState.done + 1} of ${cutState.total}...`; cutState.t0 = Date.now(); cutState.stage = ""; renderCut();
@@ -1445,6 +1472,7 @@ $("cutShow").addEventListener("change", (e) => { cutPrefs.use = e.target.checked
 const HEX = { Black: "#25252a", White: "#f4f4f2", Gray: "#8d9096", Beige: "#cdb99a", Navy: "#1f2f4f", Brown: "#6b4a32", Blue: "#3f6fb5", Green: "#3f7a52", Red: "#b83a3a", Pink: "#e59aae", Yellow: "#e5c445", Orange: "#e08a3c", Purple: "#7a56a8", Multi: "#7a56a8" };
 const SHAPES = {
   tops: "M110 70 L60 100 L30 170 L70 190 L90 160 L90 340 L210 340 L210 160 L230 190 L270 170 L240 100 L190 70 Q150 100 110 70 Z",
+  layers: "M110 70 L55 105 L25 215 L65 230 L90 170 L90 340 L210 340 L210 170 L235 230 L275 215 L245 105 L190 70 Q150 100 110 70 Z",
   bottoms: "M90 60 L210 60 L225 340 L165 340 L150 140 L135 340 L75 340 Z",
   outerwear: "M110 60 Q150 85 190 60 L255 100 L275 330 L225 340 L215 170 L215 360 L85 360 L85 170 L75 340 L25 330 L45 100 Z",
   shoes: "M40 250 L40 160 Q100 150 130 190 L150 200 Q230 210 265 250 L265 285 L40 285 Z",
@@ -1466,9 +1494,9 @@ function drawGarment(kind, color, pattern) {
 }
 const DEMO = [
   ["tops", "Black tee", "Black", "", ["Casual", "Lounge"]], ["tops", "White button-up", "White", "", ["Work"]],
-  ["tops", "Gray sweater", "Gray", "", ["Casual", "Work"]], ["tops", "Navy hoodie", "Navy", "", ["Casual", "Lounge", "Active"], 1],
-  ["tops", "Red knit", "Red", "", ["Dressy", "Casual"]], ["tops", "Striped tee", "Multi", "patterned", ["Casual"]],
-  ["tops", "Green flannel", "Green", "patterned", ["Casual"]], ["tops", "Beige turtleneck", "Beige", "", ["Work", "Dressy"], 1],
+  ["layers", "Gray sweater", "Gray", "", ["Casual", "Work"]], ["layers", "Navy hoodie", "Navy", "", ["Casual", "Lounge", "Active"], 1],
+  ["layers", "Red knit", "Red", "", ["Dressy", "Casual"]], ["tops", "Striped tee", "Multi", "patterned", ["Casual"]],
+  ["tops", "Green flannel", "Green", "patterned", ["Casual"]], ["layers", "Beige turtleneck", "Beige", "", ["Work", "Dressy"], 1],
   ["bottoms", "Blue jeans", "Blue", "", ["Casual"]], ["bottoms", "Dark jeans", "Navy", "", ["Casual", "Dressy"]],
   ["bottoms", "Black slacks", "Black", "", ["Work", "Dressy"]], ["bottoms", "Gray joggers", "Gray", "", ["Lounge", "Active"]],
   ["bottoms", "Khaki chinos", "Beige", "", ["Work", "Casual"]], ["bottoms", "Black leggings", "Black", "", ["Active", "Lounge"]],
@@ -1623,6 +1651,7 @@ function renderStats() {
   if (isActiveCat("tops") && cnt("tops") < 4) gaps.push(`Only ${cnt("tops")} ${cnt("tops") === 1 ? "top" : "tops"} for ${sname}. Aim for 5 or more so you don't run out between washes.`);
   if (isActiveCat("bottoms") && cnt("bottoms") < 3) gaps.push(`Only ${cnt("bottoms")} ${cnt("bottoms") === 1 ? "bottom" : "bottoms"} for ${sname}. 3 or more keeps outfits varied.`);
   if (isActiveCat("shoes") && cnt("shoes") < 2) gaps.push(`Only ${cnt("shoes")} ${cnt("shoes") === 1 ? "pair" : "pairs"} of shoes for ${sname}.`);
+  if (isActiveCat("layers") && season === "fall-winter" && !cnt("layers")) gaps.push("No sweater or hoodie for fall / winter.");
   if (isActiveCat("outerwear") && season === "fall-winter" && !cnt("outerwear")) gaps.push("No coat or jacket for fall / winter.");
   const bottoms = S.filter(i => i.category === "bottoms");
   if (bottoms.length && !bottoms.some(i => !i.color || NEUTRAL.has(i.color))) gaps.push("No neutral bottoms, which makes bold tops harder to pair.");
@@ -1751,6 +1780,7 @@ function generatePack() {
   };
   const ensure = (cat, pred, n) => { const have = chosen.filter(c => c.category === cat && pred(c)).length; for (let k = have; k < n; k++) { const pool = avail(cat).filter(i => !chosen.includes(i) && pred(i)); if (!pool.length) break; pool.sort((a, b) => scoreOf(b, cat) - scoreOf(a, cat)); chosen.push(pool[0]); } };
   take("bottoms", eff); take("tops", eff);
+  if (W === "cold" || W === "cool") take("layers", W === "cold" ? Math.ceil(N / 2) : Math.ceil(N / 3));
   const formal = (i) => (formalityOf(i) ?? 0) >= 3.3, smart = (i) => (formalityOf(i) ?? 0) >= 2.5, active = (i) => (i.tags || []).includes("Active") || (formalityOf(i) ?? 9) <= 1;
   if (occ.has("Dressy")) { ensure("tops", formal, 1); ensure("bottoms", formal, 1); ensure("shoes", formal, 1); }
   if (occ.has("Work")) { ensure("tops", smart, Math.min(3, Math.ceil(N / 2))); ensure("bottoms", smart, 1); ensure("shoes", smart, 1); }
@@ -2014,6 +2044,14 @@ async function makeThumb(blob, max = 240) {
   } catch { return null; }
 }
 const thumbTried = new Set(); let thumbBusy = false;
+let lastTouch = 0;
+["pointerdown", "touchstart", "scroll", "keydown"].forEach(e => addEventListener(e, () => { lastTouch = Date.now(); }, { passive: true, capture: true }));
+// Heavy photo work waits for you to stop tapping or scrolling, then takes a short breath so the app stays smooth.
+async function calm() {
+  const t0 = Date.now(), nap = (ms) => new Promise(r => setTimeout(r, ms));
+  while (Date.now() - lastTouch < 1500 && Date.now() - t0 < 12000) await nap(300);
+  await nap(400);
+}
 let lastResume = 0, resumeTimer = null;
 // On open (and when you come back to the app), carry on with photos that weren't finished, if Smart photos is on.
 function resumeWork() {
@@ -2025,6 +2063,14 @@ function resumeWork() {
   toast("Picking up where it left off. Keep the app open until it finishes.");
   if (cuts.length) enqueueCut(cuts);
   if (recs.length) enqueueRec(recs);
+}
+let layersMigrated = false;
+// Sweaters and hoodies the app sorted itself used to land in Tops; move them to the new Sweaters category.
+async function migrateLayers() {
+  if (layersMigrated) return; layersMigrated = true;
+  const LAY = new Set(["sweater", "hoodie", "sweatshirt", "cardigan", "turtleneck sweater"]);
+  const todo = items.filter(i => !i.demo && i.category === "tops" && i.auto && i.auto.category !== false && ((i.typeLabel && LAY.has(i.typeLabel) && i.auto.category) || (i.auto.name && /sweater|hoodie|sweatshirt|cardigan|fleece|pullover|turtleneck/i.test(i.name || ""))));
+  for (const it of todo) { try { await serial(() => db.collection("closet").doc(it.id).update({ category: "layers" })); } catch {} }
 }
 let colorsRefreshed = false;
 // Older photos were colored with the first version of the detector; redo the ones the app colored itself (never ones you set by hand).
@@ -2098,9 +2144,12 @@ function stageLayout() {
     Lo.labels.push({ e, x: x + w + 14, y: y + h / 2 - 22, w: 386 - (x + w + 14) });
     y += h + 10;
   }
-  const o = by("outerwear");
-  if (o) { const oy = topY === null ? 16 : topY; Lo.pieces.push({ e: o, x: 8, y: oy, w: 92, h: 122 }); Lo.labels.push({ e: o, x: 8, y: oy + 128, w: 92 }); }
-  Lo.height = Math.max(y + 6, 300);
+  let ly = topY === null ? 16 : topY;
+  for (const [c, w, h] of [["outerwear", 92, 122], ["layers", 92, 112]]) {
+    const e = by(c); if (!e) continue;
+    Lo.pieces.push({ e, x: 8, y: ly, w, h }); Lo.labels.push({ e, x: 8, y: ly + h + 6, w: 92 }); ly += h + 56;
+  }
+  Lo.height = Math.max(y + 6, ly + 2, 300);
   return Lo;
 }
 const loadImg = (src) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
@@ -2247,6 +2296,7 @@ document.addEventListener("click", async (e) => {
   }
   else if (t.id === "sortNow" && !platformInfo().ios) { smart.ai = true; lsSet("closet-smart", smart); toast("Sorting your photos. Keep this page open."); enqueueRec(eligibleRec().map(i => i.id)); showTab("more"); }
   else if (t.id === "sortNow" || t.id === "sortHand") { cat = "unsorted"; render(); showTab("capture"); }
+  else if (t.dataset.addcat) { cat = t.dataset.addcat; render(); showTab("capture"); }
   else if (t.id === "smartNo") { lsSet("closet-smartDismiss", Date.now()); renderSmartPrompt(); }
   else if (t.dataset.undoshot && lastShot) { const id = lastShot.id; lastShot = null; renderShotNote(); try { await db.collection("closet").doc(id).delete(); toast("Photo removed. Try again."); } catch {} }
   else if (t.id === "installGo" && deferredPrompt) { deferredPrompt.prompt(); try { await deferredPrompt.userChoice; } catch {} deferredPrompt = null; renderInstall(); }
@@ -2295,7 +2345,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 25;
+const APP_VERSION = 26;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
@@ -2310,7 +2360,7 @@ applySkin(); render(); renderInstall();
     items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (items.length !== before && !worn.find(w => w.id === todayStr())) outfit = [];
     render(); syncToday(); renderCut(); renderRec(); if (tab === "stats") renderStats();
-    ensureThumbs(); refreshColors(); if (items.length && !resumeTimer) resumeTimer = setTimeout(resumeWork, 2500);
+    ensureThumbs(); migrateLayers(); refreshColors(); if (items.length && !resumeTimer) resumeTimer = setTimeout(resumeWork, 2500);
     if (!obChecked) { obChecked = true; if (!lsGet("closet-onboarded")) { if (items.length === 0 && !place) openOnboard(); else lsSet("closet-onboarded", true); } }
   });
   db.collection("worn").onSnapshot((snap) => { worn = snap.docs.map(d => ({ id: d.id, ...d.data() })); render(); syncToday(); });
