@@ -1123,7 +1123,7 @@ async function drainRec() {
       recState.msg = `Reading photo ${recState.done + 1} of ${recState.total}...`; renderRec();
       try { const r = await recognizeOne(it); if (!(await applyRecognition(it, r))) recState.unclear++; recState.done++; }
       catch (e) {
-        recState.err = "Couldn't load or run the recognition model. Check your connection and try again.";
+        recState.err = "Couldn't load or run the recognition model. Check your connection and try again." + errText(e);
         recState.queue.length = 0; break;
       }
     }
@@ -1177,15 +1177,25 @@ async function trimCutout(blob) {
   out.getContext("2d").drawImage(cv, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
   return new Promise(r => out.toBlob(r, "image/webp", 0.85));
 }
+const errText = (e) => { const m = (e && (e.message || String(e))) || ""; return m ? " Details: " + m.replace(/\s+/g, " ").slice(0, 140) : ""; };
+async function loadBg() {
+  if (bgMod) return bgMod;
+  const sources = ["./vendor/imgly-bg-1.4.5.mjs", BG_LIB, "https://esm.sh/@imgly/background-removal@1.4.5"];
+  let last;
+  for (const src of sources) { try { bgMod = await import(src); return bgMod; } catch (e) { last = e; } }
+  throw last;
+}
 async function cutOne(it) {
-  if (!bgMod) { cutState.msg = "Loading the cleanup tool..."; renderCut(); bgMod = await import(BG_LIB); }
+  if (!bgMod) { cutState.msg = "Loading the cleanup tool..."; renderCut(); await loadBg(); }
   const src = await (await fetch(it.url)).blob();
   const opts = { model: "small", output: { format: "image/webp", quality: 0.9 }, progress: (key, cur, tot) => {
     if (/fetch|download/i.test(key) && tot) { cutState.msg = "Downloading the model, " + Math.round(100 * cur / tot) + "%. One time only."; renderCut(); }
   } };
-  let out;
-  try { out = await bgMod.removeBackground(src, opts); }
-  catch (e1) { out = await bgMod.removeBackground(src, { ...opts, publicPath: BG_DATA_FALLBACK }); }
+  let out, lastE;
+  for (const pp of [undefined, "https://unpkg.com/@imgly/background-removal-data@1.4.5/dist/", BG_DATA_FALLBACK]) {
+    try { out = await bgMod.removeBackground(src, pp ? { ...opts, publicPath: pp } : opts); lastE = null; break; } catch (e) { lastE = e; }
+  }
+  if (!out) throw lastE;
   const trimmed = await trimCutout(out);
   if (!trimmed) { await db.collection("closet").doc(it.id).update({ cutFail: true }); return false; }
   await db.collection("closet").doc(it.id).update({ cutout: trimmed, cutThumb: await makeThumb(trimmed), cutAt: new Date().toISOString(), cutFail: false });
@@ -1206,7 +1216,7 @@ async function drainCut() {
       cutState.msg = `Cleaning photo ${cutState.done + 1} of ${cutState.total}...`; renderCut();
       try { await cutOne(it); cutState.done++; if (smart.color) await analyzeAndSave(id); }
       catch (e) {
-        cutState.err = "Couldn't load or run the cleanup tool. Check your connection and try again.";
+        cutState.err = "Couldn't load or run the cleanup tool. Check your connection and try again." + errText(e);
         cutState.queue.length = 0; break;
       }
     }
