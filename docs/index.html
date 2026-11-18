@@ -207,6 +207,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 
   <div id="viewCapture" class="stack" hidden>
     <div class="cats" id="cats" role="group" aria-label="Category"></div>
+    <div id="smartPrompt"></div>
     <div id="cutNag"></div>
     <div id="recNag"></div>
     <button class="shutter" id="camOpen"><span id="shutterText">Open camera<small>Photos save inside this app, not in your gallery.</small></span></button>
@@ -547,6 +548,7 @@ function render() {
     const badge = isDirty(i) ? `<span class="badge dirty">In hamper</span>` : (m > 1 && w > 0 ? `<span class="badge">${w}/${m} worn</span>` : "");
     return `<button class="tile" data-edit="${i.id}" aria-label="Edit ${esc(i.name || c.label)}"><img src="${picT(i)}" decoding="async" ${ca(i)} alt="" loading="lazy">${badge}${i.favorite ? '<span class="star">★</span>' : ""}${(i.name || i.color) ? `<span class="cap">${esc(i.name || i.color)}</span>` : ""}</button>`;
   }).join("");
+  renderSmartPrompt();
   $("grid").innerHTML = html || `<div class="empty" style="grid-column:1/-1">${q ? "No matches." : `Nothing here yet. Open the camera and add your first ${esc(c.label.toLowerCase())} photo.`}</div>`;
 }
 async function shrink(file) {
@@ -1213,6 +1215,13 @@ async function drainCut() {
   cutState.running = false; cutState.queue.length = 0; cutState.msg = ""; cutState.total = 0; cutState.done = 0;
   renderCut(); render(); renderToday();
 }
+const smartOn = () => smart.ai && cutPrefs.auto;
+function renderSmartPrompt() {
+  const el = $("smartPrompt"); if (!el) return;
+  const d = lsGet("closet-smartDismiss");
+  if (smartOn() || (d && Date.now() - d < 7 * 864e5)) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="install"><b>Let the app clean and sort your photos</b><p>It removes the background, reads each piece's type, color and pattern, and puts it in the right category for you. The first time it downloads about 200 MB, so use Wi-Fi. It all runs on your phone.</p><div class="actions"><button class="chip" id="smartOn" style="background:var(--accent);color:var(--accent-fg)">Turn on</button><button class="chip" id="smartNo">Not now</button></div></div>`;
+}
 function renderCut() {
   const left = eligible().length, total = items.filter(i => !i.demo).length, done = items.filter(i => !i.demo && i.cutUrl).length;
   let t = total ? `${done} of ${total} photos cleaned.` : "No photos yet.";
@@ -1222,7 +1231,9 @@ function renderCut() {
   $("cutStop").hidden = !cutState.running;
   $("cutAuto").checked = cutPrefs.auto; $("cutShow").checked = cutPrefs.use;
   const nag = left >= 5 && !cutPrefs.auto && !cutState.running;
-  $("cutNag").innerHTML = nag ? `<button class="wxline" data-tab="more"><b>${left} photos still have backgrounds.</b> Clean them up in More.</button>` : "";
+  $("cutNag").innerHTML = cutState.running ? `<div class="wxline"><b>${esc(cutState.msg || "Cleaning photos...")}</b></div>`
+    : cutState.err ? `<div class="wxline" style="border-color:var(--danger)"><b>${esc(cutState.err)}</b></div>`
+    : (nag ? `<button class="wxline" data-tab="more"><b>${left} photos still have backgrounds.</b> Clean them up in More.</button>` : "");
 }
 $("cutAll").addEventListener("click", () => enqueueCut(eligible().map(i => i.id)));
 $("cutStop").addEventListener("click", () => { cutState.stop = true; $("cutStatus").textContent = "Stopping after this photo..."; });
@@ -1670,7 +1681,15 @@ function showTab(name) {
 }
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("button"); if (!t) return;
-  if (t.dataset.undoshot && lastShot) { const id = lastShot.id; lastShot = null; renderShotNote(); try { await db.collection("closet").doc(id).delete(); toast("Photo removed. Try again."); } catch {} }
+  if (t.id === "smartOn") {
+    smart.ai = true; smart.color = true; cutPrefs.auto = true; lsSet("closet-smart", smart); lsSet("closet-cut", cutPrefs);
+    cat = "unsorted"; render(); renderCut(); renderRec();
+    toast("Smart photos on. New photos get cleaned and sorted.");
+    const c1 = eligible().map(i => i.id), c2 = eligibleRec().map(i => i.id);
+    if (c1.length) enqueueCut(c1); if (c2.length) enqueueRec(c2);
+  }
+  else if (t.id === "smartNo") { lsSet("closet-smartDismiss", Date.now()); renderSmartPrompt(); }
+  else if (t.dataset.undoshot && lastShot) { const id = lastShot.id; lastShot = null; renderShotNote(); try { await db.collection("closet").doc(id).delete(); toast("Photo removed. Try again."); } catch {} }
   else if (t.id === "installGo" && deferredPrompt) { deferredPrompt.prompt(); try { await deferredPrompt.userChoice; } catch {} deferredPrompt = null; renderInstall(); }
   else if (t.id === "installNo") { lsSet("closet-installDismiss", Date.now()); renderInstall(); }
   else if (t.dataset.dayshuf !== undefined) {
@@ -1718,6 +1737,7 @@ document.addEventListener("click", async (e) => {
 });
 
 /* ---------- Start ---------- */
+if (smart.ai) cat = "unsorted";
 applySkin(); render(); renderInstall();
 (async () => {
   db = makeDb(); ready = true;
