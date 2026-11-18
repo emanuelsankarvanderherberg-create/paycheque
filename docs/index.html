@@ -94,6 +94,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .btn { border: 3px solid var(--fg); background: var(--surface); border-radius: 18px; padding: 14px 18px; font-weight: 700; }
 .btn.primary { background: var(--accent); color: var(--accent-fg); flex: 1 1 200px; box-shadow: inset 0 -5px 0 rgba(0,0,0,.18); }
 .btn[disabled] { opacity: .5; cursor: default; }
+a.btn { display: block; text-align: center; text-decoration: none; color: inherit; }
+a.btn.primary { color: var(--accent-fg); }
 .card > .btn.primary, .stack > .btn.primary { flex: none; }
 .rd { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; line-height: 2; }
 .rd mark { background: var(--soft); color: var(--fg); padding: 3px 9px; border-radius: 999px; font-weight: 700; margin: 0 2px; letter-spacing: .06em; }
@@ -256,6 +258,14 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <h2 class="cat-title" style="margin-top:6px">Accent color</h2>
       <p class="tip">Changes buttons, the active tab and highlights, on top of any look above.</p>
       <div class="accents" id="accents"></div>
+    </div>
+    <div class="card">
+      <h2 class="cat-title">Morning reminder</h2>
+      <p class="tip">The app can't send notifications while it's closed, because that needs a server. A repeating calendar reminder does the same job on any phone: every morning it says "Choose your outfit for today", with a link that opens this app.</p>
+      <label class="tip">Remind me at<input type="time" id="remTime" value="07:30"></label>
+      <a class="btn primary" id="remGcal" href="#" target="_blank" rel="noopener">Add to Google Calendar</a>
+      <button class="btn" id="remIcs">Download calendar file (.ics)</button>
+      <p class="tip">Google Calendar: tap Save, then make sure the event has a notification. iPhone and other calendars: open the downloaded file and tap Add.</p>
     </div>
     <div class="card">
       <h2 class="cat-title">Setup</h2>
@@ -1722,9 +1732,49 @@ function renderPack() {
   $("packCity").onchange = (e) => { pack.dest = e.target.value; savePack(); };
 }
 
+/* ---------- Morning reminder (repeating calendar event) ---------- */
+const remTimeVal = () => lsGet("closet-remTime") || "07:30";
+const pad2 = (n) => String(n).padStart(2, "0");
+const fmtLocalIcs = (d) => `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}T${pad2(d.getHours())}${pad2(d.getMinutes())}00`;
+const appUrl = () => location.origin + location.pathname.replace(/index\.html$/, "");
+function remStart() {
+  const [h, m] = remTimeVal().split(":").map(Number), now = new Date();
+  const t = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h || 7, m || 0, 0);
+  if (t <= now) t.setDate(t.getDate() + 1);
+  return t;
+}
+const REM_TITLE = "Choose your outfit for today";
+const remBody = () => `Open My Closet and check today's outfit: ${appUrl()}`;
+const icsEsc = (t) => t.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+function buildIcs() {
+  const st = remStart(), en = new Date(st.getTime() + 10 * 60000);
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//My Closet//Morning reminder//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "BEGIN:VEVENT",
+    `UID:closet-morning-${Date.now()}@my-closet`, `DTSTAMP:${stamp}`, `DTSTART:${fmtLocalIcs(st)}`, `DTEND:${fmtLocalIcs(en)}`, "RRULE:FREQ=DAILY",
+    `SUMMARY:${icsEsc(REM_TITLE)}`, `DESCRIPTION:${icsEsc(remBody())}`, `URL:${appUrl()}`,
+    "BEGIN:VALARM", "TRIGGER:PT0M", "ACTION:DISPLAY", `DESCRIPTION:${icsEsc(REM_TITLE)}`, "END:VALARM", "END:VEVENT", "END:VCALENDAR"].join("\r\n") + "\r\n";
+}
+function gcalUrl() {
+  const st = remStart(), en = new Date(st.getTime() + 10 * 60000);
+  let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch {}
+  const q = new URLSearchParams({ action: "TEMPLATE", text: REM_TITLE, details: remBody(), dates: `${fmtLocalIcs(st)}/${fmtLocalIcs(en)}`, recur: "RRULE:FREQ=DAILY" });
+  if (tz) q.set("ctz", tz);
+  return "https://calendar.google.com/calendar/render?" + q.toString();
+}
+function renderRem() {
+  const t = $("remTime"); if (!t) return;
+  t.value = remTimeVal(); $("remGcal").href = gcalUrl();
+}
+$("remTime").addEventListener("change", (e) => { lsSet("closet-remTime", e.target.value || "07:30"); renderRem(); });
+$("remIcs").addEventListener("click", () => {
+  const blob = new Blob([buildIcs()], { type: "text/calendar;charset=utf-8" }), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "my-closet-morning-reminder.ics"; document.body.appendChild(a); a.click(); a.remove();
+  toast("Saved. Open the file to add it to your calendar.");
+});
+
 /* ---------- More tab ---------- */
 function renderMore() {
-  renderCut(); renderMem(); renderRec();
+  renderCut(); renderMem(); renderRec(); renderRem();
   $("unitC").setAttribute("aria-pressed", !unitF); $("unitF").setAttribute("aria-pressed", unitF);
   if (place && !$("wxStatus").textContent.startsWith("Couldn't")) {
     $("wxStatus").textContent = wx ? `${place.name}: ${fmt(wx.tmin)} to ${fmt(wx.tmax)}, ${wx.rain}% chance of rain today.` : `${place.name} saved. Loading forecast...`;
@@ -2026,7 +2076,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 21;
+const APP_VERSION = 22;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
