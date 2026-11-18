@@ -2014,6 +2014,18 @@ async function makeThumb(blob, max = 240) {
   } catch { return null; }
 }
 const thumbTried = new Set(); let thumbBusy = false;
+let lastResume = 0, resumeTimer = null;
+// On open (and when you come back to the app), carry on with photos that weren't finished, if Smart photos is on.
+function resumeWork() {
+  if (Date.now() - lastResume < 600000 || cutState.running || recState.running) return;
+  const cuts = cutPrefs.auto ? eligible().map(i => i.id) : [];
+  const recs = smart.ai && !platformInfo().ios ? eligibleRec().map(i => i.id) : [];
+  if (!cuts.length && !recs.length) return;
+  lastResume = Date.now();
+  toast("Picking up where it left off. Keep the app open until it finishes.");
+  if (cuts.length) enqueueCut(cuts);
+  if (recs.length) enqueueRec(recs);
+}
 let colorsRefreshed = false;
 // Older photos were colored with the first version of the detector; redo the ones the app colored itself (never ones you set by hand).
 async function refreshColors() {
@@ -2298,7 +2310,7 @@ applySkin(); render(); renderInstall();
     items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (items.length !== before && !worn.find(w => w.id === todayStr())) outfit = [];
     render(); syncToday(); renderCut(); renderRec(); if (tab === "stats") renderStats();
-    ensureThumbs(); refreshColors();
+    ensureThumbs(); refreshColors(); if (items.length && !resumeTimer) resumeTimer = setTimeout(resumeWork, 2500);
     if (!obChecked) { obChecked = true; if (!lsGet("closet-onboarded")) { if (items.length === 0 && !place) openOnboard(); else lsSet("closet-onboarded", true); } }
   });
   db.collection("worn").onSnapshot((snap) => { worn = snap.docs.map(d => ({ id: d.id, ...d.data() })); render(); syncToday(); });
@@ -2312,7 +2324,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (!hadController || reloading) return; reloading = true; try { toast("Updated. Reloading..."); } catch {} setTimeout(reloadWhenIdle, 800); });
   navigator.serviceWorker.register('sw.js').then((reg) => {
     reg.update().catch(() => {});
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { reg.update().catch(() => {}); setTimeout(resumeWork, 1500); } });
   }).catch(() => {});
 }
 </script>
