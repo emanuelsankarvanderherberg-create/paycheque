@@ -45,6 +45,10 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 .seasons .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
 .todaybar { position: fixed; left: 50%; transform: translateX(-50%); width: min(100%, 640px); bottom: calc(80px + env(safe-area-inset-bottom, 0px)); z-index: 6; background: var(--bg); padding: 10px 16px; border-top: 3px solid var(--fg); margin: 0; }
 #viewToday { padding-bottom: 84px; }
+.subh { font-family: var(--font-display); font-size: 17px; margin: 4px 0 0; }
+.tmr .th { display: flex; gap: 6px; overflow-x: auto; }
+.tmr .th img { width: 56px; height: 74px; object-fit: cover; border-radius: 10px; border: 2px solid var(--fg); flex: none; }
+.tmr .th img[data-cut] { object-fit: contain; background: var(--surface); }
 .logbanner { border-radius: 16px; padding: 10px 14px; font-size: 14px; border: 2px solid var(--fg); }
 .logbanner.ok { background: var(--accent); color: var(--accent-fg); }
 .logbanner.warn { background: var(--surface); border-color: #c62828; }
@@ -250,6 +254,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
     <div class="addrow" id="slotRow"></div>
     <div class="addrow" id="addRow"></div>
     <div id="logState"></div>
+    <div id="tomorrow"></div>
     <div id="styleNote"></div>
     <details class="card" id="moodBox">
       <summary>Style it <span id="moodSum">Optional</span></summary>
@@ -310,12 +315,26 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <div class="accents" id="accents"></div>
     </div>
     <div class="card">
-      <h2 class="cat-title">Morning reminder</h2>
+      <h2 class="cat-title">Reminders</h2>
+      <h3 class="subh">Morning: choose today's outfit</h3>
       <p class="tip">The app can't send notifications while it's closed, because that needs a server. A repeating calendar reminder does the same job on any phone: every morning it says "Choose your outfit for today", with a link that opens this app.</p>
       <label class="tip">Remind me at<input type="time" id="remTime" value="07:30"></label>
       <a class="btn primary" id="remGcal" href="#" target="_blank" rel="noopener">Add to Google Calendar</a>
       <button class="btn" id="remIcs">Download calendar file (.ics)</button>
       <p class="tip">Google Calendar: tap Save, then make sure the event has a notification. iPhone and other calendars: open the downloaded file and tap Add.</p>
+      <h3 class="subh">Evening: plan tomorrow</h3>
+      <p class="tip">A nightly nudge to lock in tomorrow's outfit (see the Tomorrow card on Today), so the morning takes no thinking.</p>
+      <label class="tip">Remind me at<input type="time" id="remTimeE" value="20:30"></label>
+      <a class="btn primary" id="remGcalE" href="#" target="_blank" rel="noopener">Add to Google Calendar</a>
+      <button class="btn" id="remIcsE">Download calendar file (.ics)</button>
+    </div>
+    <div class="card">
+      <h2 class="cat-title">Share with friends</h2>
+      <p class="tip">Send friends a link. They open it, add it to their home screen and get their own private closet. Nothing is shared between phones.</p>
+      <label class="formrow" style="gap:10px"><input type="checkbox" id="inviteGuide" style="width:22px;height:22px;accent-color:var(--accent)"><span>Include the 15-minute tester guide</span></label>
+      <label class="tip">Where should friends send problems? (optional)<input type="text" id="fbTarget" placeholder="Email, WhatsApp number or form link"></label>
+      <p class="tip" id="inviteNote"></p>
+      <div class="actions"><button class="btn primary" id="inviteShare">Share invite</button><button class="btn" id="inviteCopy">Copy link</button></div>
     </div>
     <div class="card">
       <h2 class="cat-title">Setup</h2>
@@ -396,6 +415,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <textarea id="reportText" readonly rows="8" aria-label="Report"></textarea>
       <div class="actions"><button class="btn primary" id="repCopy">Copy report</button><button class="btn" id="repShare">Share report</button></div>
       <a class="btn" id="repLink" href="#" target="_blank" rel="noopener" hidden>Send feedback</a>
+      <button class="btn primary" id="repSend" hidden>Send report</button>
       <a class="btn" href="test-guide.html" target="_blank" rel="noopener">Open the tester guide</a>
     </div>
   </section>
@@ -444,7 +464,11 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 </div>
 
 <script>
-const FEEDBACK_URL = "";   // set to a feedback form or mailto: link to show a "Send feedback" button
+const FEEDBACK_URL = "";
+// Where problem reports go: set by the link a friend used to open the app (?fb=...), or by the owner in More, Share with friends.
+const FB_OK = (v) => typeof v === "string" && v.length > 3 && v.length < 200 && (/^https:\/\/[^\s]+$/.test(v) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || /^\+?[0-9][0-9 ()-]{6,18}$/.test(v));
+try { const q = new URLSearchParams(location.search).get("fb"); if (q && FB_OK(q)) localStorage.setItem("closet-fb", JSON.stringify(q)); } catch {}
+const fbDest = () => { const v = lsGet("closet-fb") || lsGet("closet-fbOwn"); return FB_OK(v) ? v : ""; };   // set to a feedback form or mailto: link to show a "Send feedback" button
 const errLog = (() => { try { return JSON.parse(localStorage.getItem("closet-errlog")) || []; } catch { return []; } })();
 function logErr(kind, msg) {
   try { errLog.push({ t: new Date().toISOString(), kind, msg: String(msg || "").replace(/\s+/g, " ").slice(0, 200) }); while (errLog.length > 20) errLog.shift(); localStorage.setItem("closet-errlog", JSON.stringify(errLog)); } catch {}
@@ -945,6 +969,7 @@ async function closeEditor() {
     if (T && !(it.tags || []).length && tags.slice().sort().join() === (it.tags || []).slice().sort().join()) { upd.tags = T[3]; a.tags = true; }
     if (T && !name) upd.name = `${it.color ? it.color + " " : ""}${T[2].toLowerCase()}`;
   }
+  if (it.recognizedAt && (upd.typeLabel || upd.category)) upd.typeFixed = true;
   if (tags.slice().sort().join() !== (it.tags || []).slice().sort().join()) { upd.tags = tags; a.tags = false; }
   const fm = $("edForm").value === "" ? null : +$("edForm").value; if (fm !== (it.formality === undefined ? null : it.formality)) upd.formality = fm;
   if ($("edFav").checked !== !!it.favorite) upd.favorite = $("edFav").checked;
@@ -1296,6 +1321,36 @@ function whyNotes(notes) {
 }
 /* ---------- Keeping today's pick ---------- */
 // Today's outfit is saved on the phone, so closing the app or a background job never swaps it for another one.
+// Last night you can lock tomorrow's outfit; this morning it is simply there.
+function useLockedPlan() {
+  const d = plan.days && plan.days.find(x => x.date === todayStr() && x.locked && x.ids && x.ids.length && x.ids.every(byId) && x.ids.every(id => !isDirty(byId(id))));
+  if (!d) return false;
+  outfit = d.ids.map(id => ({ cat: byId(id).category, id })); outfitSeason = season; outfitTouched = true; outfitGenWx = true; outfitFrom = "plan"; return true;
+}
+const tomorrowStr = () => dateOffset(1);
+function reshuffleDay(date) {
+  const saved = new Map(plan.days.map(d => [d.date, d.locked]));
+  plan.days.forEach(d => { d.locked = d.date !== date; });
+  buildPlan(0);
+  plan.days.forEach(d => { d.locked = !!saved.get(d.date) && d.date !== date; }); lsSet("closet-plan", plan);
+}
+function renderTomorrow() {
+  const el = $("tomorrow"); if (!el) return;
+  const w = worn.find(x => x.id === todayStr());
+  if (!outfit.length || !(new Date().getHours() >= 17 || w) || !items.some(i => i.season === season && isActiveCat(i.category))) { el.innerHTML = ""; return; }
+  if (!planFresh()) buildPlan(0);
+  const d = plan.days.find(x => x.date === tomorrowStr()); if (!d || !d.ids.length) { el.innerHTML = ""; return; }
+  const f = wxFor(d.date), its = d.ids.map(byId).filter(Boolean);
+  const label = new Date(d.date + "T12:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+  const fc = f ? `${fmt(f.tmin)} / ${fmt(f.tmax)}${f.rain >= 30 ? ", rain " + f.rain + "%" : ""}` : "No forecast";
+  const ev = its.some(i => i.category === "outerwear") ? "" : "";
+  el.innerHTML = `<div class="card tmr"><div class="dh"><h2 class="cat-title" style="margin:0">Tomorrow</h2><span class="tip" style="margin:0">${esc(label)} · ${esc(fc)}</span></div>`
+    + `<div class="th">${its.map(i => `<img src="${picT(i)}" ${ca(i)} alt="${esc(i.name || "")}">`).join("")}</div>`
+    + `<p class="tip" style="margin:0">${esc(its.map(i => i.name || i.color || LABEL[i.category]).join(", "))}</p>`
+    + (d.locked ? `<div class="logbanner ok"><b>Locked in for tomorrow.</b> It will be waiting for you in the morning.</div><div class="actions"><button class="btn" data-tmrunlock="1">Change it</button></div>`
+      : `<div class="actions"><button class="btn" data-tmrshuf="1">Shuffle</button><button class="btn primary" data-tmrlock="1">Lock it in</button></div>`)
+    + `</div>`;
+}
 function saveToday() {
   if (SIM || !outfit.length) return;
   let st = lsGet("closet-today"); if (!st || st.date !== todayStr()) st = { date: todayStr(), s: {} };
@@ -1377,6 +1432,7 @@ function syncToday() {
     if (w && w.season === season && (w.itemIds || []).length && w.itemIds.every(byId)) {
       outfit = w.itemIds.map(id => ({ cat: byId(id).category, id })); outfitSeason = season; outfitTouched = true; outfitGenWx = true;
     } else if (restoreToday()) { /* same outfit as before */ }
+    else if (useLockedPlan()) { /* you locked this day in last night */ }
     else if (place && !wxSettled) { outfit = []; }   // wait a moment for the forecast, so the first pick already fits the weather
     else { outfitTouched = false; generate(); }
   }
@@ -1449,7 +1505,7 @@ function renderAddRow() {
   el.innerHTML = (miss.length || un) ? `<span class="lab2">Add to your closet</span>` + miss.map(c => `<button class="chip sm" data-addcat="${c}">+ ${names[c]}</button>`).join("") : "";
 }
 function renderToday() {
-  refreshCnt(); renderAddRow(); renderSlotRow();
+  refreshCnt(); renderAddRow(); renderSlotRow(); renderTomorrow();
   const w = worn.find(x => x.id === todayStr());
   const n = items.filter(i => i.season === season && isActiveCat(i.category)).length;
   renderWx(); renderMood();
@@ -2355,47 +2411,53 @@ function renderPack() {
 }
 
 /* ---------- Morning reminder (repeating calendar event) ---------- */
-const remTimeVal = () => lsGet("closet-remTime") || "07:30";
+const REMS = {
+  morning: { key: "closet-remTime", def: "07:30", title: "Choose your outfit for today", body: () => `Open My Closet and check today's outfit: ${appUrl()}`, file: "my-closet-morning-reminder.ics" },
+  evening: { key: "closet-remTimeEve", def: "20:30", title: "Plan tomorrow's outfit", body: () => `Open My Closet and lock in tomorrow's outfit: ${appUrl()}`, file: "my-closet-evening-reminder.ics" },
+};
+const remTimeVal = (k = "morning") => lsGet(REMS[k].key) || REMS[k].def;
 const pad2 = (n) => String(n).padStart(2, "0");
 const fmtLocalIcs = (d) => `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}T${pad2(d.getHours())}${pad2(d.getMinutes())}00`;
 const appUrl = () => location.origin + location.pathname.replace(/index\.html$/, "");
-function remStart() {
-  const [h, m] = remTimeVal().split(":").map(Number), now = new Date();
+function remStart(k = "morning") {
+  const [h, m] = remTimeVal(k).split(":").map(Number), now = new Date();
   const t = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h || 7, m || 0, 0);
   if (t <= now) t.setDate(t.getDate() + 1);
   return t;
 }
-const REM_TITLE = "Choose your outfit for today";
-const remBody = () => `Open My Closet and check today's outfit: ${appUrl()}`;
 const icsEsc = (t) => t.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
-function buildIcs() {
-  const st = remStart(), en = new Date(st.getTime() + 10 * 60000);
+function buildIcs(k = "morning") {
+  const R = REMS[k], st = remStart(k), en = new Date(st.getTime() + 10 * 60000);
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//My Closet//Morning reminder//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "BEGIN:VEVENT",
-    `UID:closet-morning-${Date.now()}@my-closet`, `DTSTAMP:${stamp}`, `DTSTART:${fmtLocalIcs(st)}`, `DTEND:${fmtLocalIcs(en)}`, "RRULE:FREQ=DAILY",
-    `SUMMARY:${icsEsc(REM_TITLE)}`, `DESCRIPTION:${icsEsc(remBody())}`, `URL:${appUrl()}`,
-    "BEGIN:VALARM", "TRIGGER:PT0M", "ACTION:DISPLAY", `DESCRIPTION:${icsEsc(REM_TITLE)}`, "END:VALARM", "END:VEVENT", "END:VCALENDAR"].join("\r\n") + "\r\n";
+  return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//My Closet//Reminder//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "BEGIN:VEVENT",
+    `UID:closet-${k}-${Date.now()}@my-closet`, `DTSTAMP:${stamp}`, `DTSTART:${fmtLocalIcs(st)}`, `DTEND:${fmtLocalIcs(en)}`, "RRULE:FREQ=DAILY",
+    `SUMMARY:${icsEsc(R.title)}`, `DESCRIPTION:${icsEsc(R.body())}`, `URL:${appUrl()}`,
+    "BEGIN:VALARM", "TRIGGER:PT0M", "ACTION:DISPLAY", `DESCRIPTION:${icsEsc(R.title)}`, "END:VALARM", "END:VEVENT", "END:VCALENDAR"].join("\r\n") + "\r\n";
 }
-function gcalUrl() {
-  const st = remStart(), en = new Date(st.getTime() + 10 * 60000);
+function gcalUrl(k = "morning") {
+  const R = REMS[k], st = remStart(k), en = new Date(st.getTime() + 10 * 60000);
   let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch {}
-  const q = new URLSearchParams({ action: "TEMPLATE", text: REM_TITLE, details: remBody(), dates: `${fmtLocalIcs(st)}/${fmtLocalIcs(en)}`, recur: "RRULE:FREQ=DAILY" });
+  const q = new URLSearchParams({ action: "TEMPLATE", text: R.title, details: R.body(), dates: `${fmtLocalIcs(st)}/${fmtLocalIcs(en)}`, recur: "RRULE:FREQ=DAILY" });
   if (tz) q.set("ctz", tz);
   return "https://calendar.google.com/calendar/render?" + q.toString();
 }
 function renderRem() {
   const t = $("remTime"); if (!t) return;
   t.value = remTimeVal(); $("remGcal").href = gcalUrl();
+  $("remTimeE").value = remTimeVal("evening"); $("remGcalE").href = gcalUrl("evening");
 }
+$("remTimeE").addEventListener("change", (e) => { lsSet(REMS.evening.key, e.target.value || "20:30"); renderRem(); });
 $("remTime").addEventListener("change", (e) => { lsSet("closet-remTime", e.target.value || "07:30"); renderRem(); });
-function downloadIcs() {
-  const blob = new Blob([buildIcs()], { type: "text/calendar;charset=utf-8" }), a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = "my-closet-morning-reminder.ics"; document.body.appendChild(a); a.click(); a.remove();
+function downloadIcs(k = "morning") {
+  const blob = new Blob([buildIcs(k)], { type: "text/calendar;charset=utf-8" }), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = REMS[k].file; document.body.appendChild(a); a.click(); a.remove();
   toast("Saved. Open the file to add it to your calendar.");
   remDone();
 }
 function remDone() { lsSet("closet-remDone", true); renderRemPrompt(); }
-$("remIcs").addEventListener("click", downloadIcs);
+$("remIcs").addEventListener("click", () => downloadIcs("morning"));
+$("remIcsE").addEventListener("click", () => downloadIcs("evening"));
+$("remGcalE").addEventListener("click", remDone);
 $("remGcal").addEventListener("click", remDone);
 
 /* ---------- Ask people if they want the reminder ---------- */
@@ -2408,7 +2470,7 @@ function renderRemPrompt() {
 }
 $("remTime2").addEventListener("change", (e) => { lsSet("closet-remTime", e.target.value || "07:30"); $("remGcal2").href = gcalUrl(); renderRem(); });
 $("remGcal2").addEventListener("click", remDone);
-$("remIcs2").addEventListener("click", downloadIcs);
+$("remIcs2").addEventListener("click", () => downloadIcs("morning"));
 $("remClose2").addEventListener("click", () => { $("remSheet").hidden = true; });
 $("remSheet").addEventListener("click", (e) => { if (e.target.id === "remSheet") $("remSheet").hidden = true; });
 
@@ -2441,6 +2503,7 @@ async function buildReport() {
     `Screen: ${screen.width}x${screen.height} at ${window.devicePixelRatio || 1}x | Installed as app: ${isInstalled() ? "yes" : "no"} | Online: ${navigator.onLine ? "yes" : "no"} | Language: ${navigator.language}`,
     `Storage: ${est && est.quota ? Math.round(est.usage / 1048576) + " MB used of about " + Math.round(est.quota / 1048576) + " MB" : "unknown"} | Protected from clearing: ${persisted === null ? "unknown" : persisted ? "yes" : "no"}`,
     `Closet: ${real.length} real pieces (${items.length - real.length} samples), ${real.filter(i => i.cutUrl).length} with cutouts, ${real.filter(i => i.recognizedAt).length} recognized, ${real.filter(i => i.thumbUrl).length} with thumbnails, ${worn.length} logged days`,
+    `Accuracy so far: ${real.filter(i => i.recognizedAt).length} types read by the app, ${real.filter(i => i.typeFixed).length} corrected by the user | ${real.filter(i => i.analyzedAt).length} colors read, ${real.filter(i => i.auto && i.auto.color === false).length} corrected`,
     `By category: ${CATS.map(c => c.id + "=" + items.filter(i => i.category === c.id).length).join(", ")}`,
     `Last backup: ${last ? new Date(last).toISOString() : "never"}`,
     `Settings: color detection ${smart.color}, type recognition ${smart.ai}, auto cleanup ${cutPrefs.auto}, cleanup method ${cutPrefs.method}, look ${skin}`,
@@ -2449,10 +2512,43 @@ async function buildReport() {
   L.push("", recent.length ? "Recent errors:" : "Recent errors: none", ...recent.map(e => `- ${e.t} [${e.kind}] ${e.msg}`));
   return L.join("\n");
 }
+function reportSend(text) {
+  const d = fbDest(); if (!d) return;
+  try { navigator.clipboard && navigator.clipboard.writeText(text); } catch {}
+  let url;
+  if (/^https:/.test(d)) { url = d; toast("Report copied. Paste it into the form."); }
+  else if (d.includes("@")) url = `mailto:${d}?subject=${encodeURIComponent("My Closet report")}&body=${encodeURIComponent(text.slice(0, 1400) + (text.length > 1400 ? "\n\n(Report copied; paste the rest.)" : ""))}`;
+  else url = `https://wa.me/${d.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(text.slice(0, 1400))}`;
+  window.open(url, "_blank", "noopener");
+}
+$("repSend").addEventListener("click", () => reportSend($("reportText").value));
+function inviteUrl() {
+  const base = appUrl(), own = lsGet("closet-fbOwn"); return base + (FB_OK(own) ? "?fb=" + encodeURIComponent(own) : "");
+}
+function inviteText() {
+  const guide = $("inviteGuide").checked ? `\n\n15-minute tester guide: ${appUrl()}test-guide.html` : "";
+  return `Try My Closet. It picks outfits from photos of your own clothes, checks the weather, and keeps everything on your phone (nothing is uploaded).\n\nOpen it: ${inviteUrl()}\n\nAndroid: open in Chrome, tap the menu, then Install app.\niPhone: open in Safari, tap Share, then Add to Home Screen.${guide}`;
+}
+function renderInvite() {
+  const el = $("fbTarget"); if (!el) return;
+  if (document.activeElement !== el) el.value = lsGet("closet-fbOwn") || "";
+  const own = lsGet("closet-fbOwn");
+  $("inviteNote").textContent = !own ? "Optional: add where friends should send problems and the link will carry it." : FB_OK(own) ? "Friends' problem reports will go to: " + own : "That doesn't look like an email, a phone number or a link starting with https://.";
+}
+$("fbTarget").addEventListener("input", (e) => { const v = e.target.value.trim(); lsSet("closet-fbOwn", v); renderInvite(); renderReport(); });
+$("inviteGuide").checked = lsGet("closet-inviteGuide") !== false;
+$("inviteGuide").addEventListener("change", (e) => lsSet("closet-inviteGuide", e.target.checked));
+$("inviteShare").addEventListener("click", async () => {
+  const text = inviteText();
+  if (navigator.share) { try { await navigator.share({ title: "My Closet", text }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+  try { await navigator.clipboard.writeText(text); toast("Invite copied. Paste it into a message."); } catch { toast("Couldn't copy. Copy the link manually."); }
+});
+$("inviteCopy").addEventListener("click", async () => { try { await navigator.clipboard.writeText(inviteUrl()); toast("Link copied."); } catch { toast("Couldn't copy the link."); } });
 async function renderReport() {
   const ta = $("reportText"); if (!ta) return;
   ta.value = await buildReport();
   const a = $("repLink"); if (a) { a.hidden = !FEEDBACK_URL; if (FEEDBACK_URL) a.href = FEEDBACK_URL; }
+  const sb = $("repSend"); if (sb) { const d = fbDest(); sb.hidden = !d; if (d) sb.textContent = /^https:/.test(d) ? "Open the feedback form" : d.includes("@") ? "Email this report" : "Send on WhatsApp"; }
 }
 $("repCopy").addEventListener("click", async () => {
   const text = $("reportText").value;
@@ -2480,7 +2576,7 @@ let crashNote = "";
 /* ---------- More tab ---------- */
 function foldMore() {
   const root = $("viewMore"); if (root.dataset.folded) return; root.dataset.folded = "1";
-  const state = lsGet("closet-fold") || {}, order = [/Smart sort/i, /Photo quality/i, /Photo cleanup/i, /Morning reminder/i, /Look/i, /What I wear/i, /Weather/i, /Setup/i, /memory/i, /Backup/i, /Report/i, /About/i];
+  const state = lsGet("closet-fold") || {}, order = [/Smart sort/i, /Photo quality/i, /Photo cleanup/i, /Reminder/i, /Share with/i, /Look/i, /What I wear/i, /Weather/i, /Setup/i, /memory/i, /Backup/i, /Report/i, /About/i];
   const cards = [...root.children].filter(c => c.classList.contains("card") && c.querySelector("h2.cat-title"));
   const made = cards.map(card => {
     const h = card.querySelector("h2.cat-title"), title = h.textContent.trim(), det = document.createElement("details");
@@ -2494,7 +2590,7 @@ function foldMore() {
 }
 function renderMore() {
   foldMore();
-  renderCut(); renderMem(); renderRec(); renderRem(); renderStorage(); renderReport();
+  renderCut(); renderMem(); renderRec(); renderRem(); renderStorage(); renderReport(); renderInvite();
   $("unitC").setAttribute("aria-pressed", !unitF); $("unitF").setAttribute("aria-pressed", unitF);
   if (place && !$("wxStatus").textContent.startsWith("Couldn't")) {
     $("wxStatus").textContent = wx ? `${place.name}: ${fmt(wx.tmin)} to ${fmt(wx.tmax)}, ${wx.rain}% chance of rain today.` : `${place.name} saved. Loading forecast...`;
@@ -2847,6 +2943,9 @@ document.addEventListener("click", async (e) => {
     const s = outfit[+t.dataset.swapkeep]; if (s) { s.locked = !s.locked; touchOutfit(); toast(s.locked ? "Kept. Shuffle will leave it alone." : "Released."); } $("swapSheet").hidden = true; renderToday();
   } else if (t.dataset.addslot) {
     const it = bestForSlot(t.dataset.addslot); if (it) { outfit.push({ cat: t.dataset.addslot, id: it.id }); outfitFrom = ""; touchOutfit(); renderToday(); } else toast("Nothing clean in that category.");
+  } else if (t.dataset.tmrshuf) { if (navigator.vibrate) navigator.vibrate(15); reshuffleDay(tomorrowStr()); renderTomorrow();
+  } else if (t.dataset.tmrlock) { const d = plan.days.find(x => x.date === tomorrowStr()); if (d) { d.locked = true; lsSet("closet-plan", plan); if (navigator.vibrate) navigator.vibrate([20, 40, 20]); toast("Tomorrow is locked in."); } renderTomorrow();
+  } else if (t.dataset.tmrunlock) { const d = plan.days.find(x => x.date === tomorrowStr()); if (d) { d.locked = false; lsSet("closet-plan", plan); } renderTomorrow();
   } else if (t.id === "swapClose") { $("swapSheet").hidden = true; } else if (t.id === "reroll") {
     if (outfit.length && outfit.every(x => x.locked)) { toast("Everything is kept. Release a piece to shuffle."); }
     else {
@@ -2867,7 +2966,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 29;
+const APP_VERSION = 30;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
