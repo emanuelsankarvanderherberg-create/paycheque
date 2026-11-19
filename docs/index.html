@@ -43,6 +43,8 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 .seasons .chip { flex: 1; justify-content: center; border: 0; border-radius: 0; background: var(--surface); padding: 11px 8px; font-weight: 700; }
 .seasons .chip + .chip { border-left: 3px solid var(--fg); }
 .seasons .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.todaybar { position: fixed; left: 50%; transform: translateX(-50%); width: min(100%, 640px); bottom: calc(80px + env(safe-area-inset-bottom, 0px)); z-index: 6; background: var(--bg); padding: 10px 16px; border-top: 3px solid var(--fg); margin: 0; }
+#viewToday { padding-bottom: 84px; }
 .logbanner { border-radius: 16px; padding: 10px 14px; font-size: 14px; border: 2px solid var(--fg); }
 .logbanner.ok { background: var(--accent); color: var(--accent-fg); }
 .logbanner.warn { background: var(--surface); border-color: #c62828; }
@@ -239,10 +241,12 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
   <div class="seasons" id="seasons" role="group" aria-label="Season"></div>
 
   <section id="viewToday" class="stack">
-    <div id="installBanner"></div>
-    <div id="remPrompt"></div>
     <div class="readout" id="readout"></div>
     <div class="stagewrap"><div class="stage" id="stage"></div></div>
+    <div class="actions todaybar">
+      <button class="btn" id="reroll">Shuffle</button>
+      <button class="btn primary" id="wear">I'm wearing this today</button>
+    </div>
     <div class="addrow" id="slotRow"></div>
     <div class="addrow" id="addRow"></div>
     <div id="logState"></div>
@@ -251,15 +255,13 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <summary>Style it <span id="moodSum">Optional</span></summary>
       <div id="moodBody" class="stack" style="gap:10px"></div>
     </details>
-    <div class="actions">
-      <button class="btn" id="reroll">Shuffle</button>
-      <button class="btn primary" id="wear">I'm wearing this today</button>
-    </div>
     <div class="actions" id="rateRow">
       <button class="btn" id="skipBtn">Skip it</button>
       <button class="btn" id="loveBtn">Love it</button>
       <button class="btn" id="shareLook">Share image</button>
     </div>
+    <div id="installBanner"></div>
+    <div id="remPrompt"></div>
     <div id="laundryNag"></div>
     <div id="backupNag"></div>
     <div id="savedWrap" class="stack" hidden><h2 class="cat-title">Saved looks</h2><div class="hist" id="savedLooks"></div></div>
@@ -1382,7 +1384,14 @@ function syncToday() {
   const gone = outfit.some(x => !byId(x.id));
   outfit.forEach(x => { const it = byId(x.id); if (it) x.cat = it.category; });
   outfit = outfit.filter(x => byId(x.id) && isActiveCat(byId(x.id).category) && byId(x.id).category !== "unsorted");
-  if (gone && items.length) { outfit.forEach(x => { x.locked = true; }); generate(); outfit.forEach(x => { x.locked = false; }); saveToday(); }
+  // required slots (a top or dress, bottoms, shoes) that are empty even though you now have pieces for them get filled in
+  const hasC = (c) => outfit.some(x => x.cat === c), baseMissing = !(hasC("tops") || hasC("layers") || hasC("onepiece")) && (pool("tops").length || pool("layers").length || pool("onepiece").length);
+  const incomplete = outfit.length && (baseMissing || (!hasC("onepiece") && !hasC("bottoms") && pool("bottoms").length) || (!hasC("shoes") && pool("shoes").length));
+  if ((gone || incomplete) && items.length) {
+    if (!outfitTouched && !w && !gone) { outfit = []; generate(); }
+    else { const kept = new Set(outfit.filter(x => x.locked).map(x => x.id)); outfit.forEach(x => { x.locked = true; }); generate(); outfit.forEach(x => { x.locked = kept.has(x.id); }); }
+    saveToday();
+  }
   renderToday();
   if (tab === "laundry") renderLaundry();
 }
@@ -1415,6 +1424,7 @@ function unsortedMsg(n) {
   }
   return `<div class="empty" style="margin:14px">${n ? (items.some(i => i.season === season && isDirty(i)) ? "Everything clean is already used up. Check the Laundry tab." : "Building your outfit...") : "No photos in this season yet. Open Photos and take a few tops, bottoms and shoes."}</div>`;
 }
+function showBoard() { const r = $("stage").getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight - 150) window.scrollTo({ top: Math.max(0, scrollY + r.top - 70), behavior: "smooth" }); }
 function openSwap(idx) {
   const s = outfit[idx]; if (!s) return;
   const opts = swapOptions(idx), best = opts.length ? opts[0].m : 1, optional = !["tops", "bottoms", "onepiece"].includes(s.cat);
@@ -2842,7 +2852,7 @@ document.addEventListener("click", async (e) => {
     else {
       touchOutfit(); if (navigator.vibrate) navigator.vibrate(15);
       const st = $("stage"); st.classList.add("shuffling"); await new Promise(r => setTimeout(r, 170)); st.classList.remove("shuffling");
-      generate(); renderToday();
+      generate(); renderToday(); showBoard();
     }
   }
   else if (t.id === "wear") {
@@ -2857,7 +2867,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 28;
+const APP_VERSION = 29;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
