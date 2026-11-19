@@ -62,6 +62,9 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 .verdict h3 { margin: 0 0 4px; font-family: var(--font-display); font-size: 22px; }
 .tryout { display: flex; gap: 6px; align-items: center; } .tryout img { width: 52px; height: 68px; object-fit: cover; border-radius: 10px; border: 2px solid var(--fg); }
 .tryout img[data-cut] { object-fit: contain; background: var(--surface); }
+.tipcard { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: min(94%, 600px); z-index: 60; background: var(--fg); color: var(--bg); border-radius: 18px; padding: 12px 14px; font-size: 14px; line-height: 1.4; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.tipcard[hidden] { display: none; }
+.tipbtns { display: flex; gap: 14px; } .tipbtns button { background: none; border: 0; color: inherit; font-weight: 700; text-decoration: underline; padding: 2px 0; }
 .logbanner { border-radius: 16px; padding: 10px 14px; font-size: 14px; border: 2px solid var(--fg); }
 .logbanner.ok { background: var(--accent); color: var(--accent-fg); }
 .logbanner.warn { background: var(--surface); border-color: #c62828; }
@@ -261,6 +264,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
     <div class="readout" id="readout"></div>
     <div class="stagewrap"><div class="stage" id="stage"></div></div>
     <div class="actions todaybar">
+      <button class="btn" id="undoOutfit" hidden aria-label="Back to the last outfit">Back</button>
       <button class="btn" id="reroll">Shuffle</button>
       <button class="btn primary" id="wear">I'm wearing this today</button>
     </div>
@@ -291,6 +295,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
   <div id="viewCapture" class="stack" hidden>
     <div class="cats catscroll" id="cats" role="group" aria-label="Category"></div>
     <div id="guideDone"></div>
+    <div id="dupNote"></div>
     <button class="btn" id="guideStart" style="flex:none">Guided session: I'll walk you through it</button>
     <button class="shutter" id="camOpen"><span id="shutterText">Open camera<small>Photos save inside this app, not in your gallery.</small></span></button>
     <div id="camLive" class="stack" hidden>
@@ -357,6 +362,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
     </div>
     <div class="card">
       <h2 class="cat-title">Setup</h2>
+      <button class="btn" id="tipsReset" style="margin-bottom:6px">Show the first-time tips again</button>
       <p class="tip">Walk through the first-time setup again: what you wear, your city, laundry day and photo tips.</p>
       <button class="btn" id="obAgain">Run setup again</button>
     </div>
@@ -455,6 +461,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 </nav>
 
 <div class="toast" id="toast" hidden></div>
+<div class="tipcard" id="tipCard" hidden></div>
 <div class="sheet" id="remSheet" hidden><div class="panel" role="dialog" aria-label="Morning reminder">
   <h2 class="cat-title" style="font-size:24px">Morning reminder</h2>
   <p>Every morning your phone will say "Choose your outfit for today", with a link that opens this app. It uses your phone's calendar, so it works even when the app is closed.</p>
@@ -472,7 +479,9 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 <div class="sheet" id="sheet" hidden>
   <div class="panel" role="dialog" aria-label="Edit item">
     <img id="edImg" alt="">
+    <label class="btn" style="text-align:center;flex-direction:row;justify-content:center;cursor:pointer">Retake photo (keeps its history)<input type="file" id="edRetake" accept="image/*" capture="environment" hidden></label>
     <label>Name<input type="text" id="edName" placeholder="e.g. Black hoodie"></label>
+    <label class="chk"><input type="checkbox" id="edAll"> Wear all year (shows in both seasons)</label>
     <label>Category<select id="edCat"></select></label>
     <label>Type<select id="edType"><option value="">Not set</option></select></label>
     <label>Color<select id="edColor"><option value="">Not set</option></select></label>
@@ -534,6 +543,8 @@ const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
 let season = "fall-winter", cat = "tops", tab = "today";
+// a piece is in the closet for the current season if it belongs to it, or if you marked it to wear all year
+function inS(i, s) { return i.season === (s || season) || !!i.allYear; }
 let items = [], worn = [], pending = [], db = null, ready = false;
 let outfit = [], outfitSeason = null, CNT = new Map();
 let outfitTouched = false, outfitGenWx = false, stageSig = "";
@@ -595,8 +606,10 @@ async function notify(name) {
   const rows = await tx(name, "readonly", s => s.getAll());
   const snap = { docs: rows.map(r => {
     const data = { ...r }; delete data.blob; delete data.cutout; delete data.thumb; delete data.cutThumb;
-    if (r.thumb) { if (!turls.has(r.id)) turls.set(r.id, URL.createObjectURL(r.thumb)); data.thumbUrl = turls.get(r.id); }
-    if (r.blob) { if (!urls.has(r.id)) urls.set(r.id, URL.createObjectURL(r.blob)); data.url = urls.get(r.id); }
+    // a photo's web address is reused until its photo is replaced (photoAt changes), so retaking or improving a photo shows right away
+    const keyed = (map, blob) => { const at = r.photoAt || 0, c = map.get(r.id); if (c && c.at === at) return c.url; if (c) URL.revokeObjectURL(c.url); const url = URL.createObjectURL(blob); map.set(r.id, { at, url }); return url; };
+    if (r.thumb) data.thumbUrl = keyed(turls, r.thumb);
+    if (r.blob) data.url = keyed(urls, r.blob);
     const old = curls.get(r.id);
     if (r.cutout) {
       if (!old || old.at !== r.cutAt) { if (old) URL.revokeObjectURL(old.url); curls.set(r.id, { at: r.cutAt, url: URL.createObjectURL(r.cutout), turl: r.cutThumb ? URL.createObjectURL(r.cutThumb) : null }); }
@@ -655,8 +668,8 @@ function laundryInfo() {
   const act = items.filter(i => isActiveCat(i.category));
   const dirty = act.filter(isDirty);
   const partial = act.filter(i => !isDirty(i) && maxWears(i) > 0 && wearsOf(i) > 0);
-  const lefts = ["tops", "bottoms"].filter(c => isActiveCat(c) && items.some(i => i.season === season && i.category === c && maxWears(i) > 0)).map(c => ({
-    c, n: items.filter(i => i.season === season && i.category === c && maxWears(i) > 0 && !isDirty(i)).reduce((a, i) => a + leftOf(i), 0),
+  const lefts = ["tops", "bottoms"].filter(c => isActiveCat(c) && items.some(i => inS(i) && i.category === c && maxWears(i) > 0)).map(c => ({
+    c, n: items.filter(i => inS(i) && i.category === c && maxWears(i) > 0 && !isDirty(i)).reduce((a, i) => a + leftOf(i), 0),
   }));
   const minLeft = lefts.length ? Math.min(...lefts.map(x => x.n)) : null;
   const low = laundry.low, today = new Date(); today.setHours(12, 0, 0, 0);
@@ -705,7 +718,7 @@ function renderSelBar() {
   bar.hidden = !selMode || tab !== "capture";
   $("selMode").setAttribute("aria-pressed", selMode); $("selMode").textContent = selMode ? "Cancel" : "Select";
   if (bar.hidden) return;
-  bar.innerHTML = `<b>${sel.size} selected</b><select id="selMove" aria-label="Move to category"><option value="">Move to...</option>${CATS.map(c => `<option value="${c.id}">${c.id === "unsorted" ? "Unsorted" : esc(c.label)}</option>`).join("")}</select><button class="btn" id="selClean">Clean up</button><button class="btn" id="selDel">${selDelArm ? "Tap again to delete" : "Delete"}</button>`;
+  bar.innerHTML = `<b>${sel.size} selected</b><select id="selMove" aria-label="Move to category"><option value="">Move to...</option>${CATS.map(c => `<option value="${c.id}">${c.id === "unsorted" ? "Unsorted" : esc(c.label)}</option>`).join("")}</select><select id="selSeason" aria-label="Season"><option value="">Season...</option><option value="all">Wear all year</option><option value="fall-winter">Fall / Winter only</option><option value="spring-summer">Spring / Summer only</option></select><button class="btn" id="selClean">Clean up</button><button class="btn" id="selDel">${selDelArm ? "Tap again to delete" : "Delete"}</button>`;
 }
 // Deleting keeps a copy for a few seconds so you can bring it back.
 let undoStash = null, undoT = null;
@@ -728,7 +741,7 @@ function render() {
   if (!isActiveCat(cat)) cat = (cats[0] || CATS[0]).id;
   refreshCnt();
   $("seasons").innerHTML = SEASONS.map(s => `<button class="chip" data-season="${s.id}" aria-pressed="${s.id === season}">${s.label}</button>`).join("");
-  const inSeason = items.filter(i => i.season === season && isActiveCat(i.category));
+  const inSeason = items.filter(i => inS(i) && isActiveCat(i.category));
   $("total").textContent = inSeason.length;
   $("cats").innerHTML = cats.map(c => {
     const n = inSeason.filter(i => i.category === c.id).length + pending.filter(p => p.season === season && p.category === c.id && p.status !== "error").length;
@@ -738,7 +751,7 @@ function render() {
   $("catTitle").textContent = c.label; $("catTip").textContent = c.tip;
   $("shutterText").firstChild.textContent = "Open camera"; $("snap").textContent = "Snap " + c.label.toLowerCase();
   const q = ($("search").value || "").trim().toLowerCase();
-  const mine = items.filter(i => i.season === season && i.category === cat)
+  const mine = items.filter(i => inS(i) && i.category === cat)
     .filter(i => !q || (i.name || "").toLowerCase().includes(q) || (i.color || "").toLowerCase().includes(q))
     .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   const pend = pending.filter(p => p.season === season && p.category === cat);
@@ -746,7 +759,8 @@ function render() {
   html += mine.map(i => {
     if (selMode) return `<button class="tile ${sel.has(i.id) ? "sel" : ""}" data-sel="${i.id}" aria-pressed="${sel.has(i.id)}"><img src="${picT(i)}" decoding="async" ${ca(i)} alt="" loading="lazy">${sel.has(i.id) ? '<span class="tick">✓</span>' : ""}</button>`;
     const m = maxWears(i), w = wearsOf(i);
-    const badge = isDirty(i) ? `<span class="badge dirty">In hamper</span>` : (m > 1 && w > 0 ? `<span class="badge">${w}/${m} worn</span>` : "");
+    const yr = i.allYear ? `<span class="badge" style="left:6px;right:auto;top:6px;bottom:auto">All year</span>` : "";
+    const badge = yr + (isDirty(i) ? `<span class="badge dirty">In hamper</span>` : (m > 1 && w > 0 ? `<span class="badge">${w}/${m} worn</span>` : ""));
     return `<button class="tile" data-edit="${i.id}" aria-label="Edit ${esc(i.name || c.label)}"><img src="${picT(i)}" decoding="async" ${ca(i)} alt="" loading="lazy">${badge}${i.favorite ? '<span class="star">★</span>' : ""}${(i.name || i.color) ? `<span class="cap">${esc(i.name || i.color)}</span>` : ""}</button>`;
   }).join("");
   renderSmartPrompt(); renderSelBar();
@@ -826,6 +840,7 @@ async function handleFiles(files) {
       lastShot = { id: newId, issue }; renderShotNote(); clearTimeout(shotT); if (issue) shotT = setTimeout(() => { lastShot = null; renderShotNote(); }, 9000);
       (async () => {
         if (smart.color) { try { await analyzeAndSave(newId); } catch {} }
+        try { await checkDup(newId); } catch {}
         if (cutPrefs.auto) enqueueCut([newId]);
         if (smart.ai || p.category === "unsorted") enqueueRec([newId]);
       })();
@@ -846,10 +861,10 @@ async function fixExisting() {
       try {
         const cv = await photoCanvas(await (await fetch(it.url)).blob(), 1400), res = autoFixCanvas(cv);
         const upd = { fixVer: 1 };
-        if (res) { upd.blob = await canvasBlob(cv, "image/jpeg", 0.88); upd.thumb = await makeThumb(upd.blob); }
+        if (res) { upd.blob = await canvasBlob(cv, "image/jpeg", 0.88); upd.thumb = await makeThumb(upd.blob); upd.photoAt = Date.now(); }
         if (it.cutUrl) {
           const cc = await photoCanvas(await (await fetch(it.cutUrl)).blob(), 1400); const r2 = autoFixCanvas(cc, { wb: false });
-          if (r2) { upd.cutout = await canvasBlob(cc, "image/webp", 0.88); upd.cutThumb = await makeThumb(upd.cutout); }
+          if (r2) { upd.cutout = await canvasBlob(cc, "image/webp", 0.88); upd.cutThumb = await makeThumb(upd.cutout); upd.cutAt = new Date().toISOString(); }
         }
         await serial(() => db.collection("closet").doc(id).update(upd));
       } catch (e) { logErr("fix", e && e.message); }
@@ -868,6 +883,11 @@ $("lib").addEventListener("change", (e) => { const f = [...e.target.files]; e.ta
 $("search").addEventListener("input", render);
 $("selMode").addEventListener("click", () => { selMode = !selMode; sel.clear(); selDelArm = false; render(); });
 document.addEventListener("change", async (e) => {
+  if (e.target.id === "selSeason" && e.target.value) {
+    const v = e.target.value, ids = [...sel]; if (!ids.length) { e.target.value = ""; return; }
+    for (const id of ids) await serial(() => db.collection("closet").doc(id).update(v === "all" ? { allYear: true } : { allYear: false, season: v }));
+    toast(v === "all" ? `${ids.length} now wear all year.` : `${ids.length} set to ${v === "fall-winter" ? "Fall / Winter" : "Spring / Summer"} only.`); sel.clear(); render(); syncToday(); return;
+  }
   if (e.target.id !== "selMove" || !e.target.value) return;
   const to = e.target.value, ids = [...sel]; if (!ids.length) { e.target.value = ""; return; }
   for (const id of ids) { const it = byId(id); if (!it) continue; const a = { ...(it.auto || {}), category: false }; await serial(() => db.collection("closet").doc(id).update({ category: to, auto: a })); }
@@ -930,6 +950,73 @@ function camTick() {
   const hb = $("camHint"); if (hb.textContent !== hint) hb.textContent = hint; hb.className = "hintbar " + cls;
   if (autoSnap && !dark && !bright && !moving && camSt.moved && camSt.steady >= 1250) { camSt.moved = false; camSt.steady = 0; snap(); }
 }
+/* ---------- Duplicate check when you take a photo ---------- */
+const sigCache = new Map();
+async function photoSig(src) {
+  const img = new Image(); img.src = src; await img.decode();
+  const W = 6, H = 8, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const g = cv.getContext("2d", { willReadFrequently: true }), iw = img.naturalWidth, ih = img.naturalHeight;
+  g.drawImage(img, iw * 0.15, ih * 0.1, iw * 0.7, ih * 0.8, 0, 0, W, H);   // the middle, where the piece is
+  const d = g.getImageData(0, 0, W, H).data, v = new Float32Array(W * H * 3), mean = [0, 0, 0];
+  for (let i = 0; i < W * H; i++) for (let k = 0; k < 3; k++) { v[i * 3 + k] = d[i * 4 + k]; mean[k] += d[i * 4 + k] / (W * H); }
+  for (let i = 0; i < W * H; i++) for (let k = 0; k < 3; k++) v[i * 3 + k] -= mean[k];   // ignore overall brightness and tint
+  return { v, mean };
+}
+function sigDist(a, b) { let s = 0; for (let i = 0; i < a.v.length; i++) s += Math.abs(a.v[i] - b.v[i]); return s / a.v.length + 0.15 * Math.hypot(a.mean[0] - b.mean[0], a.mean[1] - b.mean[1], a.mean[2] - b.mean[2]) / 4; }
+const DUP_LIMIT = 13;
+async function checkDup(newId) {
+  const it = byId(newId); if (!it || !it.url) return;
+  const mine = await photoSig(it.thumbUrl || it.url), cands = items.filter(o => o.id !== newId && !o.demo && o.url);
+  let best = null;
+  for (const o of cands) {
+    try { const key = o.id + (o.createdAt || ""); if (!sigCache.has(key)) sigCache.set(key, await photoSig(o.thumbUrl || o.url)); const d = sigDist(mine, sigCache.get(key)); if (!best || d < best.d) best = { o, d }; } catch {}
+  }
+  if (best && best.d < DUP_LIMIT) { dupInfo = { newId, oldId: best.o.id }; renderDup(); }
+}
+let dupInfo = null;
+function renderDup() {
+  const el = $("dupNote"); if (!el) return;
+  const o = dupInfo && byId(dupInfo.oldId), n = dupInfo && byId(dupInfo.newId);
+  if (!o || !n) { el.innerHTML = ""; dupInfo = null; return; }
+  el.innerHTML = `<div class="install"><b>Is this the same as "${esc(o.name || o.color || LABEL[o.category])}"?</b><p>It looks like a piece you already have. If it's the same one, I'll use this new photo and keep its wear history, instead of adding a copy.</p><div class="actions"><button class="btn primary" id="dupSame">Same piece: use new photo</button><button class="btn" id="dupDiff">Different piece</button></div></div>`;
+}
+document.addEventListener("click", async (e) => {
+  const id = e.target.id; if (id !== "dupSame" && id !== "dupDiff") return;
+  const d = dupInfo; dupInfo = null; $("dupNote").innerHTML = ""; if (id === "dupDiff" || !d) return;
+  try {
+    const rec = await db.collection("closet").doc(d.newId).get(); if (!rec) return;
+    await serial(() => db.collection("closet").doc(d.oldId).update({ blob: rec.blob, thumb: rec.thumb, cutout: null, cutThumb: null, cutAt: null, cutFail: false, fixVer: rec.fixVer || 0, photoAt: Date.now() }));
+    await db.collection("closet").doc(d.newId).delete(); sigCache.clear();
+    toast("Photo updated. The old piece keeps its history.");
+    if (smart.color) { try { await analyzeAndSave(d.oldId); } catch {} } if (cutPrefs.auto) enqueueCut([d.oldId]);
+  } catch { setMsg("Couldn't merge those photos.", true); }
+});
+/* ---------- First-time tips ---------- */
+const TIPS = {
+  swap: "Tip: tap a piece to see its best matches. Tap Keep it to lock a piece, then Shuffle the rest.",
+  shuffle: "Tip: shuffled too far? Tap Back to return to the last outfit.",
+  rules: "Tip: tell me about pairs you never or always want together, and I'll follow it from now on.",
+  tomorrow: "Tip: lock in tomorrow's outfit tonight and it will be waiting for you in the morning.",
+  try: "Tip: photograph something in a store to see if it goes with your closet. The photo isn't saved.",
+  photos: "Tip: Guided session walks you through photographing your whole closet, step by step.",
+};
+let tipQueue = [], tipShowing = null;
+function showTip(key) {
+  if (lsGet("closet-tipsOff") || !TIPS[key]) return;
+  const seen = lsGet("closet-tips") || {}; if (seen[key] || tipQueue.includes(key) || tipShowing === key) return;
+  if (!$("onboard").hidden) return;
+  tipQueue.push(key); if (!tipShowing) nextTip();
+}
+function nextTip() {
+  const el = $("tipCard"); tipShowing = tipQueue.shift() || null;
+  if (!tipShowing) { el.hidden = true; return; }
+  el.innerHTML = `<span>${esc(TIPS[tipShowing])}</span><div class="tipbtns"><button id="tipOk">Got it</button><button id="tipOff">Hide tips</button></div>`; el.hidden = false;
+}
+document.addEventListener("click", (e) => {
+  if (e.target.id === "tipOk") { const seen = lsGet("closet-tips") || {}; seen[tipShowing] = 1; lsSet("closet-tips", seen); nextTip(); }
+  else if (e.target.id === "tipOff") { lsSet("closet-tipsOff", true); tipQueue = []; tipShowing = null; $("tipCard").hidden = true; }
+  else if (e.target.id === "tipsReset") { lsSet("closet-tips", {}); lsSet("closet-tipsOff", false); toast("Tips will show again."); }
+});
 /* ---------- Try before you buy ---------- */
 const tryPool = () => { const r = items.filter(i => !i.demo && i.id !== "__try"); return r.length >= 3 ? r : items.filter(i => i.id !== "__try"); };
 const tryState = { url: "", color: "", pattern: "solid", lum: null, type: "", name: "", busy: "", result: null };
@@ -937,7 +1024,7 @@ function tryTypeOptions(sel) {
   const groups = { tops: "Shirts & tees", layers: "Sweaters", bottoms: "Bottoms", outerwear: "Jackets & coats", shoes: "Shoes", accessories: "Accessories", onepiece: "Dresses & sets" };
   return '<option value="">What is it?</option>' + Object.entries(groups).map(([c, l]) => `<optgroup label="${l}">${TYPES.filter(t => t[1] === c).map(t => `<option value="${t[0]}" ${sel === t[0] ? "selected" : ""}>${t[2]}</option>`).join("")}</optgroup>`).join("");
 }
-function openTry() { Object.assign(tryState, { url: "", color: "", pattern: "solid", lum: null, type: "", name: "", busy: "", result: null }); renderTry(); $("trySheet").hidden = false; }
+function openTry() { showTip("try"); Object.assign(tryState, { url: "", color: "", pattern: "solid", lum: null, type: "", name: "", busy: "", result: null }); renderTry(); $("trySheet").hidden = false; }
 function renderTry() {
   const P = $("tryPanel"), st = tryState, real = tryPool().length;
   if (st.result) { P.innerHTML = tryResultHTML(st.result); return; }
@@ -964,7 +1051,7 @@ async function tryPhoto(file) {
 const pairFit = (a, b) => colorScore([a, b]).m * typeScore([a, b]).m;
 function tryAnalyze() {
   const st = tryState, T = TYPES.find(t => t[0] === st.type); if (!T) return null;
-  const real = tryPool().filter(i => i.season === season && isActiveCat(i.category) && i.category !== "unsorted");
+  const real = tryPool().filter(i => inS(i) && isActiveCat(i.category) && i.category !== "unsorted");
   const saveOutfit = outfit.slice();
   const fake = { id: "__try", season, category: T[1], typeLabel: st.type, color: st.color, pattern: st.pattern, lum: st.lum, name: ((st.color ? st.color + " " : "") + T[2]).toLowerCase().replace(/^./, c => c.toUpperCase()), tags: T[3], auto: { name: false }, url: st.url, demo: false };
   const med = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
@@ -1016,7 +1103,7 @@ function startGuide() {
   const steps = [];
   for (const c of ["tops", "bottoms", "layers", "shoes", "outerwear", "accessories"]) {
     if (!isActiveCat(c)) continue;
-    const have = items.filter(i => !i.demo && i.season === season && i.category === c).length;
+    const have = items.filter(i => !i.demo && inS(i) && i.category === c).length;
     steps.push({ cat: c, n: Math.max(1, GUIDE_DEFAULT[c] - have), done: 0 });
   }
   if (!steps.length) { toast("Turn on at least one category in More first."); return; }
@@ -1103,7 +1190,7 @@ function openEditor(id) {
   editId = id; delArm = false; refreshCnt();
   $("edImg").src = pic(it); $("edName").value = it.name || ""; $("edColor").value = it.color || "";
   $("edForm").value = it.formality === undefined || it.formality === null ? "" : String(it.formality);
-  $("edCat").value = it.category; $("edType").value = typeOf(it) || ""; $("edPattern").value = it.pattern || "solid"; $("edFav").checked = !!it.favorite;
+  $("edAll").checked = !!it.allYear; $("edCat").value = it.category; $("edType").value = typeOf(it) || ""; $("edPattern").value = it.pattern || "solid"; $("edFav").checked = !!it.favorite;
   $("edMax").value = it.maxWears === undefined || it.maxWears === null ? "" : String(it.maxWears);
   const m = maxWears(it); $("edWear").textContent = m === 0 ? "Not tracked for washing." : `Worn ${wearsOf(it)} of ${m} since the last wash${isDirty(it) ? ". It's in the hamper." : "."}`;
   $("edPrice").value = it.price === undefined || it.price === null ? "" : it.price;
@@ -1121,6 +1208,7 @@ async function closeEditor() {
   if ($("edColor").value !== (it.color || "")) { upd.color = $("edColor").value; a.color = false; }
   if ($("edPattern").value !== (it.pattern || "solid")) { upd.pattern = $("edPattern").value; a.pattern = false; }
   if ($("edCat").value !== it.category) { upd.category = $("edCat").value; a.category = false; }
+  if ($("edAll").checked !== !!it.allYear) upd.allYear = $("edAll").checked;
   const tv = $("edType").value;
   if (tv && tv !== (typeOf(it) || "")) {
     const T = TYPES.find(x => x[0] === tv); upd.typeLabel = tv;
@@ -1139,6 +1227,19 @@ async function closeEditor() {
   try { await db.collection("closet").doc(id).update(upd); }
   catch { setMsg("Couldn't save changes.", true); }
 }
+$("edRetake").addEventListener("change", async (e) => {
+  const f = e.target.files[0]; e.target.value = ""; const id = editId; if (!f || !id) return;
+  toast("Updating the photo...");
+  try {
+    const cv = await photoCanvas(f); let fixed = 0; if (photoPrefs.fix) { try { if (autoFixCanvas(cv)) fixed = 1; } catch {} }
+    const blob = await canvasBlob(cv, "image/jpeg", 0.88), thumb = await makeThumb(blob);
+    await serial(() => db.collection("closet").doc(id).update({ blob, thumb, cutout: null, cutThumb: null, cutAt: null, cutFail: false, fixVer: fixed, photoAt: Date.now() }));
+    const it = byId(id); if (it) $("edImg").src = pic(it);
+    if (smart.color) { try { await analyzeAndSave(id); } catch {} }
+    if (cutPrefs.auto) enqueueCut([id]);
+    toast("Photo replaced. Its history is kept.");
+  } catch { setMsg("Couldn't replace the photo.", true); }
+});
 $("edDone").addEventListener("click", closeEditor);
 $("sheet").addEventListener("click", (e) => { if (e.target.id === "sheet") closeEditor(); });
 $("edCut").addEventListener("click", async () => {
@@ -1220,8 +1321,8 @@ function renderWx() {
 }
 
 /* ---------- Outfit logic ---------- */
-const pool = (c) => isActiveCat(c) ? items.filter(i => i.season === season && i.category === c && !isDirty(i)) : [];
-const poolAll = (c) => isActiveCat(c) ? items.filter(i => i.season === season && i.category === c) : [];
+const pool = (c) => isActiveCat(c) ? items.filter(i => inS(i) && i.category === c && !isDirty(i)) : [];
+const poolAll = (c) => isActiveCat(c) ? items.filter(i => inS(i) && i.category === c) : [];
 const relaxed = () => mood.feeling === "Playful" || mood.energy === "High";
 const isAccent = (i) => i.color && !NEUTRAL.has(i.color) && i.color !== "Multi";
 function recentIds() {
@@ -1236,7 +1337,7 @@ function ctxOf(ids) {
 }
 let rules = Object.assign({ never: [], always: [] }, lsGet("closet-rules") || {});
 const saveRules = () => { rules.never = rules.never.filter(k => k.split("|").every(byId)); rules.always = rules.always.filter(k => k.split("|").every(byId)); lsSet("closet-rules", rules); };
-const usable = (it) => !!it && it.season === season && isActiveCat(it.category) && it.category !== "unsorted" && !isDirty(it);
+const usable = (it) => !!it && inS(it) && isActiveCat(it.category) && it.category !== "unsorted" && !isDirty(it);
 // Always-together: if an outfit has one of a pair, bring the other along (replacing what's in that slot).
 function applyRules(slots) {
   for (const k of rules.always) {
@@ -1519,9 +1620,10 @@ function reshuffleDay(date) {
 function renderTomorrow() {
   const el = $("tomorrow"); if (!el) return;
   const w = worn.find(x => x.id === todayStr());
-  if (!outfit.length || !(new Date().getHours() >= 17 || w) || !items.some(i => i.season === season && isActiveCat(i.category))) { el.innerHTML = ""; return; }
+  if (!outfit.length || !(new Date().getHours() >= 17 || w) || !items.some(i => inS(i) && isActiveCat(i.category))) { el.innerHTML = ""; return; }
   if (!planFresh()) buildPlan(0);
   const d = plan.days.find(x => x.date === tomorrowStr()); if (!d || !d.ids.length) { el.innerHTML = ""; return; }
+  showTip("tomorrow");
   const f = wxFor(d.date), its = d.ids.map(byId).filter(Boolean);
   const label = new Date(d.date + "T12:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
   const fc = f ? `${fmt(f.tmin)} / ${fmt(f.tmax)}${f.rain >= 30 ? ", rain " + f.rain + "%" : ""}` : "No forecast";
@@ -1546,6 +1648,16 @@ function restoreToday() {
   outfitFrom = e.from || ""; outfitTouched = !!e.touched; outfitGenWx = !!e.wx; return true;
 }
 const touchOutfit = () => { outfitTouched = true; };
+// the last few outfits, so a shuffle can be taken back
+let outfitHist = [];
+function pushHist() { if (!outfit.length) return; const snap = JSON.stringify(outfit.map(x => ({ cat: x.cat, id: x.id, locked: !!x.locked }))); if (outfitHist.length && outfitHist[outfitHist.length - 1] === snap) return; outfitHist.push(snap); if (outfitHist.length > 8) outfitHist.shift(); }
+function undoOutfit() {
+  while (outfitHist.length) {
+    const prev = JSON.parse(outfitHist.pop()); if (!prev.every(x => byId(x.id))) continue;
+    outfit = prev.map(x => ({ cat: byId(x.id).category, id: x.id, locked: x.locked })); outfitFrom = ""; touchOutfit(); renderToday(); showBoard(); toast("Back to the last outfit."); return;
+  }
+  toast("No earlier outfit to go back to.");
+}
 function streakDays() {
   const have = new Set(worn.map(w => w.date)); let n = 0; const d = new Date();
   if (!have.has(d.toLocaleDateString("en-CA"))) d.setDate(d.getDate() - 1);
@@ -1572,7 +1684,7 @@ function generate() {
   const locked = SIM ? [] : outfit.filter(x => x.locked && byId(x.id)).map(x => ({ cat: byId(x.id).category, id: x.id, locked: true }));
   if (!locked.length && !mood.event && !mood.feeling && !mood.energy && mem.saved.length) {
     const rec = recentIds();
-    const ok = mem.saved.filter(l => l.ids.every(id => { const it = byId(id); return it && it.season === season && isActiveCat(it.category) && !isDirty(it) && !rec.has(id); }));
+    const ok = mem.saved.filter(l => l.ids.every(id => { const it = byId(id); return it && inS(it) && isActiveCat(it.category) && !isDirty(it) && !rec.has(id); }));
     if (ok.length && Math.random() < 0.2) { const l = rndOf(ok); outfit = l.ids.map(id => ({ cat: byId(id).category, id })); outfitSeason = season; outfitFrom = "saved"; return; }
   }
   // build many outfits, judge each one, then choose among the best (with some luck so shuffling still surprises you)
@@ -1641,7 +1753,7 @@ function renderRulesList() {
   el.innerHTML = html || '<div class="empty">No rules yet.</div>';
 }
 function openRules() {
-  if (!outfit.length) return; saveRules();
+  if (!outfit.length) return; saveRules(); showTip("rules");
   const its = outfit.map(s => byId(s.id)).filter(Boolean), pairs = [];
   for (let x = 0; x < its.length; x++) for (let y = x + 1; y < its.length; y++) pairs.push([its[x], its[y]]);
   const body = pairs.map(([a, b]) => { const k = pairKey(a.id, b.id), nv = rules.never.includes(k), al = rules.always.includes(k); return `<div class="rulerow"><div class="pair"><img src="${picT(a)}" ${ca(a)} alt=""><img src="${picT(b)}" ${ca(b)} alt=""><span>${esc(a.name || LABEL[a.category])} + ${esc(b.name || LABEL[b.category])}</span></div><div class="actions"><button class="chip sm" data-rule="never|${a.id}|${b.id}" aria-pressed="${nv}">Never together</button><button class="chip sm" data-rule="always|${a.id}|${b.id}" aria-pressed="${al}">Always together</button></div></div>`; }).join("");
@@ -1681,16 +1793,16 @@ function stageHTML() {
   return `<div style="height:${cq(Lo.height)};position:relative">${html}</div>`;
 }
 function unsortedMsg(n) {
-  const un = items.filter(i => i.season === season && i.category === "unsorted").length;
+  const un = items.filter(i => inS(i) && i.category === "unsorted").length;
   if (n && un && !poolAllAny("tops") && !poolAllAny("bottoms") && !poolAllAny("onepiece")) {
     const ios = platformInfo().ios;
     return `<div class="empty" style="margin:14px"><b>${un} ${un === 1 ? "photo isn't" : "photos aren't"} sorted yet.</b><br>The outfit maker needs to know which are tops, bottoms and shoes.<div class="row" style="margin-top:10px;gap:8px;justify-content:center"><button class="btn primary" id="sortNow">${ios ? "Sort by hand" : "Sort them for me"}</button>${ios ? "" : '<button class="btn" id="sortHand">Sort by hand</button>'}</div></div>`;
   }
-  return `<div class="empty" style="margin:14px">${n ? (items.some(i => i.season === season && isDirty(i)) ? "Everything clean is already used up. Check the Laundry tab." : "Building your outfit...") : "No photos in this season yet. Open Photos and take a few tops, bottoms and shoes."}</div>`;
+  return `<div class="empty" style="margin:14px">${n ? (items.some(i => inS(i) && isDirty(i)) ? "Everything clean is already used up. Check the Laundry tab." : "Building your outfit...") : "No photos in this season yet. Open Photos and take a few tops, bottoms and shoes."}</div>`;
 }
 function showBoard() { const r = $("stage").getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight - 150) window.scrollTo({ top: Math.max(0, scrollY + r.top - 70), behavior: "smooth" }); }
 function openSwap(idx) {
-  const s = outfit[idx]; if (!s) return;
+  const s = outfit[idx]; if (!s) return; showTip("swap");
   const opts = swapOptions(idx), best = opts.length ? opts[0].m : 1, optional = !["tops", "bottoms", "onepiece"].includes(s.cat);
   const badge = (o) => o.m >= best * 0.8 ? ["Great fit", "ok"] : o.m >= best * 0.4 ? ["Works", "mid"] : ["Risky", "bad"];
   $("swapPanel").innerHTML = `<h2 class="cat-title" style="margin:0">Swap the ${esc(LABEL[s.cat].toLowerCase())}</h2><p class="tip" style="margin:0">Ranked by how well each one goes with the rest of today's outfit.</p>`
@@ -1709,14 +1821,14 @@ function renderSlotRow() {
 function renderAddRow() {
   const el = $("addRow"); if (!el) return;
   const names = { shoes: "shoes", accessories: "accessories", outerwear: "a jacket", layers: "a sweater", tops: "a tee", bottoms: "pants" };
-  const miss = ["tops", "layers", "bottoms", "outerwear", "shoes", "accessories"].filter(c => isActiveCat(c) && !poolAllAny(c) && items.some(i => i.season === season && !i.demo));
-  const un = items.filter(i => i.season === season && i.category === "unsorted").length;
+  const miss = ["tops", "layers", "bottoms", "outerwear", "shoes", "accessories"].filter(c => isActiveCat(c) && !poolAllAny(c) && items.some(i => inS(i) && !i.demo));
+  const un = items.filter(i => inS(i) && i.category === "unsorted").length;
   el.innerHTML = (miss.length || un) ? `<span class="lab2">Add to your closet</span>` + miss.map(c => `<button class="chip sm" data-addcat="${c}">+ ${names[c]}</button>`).join("") : "";
 }
 function renderToday() {
   refreshCnt(); renderAddRow(); renderSlotRow(); renderTomorrow();
   const w = worn.find(x => x.id === todayStr());
-  const n = items.filter(i => i.season === season && isActiveCat(i.category)).length;
+  const n = items.filter(i => inS(i) && isActiveCat(i.category)).length;
   renderWx(); renderMood();
   const sig = outfit.map(x => { const it = byId(x.id); return it ? x.id + (x.locked ? "k" : "") + pic(it) : ""; }).join("|") + "#" + n;
   if (sig !== stageSig) {   // only redraw the board when something on it actually changed, so background jobs never make it flicker
@@ -1735,7 +1847,7 @@ function renderToday() {
   $("logState").innerHTML = !outfit.length ? "" : same ? `<div class="logbanner ok"><b>Locked in for today.</b> ${sn > 1 ? sn + " days in a row." : "Enjoy it."}</div>`
     : w ? `<div class="logbanner warn"><b>You changed this after logging it.</b> Tap Update to save the new look.</div>` : "";
   $("wear").textContent = !w ? "I'm wearing this today" : same ? "✓ Logged for today" : "Update today's outfit";
-  $("wear").classList.toggle("done", same);
+  $("wear").classList.toggle("done", same); $("undoOutfit").hidden = !outfitHist.length; if (outfitHist.length) showTip("shuffle");
   $("wear").disabled = !outfit.length || same; $("reroll").disabled = !n;
   $("rateRow").hidden = !outfit.length;
   $("loveBtn").textContent = lookIdx() >= 0 ? "Saved ★" : "Love it";
@@ -1949,6 +2061,7 @@ const TYPES = [
   ["dress", "onepiece", "Dress", ["Dressy"], 3.5], ["jumpsuit", "onepiece", "Jumpsuit", ["Casual", "Dressy"], 3],
 ];
 const TYPE_LABELS = TYPES.map(t => t[0]);
+const YEAR_TYPES = new Set(["jeans", "chinos", "sneakers", "belt", "handbag", "backpack", "dress shoes", "loafers", "t-shirt", "long sleeve shirt"]);
 (function fillTypes() {
   const groups = { tops: "Shirts & tees", layers: "Sweaters", bottoms: "Bottoms", outerwear: "Jackets & coats", shoes: "Shoes", accessories: "Accessories", onepiece: "Dresses & sets" };
   $("edType").innerHTML = '<option value="">Not set</option>' + Object.entries(groups).map(([c, l]) => `<optgroup label="${l}">${TYPES.filter(t => t[1] === c).map(t => `<option value="${t[0]}">${t[2]}</option>`).join("")}</optgroup>`).join("");
@@ -1998,7 +2111,7 @@ async function recognizeOne(it) {
 function applyRecognition(it, r) {
   return serial(async () => {
     const cur = byId(it.id) || it, a = { ...(cur.auto || {}) };
-    const upd = { typeLabel: r.label, typeScore: Math.round(r.score * 1000) / 1000, recognizedAt: new Date().toISOString(), recVer: REC_VER };
+    const upd = { ...(cur.allYear === undefined && YEAR_TYPES.has(r.label) ? { allYear: true } : {}), typeLabel: r.label, typeScore: Math.round(r.score * 1000) / 1000, recognizedAt: new Date().toISOString(), recVer: REC_VER };
     const confident = r.score >= 0.2;
     if (confident) {
       if (cur.category === "unsorted" || a.category === true) { upd.category = r.category; a.category = true; }
@@ -2345,11 +2458,11 @@ function buildPlan(fromIdx = 0) {
   outfit = saveO; outfitSeason = saveS; outfitFrom = saveF;
   plan = { days, short, madeAt: Date.now(), hasWx: !!wx }; lsSet("closet-plan", plan);
 }
-const poolAllAny = (c) => items.some(i => i.season === season && i.category === c);
+const poolAllAny = (c) => items.some(i => inS(i) && i.category === c);
 const planFresh = () => plan.days && plan.days.length === 7 && plan.days[0].date === todayStr() && plan.days.every(d => d.ids.every(byId)) && !(wx && !plan.hasWx);
 function renderWeek() {
   const el = $("viewWeek");
-  if (!items.some(i => i.season === season && isActiveCat(i.category))) {
+  if (!items.some(i => inS(i) && isActiveCat(i.category))) {
     el.innerHTML = `<div class="empty">No photos in this season yet. Add some pieces in Photos, then plan your week here.</div>`; return;
   }
   if (!planFresh()) buildPlan(0);
@@ -2396,7 +2509,7 @@ function renderStats() {
   }).sort((a, b) => (last.get(a.id) || "").localeCompare(last.get(b.id) || "")) : [];
   const priced = its.filter(i => i.price > 0).map(i => ({ i, w: wearsBy.get(i.id) || 0, cpw: i.price / Math.max(1, wearsBy.get(i.id) || 0) })).sort((a, b) => b.cpw - a.cpw).slice(0, 5);
   // gaps for the current season
-  const S = items.filter(i => i.season === season), cnt = (c) => S.filter(i => i.category === c).length, gaps = [];
+  const S = items.filter(i => inS(i)), cnt = (c) => S.filter(i => i.category === c).length, gaps = [];
   const sname = season === "fall-winter" ? "fall / winter" : "spring / summer";
   if (isActiveCat("tops") && cnt("tops") < 4) gaps.push(`Only ${cnt("tops")} ${cnt("tops") === 1 ? "top" : "tops"} for ${sname}. Aim for 5 or more so you don't run out between washes.`);
   if (isActiveCat("bottoms") && cnt("bottoms") < 3) gaps.push(`Only ${cnt("bottoms")} ${cnt("bottoms") === 1 ? "bottom" : "bottoms"} for ${sname}. 3 or more keeps outfits varied.`);
@@ -2445,7 +2558,7 @@ function renderPicker() {
     head = `<label>Day<select id="pkDate">${dates.map(d => `<option value="${d}" ${d === pk.date ? "selected" : ""}>${dayName(d, true)}${logged.has(d) ? " (logged)" : ""}</option>`).join("")}</select></label>
       <label>Start from<select id="pkFrom">${fromOpts.join("")}</select></label>`;
   }
-  const list = items.filter(i => i.category === pk.cat).sort((a, b) => (b.season === season) - (a.season === season) || (a.name || "").localeCompare(b.name || ""));
+  const list = items.filter(i => i.category === pk.cat).sort((a, b) => (inS(b) ? 1 : 0) - (inS(a) ? 1 : 0) || (a.name || "").localeCompare(b.name || ""));
   const st = $("pickPanel").scrollTop;
   $("pickPanel").innerHTML = `<h2 class="cat-title" style="font-size:22px">${esc(pk.title)}</h2>${head}
     <div class="sel">${sel.length ? sel.map(i => `<div class="si"><img src="${picT(i)}" ${ca(i)} alt="${esc(i.name || "")}"><button data-pkdel="${i.id}" aria-label="Remove">✕</button></div>`).join("") : `<span class="tip">Nothing picked yet. Tap pieces below.</span>`}</div>
@@ -2506,7 +2619,7 @@ function generatePack() {
   refreshCnt();
   const W = pack.weather, N = pack.days, eff = pack.laundry === "none" ? N : pack.laundry === "once" ? Math.min(N, Math.ceil(N / 2) + 1) : Math.min(N, 5);
   const occ = new Set(pack.occasions);
-  const avail = (c) => items.filter(i => i.season === pack.season && i.category === c && isActiveCat(c) && !isDirty(i) && packOk(i, W));
+  const avail = (c) => items.filter(i => inS(i, pack.season) && i.category === c && isActiveCat(c) && !isDirty(i) && packOk(i, W));
   const chosen = [];
   const jitter = () => 0.88 + Math.random() * 0.24;
   const scoreOf = (i, cat) => {
@@ -2587,7 +2700,7 @@ async function sharePack() {
 function renderPack() {
   const el = $("viewPack"); if (!el) return;
   const its = pack.ids.map(byId).filter(Boolean), done = its.filter(i => pack.checked[i.id]).length;
-  const dirtyN = items.filter(i => i.season === pack.season && isActiveCat(i.category) && isDirty(i)).length;
+  const dirtyN = items.filter(i => inS(i, pack.season) && isActiveCat(i.category) && isDirty(i)).length;
   const chip = (attr, val, label, on) => `<button class="chip sm" ${attr}="${val}" aria-pressed="${on}">${label}</button>`;
   const startOpts = Array.from({ length: 15 }, (_, k) => `<option value="${k}" ${k === pack.startIn ? "selected" : ""}>${k === 0 ? "Today" : k === 1 ? "Tomorrow" : "In " + k + " days"}</option>`).join("");
   let h = `<div class="actions"><button class="chip" data-tab="more">← Back</button></div><h2 class="cat-title" style="font-size:24px">Packing list</h2>
@@ -3069,6 +3182,7 @@ function showTab(name) {
   $("seasons").hidden = tab === "more";
   if (tab === "more") renderMore(); if (tab === "laundry") renderLaundry(); if (tab === "week") renderWeek(); if (tab === "stats") renderStats(); if (tab === "pack") renderPack();
   window.scrollTo(0, 0); renderSelBar();
+  if (tab === "capture" && items.filter(i => !i.demo).length < 15) showTip("photos");
 }
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("button"); if (!t) return;
@@ -3125,7 +3239,7 @@ document.addEventListener("click", async (e) => {
   else if (t.dataset.mood) {
     const [k, v] = t.dataset.mood.split("|");
     if (k === "weather") mood.weather = !mood.weather; else mood[k] = mood[k] === v ? "" : v;
-    lsSet("closet-mood", mood); touchOutfit(); generate(); renderToday();
+    lsSet("closet-mood", mood); pushHist(); touchOutfit(); generate(); renderToday();
   }
   else if (t.dataset.accent !== undefined) { accent = t.dataset.accent; lsSet("closet-accent", accent); applySkin(); renderMore(); }
   else if (t.dataset.skin) { skin = t.dataset.skin; lsSet("closet-skin", skin); applySkin(); renderMore(); }
@@ -3144,18 +3258,19 @@ document.addEventListener("click", async (e) => {
   else if (t.dataset.swap !== undefined) {
     refreshCnt(); openSwap(+t.dataset.swap);
   } else if (t.dataset.swappick !== undefined) {
-    const [i, id] = t.dataset.swappick.split("|"); if (outfit[+i]) { outfit[+i].id = id; outfitFrom = ""; touchOutfit(); } $("swapSheet").hidden = true; renderToday();
+    const [i, id] = t.dataset.swappick.split("|"); if (outfit[+i]) { pushHist(); outfit[+i].id = id; outfitFrom = ""; touchOutfit(); } $("swapSheet").hidden = true; renderToday();
   } else if (t.dataset.swaprand !== undefined) {
-    const i = +t.dataset.swaprand, s = outfit[i]; if (s) { s.id = pick(s.cat, s.id, ctxOf(outfit.filter((_, k) => k !== i).map(x => x.id))) || s.id; outfitFrom = ""; touchOutfit(); } $("swapSheet").hidden = true; renderToday();
+    const i = +t.dataset.swaprand, s = outfit[i]; if (s) { pushHist(); s.id = pick(s.cat, s.id, ctxOf(outfit.filter((_, k) => k !== i).map(x => x.id))) || s.id; outfitFrom = ""; touchOutfit(); } $("swapSheet").hidden = true; renderToday();
   } else if (t.dataset.swapoff !== undefined) {
-    outfit.splice(+t.dataset.swapoff, 1); outfitFrom = ""; touchOutfit(); $("swapSheet").hidden = true; renderToday();
+    pushHist(); outfit.splice(+t.dataset.swapoff, 1); outfitFrom = ""; touchOutfit(); $("swapSheet").hidden = true; renderToday();
   } else if (t.dataset.swapkeep !== undefined) {
     const s = outfit[+t.dataset.swapkeep]; if (s) { s.locked = !s.locked; touchOutfit(); toast(s.locked ? "Kept. Shuffle will leave it alone." : "Released."); } $("swapSheet").hidden = true; renderToday();
   } else if (t.dataset.addslot) {
-    const it = bestForSlot(t.dataset.addslot); if (it) { outfit.push({ cat: t.dataset.addslot, id: it.id }); outfitFrom = ""; touchOutfit(); renderToday(); } else toast("Nothing clean in that category.");
+    const it = bestForSlot(t.dataset.addslot); if (it) { pushHist(); outfit.push({ cat: t.dataset.addslot, id: it.id }); outfitFrom = ""; touchOutfit(); renderToday(); } else toast("Nothing clean in that category.");
   } else if (t.dataset.tmrshuf) { if (navigator.vibrate) navigator.vibrate(15); reshuffleDay(tomorrowStr()); renderTomorrow();
   } else if (t.dataset.tmrlock) { const d = plan.days.find(x => x.date === tomorrowStr()); if (d) { d.locked = true; lsSet("closet-plan", plan); if (navigator.vibrate) navigator.vibrate([20, 40, 20]); toast("Tomorrow is locked in."); } renderTomorrow();
   } else if (t.dataset.tmrunlock) { const d = plan.days.find(x => x.date === tomorrowStr()); if (d) { d.locked = false; lsSet("closet-plan", plan); } renderTomorrow();
+  } else if (t.id === "undoOutfit") { undoOutfit();
   } else if (t.id === "rulesBtn") { openRules();
   } else if (t.id === "rulesClose") { $("rulesSheet").hidden = true;
   } else if (t.dataset.rule) { const [kind, a, b] = t.dataset.rule.split("|"); setRule(kind, a, b);
@@ -3163,7 +3278,7 @@ document.addEventListener("click", async (e) => {
   } else if (t.id === "swapClose") { $("swapSheet").hidden = true; } else if (t.id === "reroll") {
     if (outfit.length && outfit.every(x => x.locked)) { toast("Everything is kept. Release a piece to shuffle."); }
     else {
-      touchOutfit(); if (navigator.vibrate) navigator.vibrate(15);
+      pushHist(); touchOutfit(); if (navigator.vibrate) navigator.vibrate(15);
       const st = $("stage"); st.classList.add("shuffling"); await new Promise(r => setTimeout(r, 170)); st.classList.remove("shuffling");
       generate(); renderToday(); showBoard();
     }
@@ -3180,13 +3295,15 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 32;
+const APP_VERSION = 33;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
 if (smart.ai) cat = "unsorted";
 if (crashNote) setTimeout(() => toast(crashNote), 1500);
 applySkin(); render(); renderInstall();
+// shortcuts from long-pressing the home screen icon: ?tab=capture&cam=1
+const startQ = new URLSearchParams(location.search), startTab = startQ.get("tab");
 (async () => {
   db = makeDb(); ready = true;
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
@@ -3199,6 +3316,7 @@ applySkin(); render(); renderInstall();
   });
   db.collection("worn").onSnapshot((snap) => { worn = snap.docs.map(d => ({ id: d.id, ...d.data() })); render(); syncToday(); });
   renderMore();
+  if (startTab && ["today", "week", "capture", "laundry", "more"].includes(startTab)) { showTab(startTab); if (startQ.get("cam") === "1" && startTab === "capture") openCam(); try { history.replaceState(null, "", location.pathname); } catch {} }
   if (place) {
     await Promise.race([fetchWx(), new Promise(r => setTimeout(r, 3500))]); wxSettled = true; renderMore();
     // the first pick was made without a forecast: redo it quietly, but only if you haven't touched it
