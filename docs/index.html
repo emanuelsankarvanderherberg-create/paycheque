@@ -65,6 +65,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 .tipcard { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: min(94%, 600px); z-index: 60; background: var(--fg); color: var(--bg); border-radius: 18px; padding: 12px 14px; font-size: 14px; line-height: 1.4; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
 .tipcard[hidden] { display: none; }
 .tipbtns { display: flex; gap: 14px; } .tipbtns button { background: none; border: 0; color: inherit; font-weight: 700; text-decoration: underline; padding: 2px 0; }
+.how { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.4; }
 .logbanner { border-radius: 16px; padding: 10px 14px; font-size: 14px; border: 2px solid var(--fg); }
 .logbanner.ok { background: var(--accent); color: var(--accent-fg); }
 .logbanner.warn { background: var(--surface); border-color: #c62828; }
@@ -399,6 +400,18 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <label class="formrow" style="gap:10px"><input type="checkbox" id="cutShow" style="width:22px;height:22px;accent-color:var(--accent)"><span>Show cleaned photos (turn off to see originals)</span></label>
     </div>
     <div class="card">
+      <h2 class="cat-title">How outfits are chosen</h2>
+      <p class="tip">So the daily pick isn't a mystery:</p>
+      <ol class="how">
+        <li><b>Start with the day.</b> Today's weather (or your season), your style choices and any locked plan.</li>
+        <li><b>Build lots of outfits</b> from your clean pieces, leaning toward pieces you haven't worn lately and ones you wear less than the rest.</li>
+        <li><b>Judge each one like a stylist:</b> warm enough for the weather, sensible layers (tee, sweater, jacket), colors that work together, balanced proportions, mixed textures, one dress level, and your Love, Skip and pair rules.</li>
+        <li><b>Avoid repeats.</b> The same piece two days running, or the same top and bottom together as lately, scores badly.</li>
+        <li><b>Pick from the best</b>, with a little luck so Shuffle still surprises you.</li>
+      </ol>
+      <p class="tip">Wear limits (like 3 wears for a sweater) only decide when something goes in the hamper. They never make the app repeat a piece.</p>
+    </div>
+    <div class="card">
       <h2 class="cat-title">Pair rules</h2>
       <p class="tip">Pairings you told me to never or always wear together. Add them from Today with the Pair rules button.</p>
       <div id="rulesList" class="stack" style="gap:8px"></div>
@@ -568,7 +581,7 @@ const picT = (i) => (cutPrefs.use && i.cutUrl) ? (i.cutThumbUrl || i.cutUrl) : (
 const ca = (i) => (cutPrefs.use && i.cutUrl) ? "data-cut" : "";
 const ACCENTS = [["Forest green", "#1f5c3a"], ["Emerald", "#0f9d6b"], ["Sage", "#6b8f71"], ["Teal", "#0e7c86"], ["Electric blue", "#2b44ff"], ["Navy", "#1c2f6b"], ["Purple", "#6d3fd1"], ["Plum", "#7a2a6b"], ["Rose", "#d6336c"], ["Coral", "#f0603a"], ["Orange", "#e67700"], ["Gold", "#c8960c"], ["Black", "#111111"]];
 const isActiveCat = (c) => c === "unsorted" || activeCats.includes(c);
-let mem = Object.assign({ item: {}, pair: {}, saved: [] }, lsGet("closet-mem") || {});
+let mem = Object.assign({ item: {}, pair: {}, saved: [], col: {}, typ: {} }, lsGet("closet-mem") || {});
 let plan = lsGet("closet-plan") || { days: [] };
 let SIM = null, outfitFrom = "", memArm = false;
 const saveMem = () => lsSet("closet-mem", mem);
@@ -1393,10 +1406,68 @@ function harmonyFactor(i, ctx) {
   const m = ps.reduce((a, b) => a + b, 0) / ps.length;
   return Math.pow(Math.max(0.35, Math.min(1.4, m)), 2);
 }
+/* ---------- Rotation: wear things evenly instead of the same few ---------- */
+// Wear limits only decide when something needs washing. They never make the app repeat a piece.
+let ROT_OFF = false, rotCache = null;
+const dayDiff = (a, b) => Math.round((new Date(b + "T12:00") - new Date(a + "T12:00")) / 864e5);
+function getRot() {
+  const ref = (SIM && SIM.date) || todayStr();
+  const key = [ref, worn.length, items.length, (SIM ? SIM.cnt : CNT).size, SIM ? SIM.days.length : "r"].join("|");
+  if (rotCache && rotCache.key === key) return rotCache;
+  const entries = worn.filter(w => w.date < ref && (w.itemIds || []).length).map(w => ({ date: w.date, ids: w.itemIds }));
+  if (SIM) for (const d of SIM.days) if (d.date < ref) entries.push(d);
+  const gap = new Map(), cnt45 = new Map(), recent = [], pairs = new Map();
+  for (const e of entries) {
+    const g = dayDiff(e.date, ref);
+    for (const id of e.ids) { if (!gap.has(id) || gap.get(id) > g) gap.set(id, g); if (g <= 45) cnt45.set(id, (cnt45.get(id) || 0) + 1); }
+    if (g <= 7) {
+      recent.push({ gap: g, ids: e.ids });
+      const core = e.ids.filter(id => { const it = byId(id); return it && !["shoes", "accessories", "outerwear"].includes(it.category); });
+      for (let x = 0; x < core.length; x++) for (let y = x + 1; y < core.length; y++) { const k = pairKey(core[x], core[y]); if (!pairs.has(k) || pairs.get(k) > g) pairs.set(k, g); }
+    }
+  }
+  const avg = {}, clean = {}, per = {};
+  for (const i of items) {
+    if (!inS(i, SIM ? season : season) || !isActiveCat(i.category)) continue;
+    per[i.category] = per[i.category] || { n: 0, w: 0 }; per[i.category].n++; per[i.category].w += cnt45.get(i.id) || 0;
+    if (!isDirty(i)) clean[i.category] = (clean[i.category] || 0) + 1;
+  }
+  for (const c of Object.keys(per)) avg[c] = per[c].w / Math.max(1, per[c].n);
+  rotCache = { key, gap, cnt45, recent, pairs, avg, clean }; return rotCache;
+}
+// 1 means neutral. Under 1: worn very recently. Over 1: not worn for a while, or worn less than its peers.
+function pieceRotation(i) {
+  if (ROT_OFF) return 1;
+  const r = getRot(), g = r.gap.get(i.id), cat = i.category;
+  let f = g === undefined ? 1.25 : g <= 1 ? 0.12 : g === 2 ? 0.45 : g === 3 ? 0.75 : g <= 6 ? 1 : g <= 13 ? 1.1 : 1.2;
+  if (i.favorite && f < 1) f = Math.min(1, f * 1.6);                              // favorites can come around more often
+  f *= Math.min(1.35, Math.max(0.75, Math.pow(((r.avg[cat] || 0) + 1) / ((r.cnt45.get(i.id) || 0) + 1), 0.4)));   // use what you own evenly
+  return Math.pow(f, cat === "outerwear" ? 0.25 : cat === "shoes" ? 0.5 : cat === "accessories" ? 0.4 : 1);   // a coat or shoes can repeat more than a shirt
+}
+function noveltyScore(its) {
+  if (ROT_OFF) return { m: 1, notes: [] };
+  const r = getRot(), notes = []; let m = 1;
+  const core = its.filter(i => !["shoes", "accessories", "outerwear"].includes(i.category));
+  let rp = 1; for (const i of its) rp *= pieceRotation(i); m *= Math.pow(rp, 0.7);
+  const ids = new Set(core.map(i => i.id));
+  for (const e of r.recent) {
+    const shared = e.ids.filter(id => ids.has(id)).length;
+    if (e.gap <= 1 && shared >= 2) { m *= 0.1; notes.push({ k: "warn", t: "That's too close to yesterday's outfit.", w: 1.5 }); }
+    else if (e.gap <= 3 && shared >= 2) m *= 0.4; else if (shared >= 3) m *= 0.35;
+  }
+  const topish = core.filter(i => ["tops", "layers", "onepiece"].includes(i.category)), bots = core.filter(i => i.category === "bottoms");
+  let repeated = false;
+  for (const t of topish) for (const b of bots) { const g = r.pairs.get(pairKey(t.id, b.id)); if (g !== undefined) { repeated = true; m *= g <= 3 ? 0.4 : 0.7; } }
+  if (repeated) notes.push({ k: "warn", t: "You wore this top and bottom together recently.", w: 0.6 });
+  if (core.length && core.every(i => { const g = r.gap.get(i.id); return g === undefined || g >= 4; })) notes.push({ k: "good", t: "A fresh combination: nothing here was worn in the last few days.", w: 0.3 });
+  const old = core.map(i => ({ i, g: r.gap.get(i.id) })).filter(x => x.g === undefined || x.g >= 14).sort((a, b) => (b.g ?? 99) - (a.g ?? 99))[0];
+  if (old) notes.push({ k: "good", t: old.g === undefined ? `Giving ${(old.i.name || "this piece").toLowerCase()} a turn: you haven't worn it yet.` : `Bringing back ${(old.i.name || "this piece").toLowerCase()}: not worn in ${old.g} days.`, w: 0.25 });
+  return { m, notes };
+}
 function weight(i, ctx) {
   const tags = i.tags || [], has = (t) => tags.includes(t), quiet = !i.color || NEUTRAL.has(i.color), bold = isAccent(i) || i.pattern === "patterned";
-  let w = i.favorite ? 3 : 1;
-  if (maxWears(i) > 1 && wearsOf(i) > 0) w *= 1.5;
+  let w = i.favorite ? 2 : 1;
+  w *= pieceRotation(i);
   if (mood.event) { if (has(mood.event)) w *= 5; else if (tags.length) w *= 0.15; }
   if (mood.feeling === "Comfy") { if (has("Lounge") || has("Casual")) w *= 3; if (has("Dressy")) w *= 0.3; }
   if (mood.feeling === "Confident") { if (has("Dressy") || i.favorite) w *= 2.5; }
@@ -1417,7 +1488,7 @@ function pick(c, exclude, ctx) {
     if (ctx.patterned) { const q = p.filter(i => i.pattern !== "patterned"); if (q.length) p = q; }
     if (ctx.accent && !relaxed() && ["tops", "layers", "bottoms", "outerwear"].includes(c)) { const q = p.filter(i => !i.color || NEUTRAL.has(i.color)); if (q.length) p = q; }
   }
-  const recent = recentIds(), fresh = p.filter(i => !recent.has(i.id)), from = fresh.length ? fresh : p;
+  const from = p;
   const w = from.map(i => weight(i, ctx)); let r = Math.random() * w.reduce((a, b) => a + b, 0);
   for (let k = 0; k < from.length; k++) { r -= w[k]; if (r <= 0) return from[k].id; }
   return from[from.length - 1].id;
@@ -1498,6 +1569,56 @@ function typeScore(its) {
   if ((types.has("gloves") || types.has("beanie hat")) && dt.t > 14) { m *= 0.4; notes.push({ k: "warn", t: "Too warm for gloves or a beanie.", w: 0.9 }); }
   return { m, notes };
 }
+// How much room a piece takes up (1 slim, 2 regular, 3 roomy). Good outfits balance volume.
+const VOL = { "t-shirt": 2, "polo shirt": 2, "button-up dress shirt": 2, "blouse": 2, "tank top": 1, "long sleeve shirt": 2, "flannel shirt": 2.3, "athletic shirt": 1.8, "sweater": 2.6, "hoodie": 3, "sweatshirt": 3, "cardigan": 2.6, "turtleneck sweater": 2.3,
+  "shorts": 2, "skirt": 2, "leggings": 1, "jeans": 2, "chinos": 2, "dress pants": 1.8, "cargo pants": 3, "corduroy pants": 2, "sweatpants": 3, "joggers": 2.6, "puffer jacket": 3.6, "wool coat": 3, "denim jacket": 2.2, "leather jacket": 2, "blazer": 1.8, "trench coat": 2.8, "bomber jacket": 2.6, "raincoat": 2.5, "fleece jacket": 2.8, "vest": 2.3 };
+// Fabric families, for mixing textures.
+const MATS = { cotton: ["t-shirt", "polo shirt", "button-up dress shirt", "blouse", "tank top", "long sleeve shirt", "flannel shirt"], knit: ["sweater", "cardigan", "turtleneck sweater"], jersey: ["hoodie", "sweatshirt", "sweatpants", "joggers", "fleece jacket"],
+  denim: ["jeans", "denim jacket"], leather: ["leather jacket", "boots", "loafers", "dress shoes", "high heels", "belt", "handbag"], wool: ["wool coat", "blazer", "dress pants", "scarf", "beanie hat"], tech: ["puffer jacket", "raincoat", "athletic shirt", "running shoes", "leggings", "vest"], twill: ["chinos", "cargo pants", "corduroy pants", "skirt", "sneakers", "bomber jacket", "trench coat", "baseball cap"] };
+const MAT_OF = {}; for (const [m, ts] of Object.entries(MATS)) for (const t of ts) MAT_OF[t] = m;
+function styleDetails(its) {
+  let m = 1; const notes = [], easy = mood.event === "Lounge" || mood.event === "Active" || mood.feeling === "Comfy";
+  const T = (i) => typeOf(i), cl = its.filter(i => i.category !== "accessories");
+  // proportion
+  const topIts = its.filter(i => i.category === "tops" || i.category === "layers"), bot = its.find(i => i.category === "bottoms"), out = its.find(i => i.category === "outerwear");
+  if (topIts.length && bot && VOL[T(bot)] !== undefined) {
+    const tv = Math.max(...topIts.map(i => VOL[T(i)] ?? 2)) + (out ? 0.2 * (VOL[T(out)] ?? 2) : 0), bv = VOL[T(bot)];
+    if (tv >= 2.8 && bv >= 2.8) { m *= easy ? 0.95 : 0.8; if (!easy) notes.push({ k: "warn", t: "Roomy on top and roomy below. Add shape with something fitted.", w: 0.4 }); }
+    else if (tv >= 2.6 && bv <= 2.1) { m *= 1.08; notes.push({ k: "good", t: "A roomy top over a streamlined bottom: balanced proportions.", w: 0.2 }); }
+    else if (tv <= 2.0 && bv >= 2.6) { m *= 1.06; notes.push({ k: "good", t: "A fitted top with a roomy bottom: balanced proportions.", w: 0.15 }); }
+  }
+  // texture
+  const mats = new Set(cl.map(i => MAT_OF[T(i)]).filter(Boolean));
+  if (cl.length >= 3 && mats.size === 1 && !easy) { m *= 0.92; notes.push({ k: "warn", t: "Everything is the same fabric, which can look flat. Mix in another texture.", w: 0.3 }); }
+  else if (mats.size >= 3) { m *= 1.06; notes.push({ k: "good", t: "Mixed textures (" + [...mats].slice(0, 3).join(", ") + ") add interest.", w: 0.2 }); }
+  if (mats.has("knit") && mats.has("denim")) { m *= 1.04; notes.push({ k: "good", t: "Knit with denim is a classic texture mix.", w: 0.15 }); }
+  // belt and shoes match
+  const belt = its.find(i => T(i) === "belt"), shoes = its.find(i => i.category === "shoes");
+  if (belt && shoes && belt.color && shoes.color && ["boots", "loafers", "dress shoes"].includes(T(shoes))) {
+    const fam = (c) => c === "Black" ? "k" : (c === "Brown" || c === "Beige") ? "b" : c;
+    if (fam(belt.color) === fam(shoes.color)) { m *= 1.12; notes.push({ k: "good", t: "The belt matches the shoes.", w: 0.2 }); }
+    else if (["k", "b"].includes(fam(belt.color)) && ["k", "b"].includes(fam(shoes.color))) { m *= 0.6; notes.push({ k: "warn", t: `The ${belt.color.toLowerCase()} belt doesn't match the ${shoes.color.toLowerCase()} shoes.`, w: 0.6 }); }
+  }
+  // layering finesse: each layer should read on its own
+  const base = its.find(i => i.category === "tops"), mid = its.find(i => i.category === "layers");
+  if (base && mid) {
+    const lb = lumOf(base), lm = lumOf(mid);
+    if (lb !== null && lm !== null) {
+      const d = Math.abs(lb - lm);
+      if (base.color === mid.color && d >= 0.2) { m *= 1.08; notes.push({ k: "good", t: "Tonal layers: the same color at different depths looks intentional.", w: 0.2 }); }
+      else if (d >= 0.3) { m *= 1.05; notes.push({ k: "good", t: "Light and dark layers let each layer show.", w: 0.15 }); }
+      else if (d < 0.07 && base.color !== mid.color) m *= 0.95;
+    }
+  }
+  if (base && mid && out && dayTemp().t > 15) { m *= 0.7; notes.push({ k: "warn", t: "Three layers is a lot for this weather.", w: 0.5 }); }
+  // dress-up with one casual piece (or the reverse) can look deliberate
+  const fl = cl.map(formalityOf).filter(f => f !== null);
+  if (fl.length >= 3) { const mean = fl.reduce((a, b) => a + b, 0) / fl.length, devs = fl.filter(f => Math.abs(f - mean) >= 0.9); if (devs.length === 1 && Math.max(...fl) - Math.min(...fl) <= 1.9 && Math.max(...fl) - Math.min(...fl) >= 1.0) { m *= 1.05; notes.push({ k: "good", t: "One standout piece against relaxed ones is a polished mix.", w: 0.15 }); } }
+  // your taste, learned from what you loved and skipped
+  let tc = 0, tt = 0; for (const i of its) { tc += mem.col[i.color] || 0; const t = T(i); if (t) tt += mem.typ[t] || 0; }
+  m *= Math.exp(0.1 * Math.max(-4, Math.min(4, tc)) + 0.08 * Math.max(-4, Math.min(4, tt)));
+  return { m, notes };
+}
 const PAIR_ACCENT = { "Orange|Red": 0.55, "Red|Yellow": 0.8, "Green|Red": 0.6, "Blue|Red": 1.0, "Purple|Red": 0.75, "Pink|Red": 0.5, "Orange|Yellow": 0.75, "Green|Orange": 0.9, "Blue|Orange": 1.2, "Orange|Purple": 0.7, "Orange|Pink": 0.5,
   "Green|Yellow": 0.95, "Blue|Yellow": 1.05, "Purple|Yellow": 1.0, "Pink|Yellow": 0.8, "Blue|Green": 0.95, "Green|Purple": 1.0, "Green|Pink": 1.0, "Blue|Purple": 0.95, "Blue|Pink": 1.0, "Pink|Purple": 1.0 };
 function colorScore(its) {
@@ -1557,7 +1678,7 @@ function scoreOutfit(its) {
   for (const i of its) ins += warmthOf(i) * (i.category === "shoes" ? 0.3 : i.category === "accessories" ? 0.35 : 1);
   if (its.some(i => i.category === "onepiece")) ins += 1;
   const need = Math.max(1.2, Math.min(16, 12 - 0.38 * dt.t)), dev = ins - need, k = dt.real ? 1 : 0.5;
-  m *= dev < 0 ? Math.exp(0.22 * dev * k) : Math.exp(-0.16 * dev * k);
+  m *= dev < 0 ? Math.exp(0.22 * dev * k) : Math.exp(-(dt.t >= 20 ? 0.32 : dt.t >= 15 ? 0.22 : 0.16) * dev * k);   // overheating is worse than a bit too warm in the cool
   if (dt.real) {
     if (dev < -2.5) notes.push({ k: "warn", t: `Light for ${fmt(dt.t)}. Add a layer or a jacket.`, w: -dev * 0.22 });
     else if (dev > 3) notes.push({ k: "warn", t: `Warm for ${fmt(dt.t)}. Drop a layer.`, w: dev * 0.16 });
@@ -1572,7 +1693,7 @@ function scoreOutfit(its) {
   const fl = cl.map(formalityOf).filter(f => f !== null);
   if (fl.length >= 2) {
     const range = Math.max(...fl) - Math.min(...fl);
-    if (range > 1.3) { m *= Math.exp(-0.5 * (range - 1.3)); if (range > 2.2) { const mean = fl.reduce((a, b) => a + b, 0) / fl.length, odd = cl.filter(i => formalityOf(i) !== null).reduce((p, q) => Math.abs(formalityOf(q) - mean) > Math.abs(formalityOf(p) - mean) ? q : p); notes.push({ k: "warn", t: `Dress levels are uneven: ${(odd.name || LABEL[odd.category]).toLowerCase()} is much ${formalityOf(odd) > mean ? "dressier" : "more casual"} than the rest.`, w: range * 0.3 }); } }
+    if (range > 1.9) { m *= Math.exp(-0.5 * (range - 1.9)); if (range > 2.4) { const mean = fl.reduce((a, b) => a + b, 0) / fl.length, odd = cl.filter(i => formalityOf(i) !== null).reduce((p, q) => Math.abs(formalityOf(q) - mean) > Math.abs(formalityOf(p) - mean) ? q : p); notes.push({ k: "warn", t: `Dress levels are uneven: ${(odd.name || LABEL[odd.category]).toLowerCase()} is much ${formalityOf(odd) > mean ? "dressier" : "more casual"} than the rest.`, w: range * 0.3 }); } }
     else if (range <= 0.9 && its.length >= 3) notes.push({ k: "good", t: "Every piece is at the same dress level, so it feels put together.", w: 0.12 });
   }
   if (mood.event && EVENT_FORMAL[mood.event] !== undefined && fl.length) {
@@ -1581,8 +1702,8 @@ function scoreOutfit(its) {
     if (d <= 0.8) notes.push({ k: "good", t: `Suits a ${mood.event.toLowerCase()} day.`, w: 0.2 }); else if (d > 1.6) notes.push({ k: "warn", t: `${d > 0 && mean > EVENT_FORMAL[mood.event] ? "Dressier" : "More casual"} than a ${mood.event.toLowerCase()} day needs.`, w: 0.5 });
   }
   if (mood.event) for (const i of cl) { const tg = i.tags || []; if (tg.length) m *= tg.includes(mood.event) ? 1.08 : 0.75; }
-  const ts = typeScore(its), cs = colorScore(its);
-  m *= ts.m * cs.m; notes.push(...ts.notes, ...cs.notes);
+  const ts = typeScore(its), cs = colorScore(its), sd = styleDetails(its), nv = noveltyScore(its);
+  m *= ts.m * cs.m * sd.m * nv.m; notes.push(...ts.notes, ...cs.notes, ...sd.notes, ...nv.notes);
   // pairings you said never or always
   for (let x = 0; x < its.length; x++) for (let y = x + 1; y < its.length; y++) {
     const k = pairKey(its[x].id, its[y].id);
@@ -1670,8 +1791,10 @@ function buildCandidate(locked = []) {
   const oneP = mood.event === "Active" || mood.event === "Work" ? 0.1 : mood.event === "Dressy" ? 0.4 : 0.25;
   const baseOk = pool("tops").length || pool("layers").length;
   const useOne = has("onepiece") || (!has("tops") && !has("bottoms") && pool("onepiece").length && (Math.random() < oneP || !baseOk || !pool("bottoms").length));
-  if (useOne) add("onepiece"); else { if (pool("tops").length) add("tops"); add("bottoms"); }
-  if (pool("layers").length && ((!useOne && !pool("tops").length && !has("tops")) || Math.random() < 0.5)) add("layers");
+  // a sweater or hoodie can be the whole top half, which also spares the few clean tees when laundry is behind
+  const nTops = pool("tops").length, layerAlone = !useOne && !has("tops") && pool("layers").length > 0 && (nTops === 0 || Math.random() < (nTops <= 1 ? 0.6 : 0.28));
+  if (useOne) add("onepiece"); else { if (nTops && !layerAlone) add("tops"); add("bottoms"); }
+  if (pool("layers").length && (layerAlone || (!useOne && !nTops && !has("tops")) || Math.random() < 0.5)) add("layers");
   if (pool("outerwear").length && Math.random() < 0.55) add("outerwear");
   if (pool("shoes").length) add("shoes");
   const accP = mood.energy === "High" || mood.feeling === "Confident" ? 0.8 : mood.energy === "Low" ? 0.25 : 0.5;
@@ -1683,13 +1806,13 @@ function generate() {
   outfitFrom = "";
   const locked = SIM ? [] : outfit.filter(x => x.locked && byId(x.id)).map(x => ({ cat: byId(x.id).category, id: x.id, locked: true }));
   if (!locked.length && !mood.event && !mood.feeling && !mood.energy && mem.saved.length) {
-    const rec = recentIds();
-    const ok = mem.saved.filter(l => l.ids.every(id => { const it = byId(id); return it && inS(it) && isActiveCat(it.category) && !isDirty(it) && !rec.has(id); }));
+    const rg = getRot().gap;
+    const ok = mem.saved.filter(l => l.ids.every(id => { const it = byId(id); return it && inS(it) && isActiveCat(it.category) && !isDirty(it) && !(rg.get(id) <= 2); }));
     if (ok.length && Math.random() < 0.2) { const l = rndOf(ok); outfit = l.ids.map(id => ({ cat: byId(id).category, id })); outfitSeason = season; outfitFrom = "saved"; return; }
   }
   // build many outfits, judge each one, then choose among the best (with some luck so shuffling still surprises you)
   const cur = outfit.map(s => s.id).sort().join(), seen = new Set(), cands = [];
-  for (let n = 0; n < 48; n++) {
+  for (let n = 0; n < 64; n++) {
     const slots = buildCandidate(locked); if (!slots.length) continue;
     const key = slots.map(s => s.id).sort().join(); if (seen.has(key)) continue; seen.add(key);
     cands.push({ slots, m: scoreOutfit(slots.map(s => byId(s.id))).m, key });
@@ -1906,7 +2029,7 @@ async function importBackup(file) {
     if (st.mood) { mood = Object.assign({ weather: true, event: "", feeling: "", energy: "" }, st.mood); lsSet("closet-mood", mood); }
     if (st.skin) { skin = st.skin; lsSet("closet-skin", skin); }
     if ("accent" in st) { accent = st.accent || ""; lsSet("closet-accent", accent); }
-    if (st.mem) { mem = Object.assign({ item: {}, pair: {}, saved: [] }, st.mem); saveMem(); }
+    if (st.mem) { mem = Object.assign({ item: {}, pair: {}, saved: [], col: {}, typ: {} }, st.mem); saveMem(); }
     if (st.plan) { plan = st.plan; lsSet("closet-plan", plan); }
     if (st.pack) { pack = Object.assign(pack, st.pack); lsSet("closet-pack", pack); }
     applySkin();
@@ -2052,7 +2175,7 @@ const TYPES = [
   ["leather jacket", "outerwear", "Leather jacket", ["Casual", "Dressy"], 2.5], ["blazer", "outerwear", "Blazer", ["Work", "Dressy"], 3.5], ["trench coat", "outerwear", "Trench coat", ["Work", "Dressy"], 3.5],
   ["bomber jacket", "outerwear", "Bomber jacket", ["Casual"], 1.5], ["raincoat", "outerwear", "Raincoat", ["Casual"], 1.5], ["fleece jacket", "outerwear", "Fleece jacket", ["Casual", "Active"], 1],
   ["vest", "outerwear", "Vest", ["Casual"], 2],
-  ["sneakers", "shoes", "Sneakers", ["Casual", "Active"], 1.5], ["running shoes", "shoes", "Running shoes", ["Active"], 0.5], ["boots", "shoes", "Boots", ["Casual", "Dressy"], 2.5],
+  ["sneakers", "shoes", "Sneakers", ["Casual", "Active"], 1.5], ["running shoes", "shoes", "Running shoes", ["Active"], 0.5], ["boots", "shoes", "Boots", ["Casual", "Dressy"], 1.9],
   ["dress shoes", "shoes", "Dress shoes", ["Work", "Dressy"], 3.5], ["loafers", "shoes", "Loafers", ["Work", "Dressy"], 3], ["sandals", "shoes", "Sandals", ["Casual"], 1.2],
   ["high heels", "shoes", "Heels", ["Dressy"], 4], ["slippers", "shoes", "Slippers", ["Lounge"], 0],
   ["beanie hat", "accessories", "Beanie", ["Casual"], 1.5], ["baseball cap", "accessories", "Cap", ["Casual", "Active"], 1], ["scarf", "accessories", "Scarf", ["Casual", "Dressy"], 2.5],
@@ -2394,7 +2517,12 @@ const outKey = () => outfit.map(s => s.id).sort().join("|");
 const lookIdx = () => mem.saved.findIndex(l => l.ids.slice().sort().join("|") === outKey());
 function teach(delta) {
   const ids = outfit.map(s => s.id);
-  for (const id of ids) mem.item[id] = clampScore((mem.item[id] || 0) + delta * 0.5);
+  for (const id of ids) {
+    mem.item[id] = clampScore((mem.item[id] || 0) + delta * 0.5);
+    const it = byId(id); if (!it) continue;   // your taste: the colors and kinds of pieces you love or skip
+    if (it.color) mem.col[it.color] = Math.max(-4, Math.min(4, (mem.col[it.color] || 0) + delta * 0.3));
+    const t = typeOf(it); if (t) mem.typ[t] = Math.max(-4, Math.min(4, (mem.typ[t] || 0) + delta * 0.3));
+  }
   for (let a = 0; a < ids.length; a++) for (let b = a + 1; b < ids.length; b++) { const k = pairKey(ids[a], ids[b]); mem.pair[k] = clampScore((mem.pair[k] || 0) + delta); }
   saveMem();
 }
@@ -2437,16 +2565,18 @@ let planShort = {};
 function buildPlan(fromIdx = 0) {
   refreshCnt();
   const keys = dayKeys(), old = new Map(plan.days.map(d => [d.date, d]));
-  const sim = { cnt: new Map(CNT), recent: new Set(recentIds()), wx: null };
+  const sim = { cnt: new Map(CNT), recent: new Set(), wx: null, date: null, days: [] };
   const days = [], short = {};
   const saveO = outfit, saveS = outfitSeason, saveF = outfitFrom;
   keys.forEach((date, idx) => {
     const prev = old.get(date), locked = !!(prev && prev.locked);
+    sim.date = date;
     let ids;
     if (idx === 0 && outfit.length) ids = outfit.map(s => s.id);
     else if (prev && prev.ids.length && prev.ids.every(byId) && (locked || idx < fromIdx)) ids = prev.ids;
     else { SIM = sim; sim.wx = wxFor(date) || (idx === 0 ? wx : null); try { generate(); } finally { SIM = null; } ids = outfit.map(s => s.id); }
     const loggedToday = idx === 0 && worn.find(w => w.id === date);
+    if (!loggedToday) sim.days.push({ date, ids });
     if (!loggedToday) for (const id of ids) sim.cnt.set(id, (sim.cnt.get(id) || 0) + 1);
     for (const id of ids) { const it = byId(id); if (!it) continue; if (maxWears(it) > 1 && (sim.cnt.get(id) || 0) < maxWears(it)) continue; sim.recent.add(id); }
     const cs = new Set(ids.map(id => byId(id) && byId(id).category));
@@ -2456,10 +2586,12 @@ function buildPlan(fromIdx = 0) {
     days.push({ date, ids, locked, laundry: lday });
   });
   outfit = saveO; outfitSeason = saveS; outfitFrom = saveF;
-  plan = { days, short, madeAt: Date.now(), hasWx: !!wx }; lsSet("closet-plan", plan);
+  plan = { days, short, madeAt: Date.now(), hasWx: !!wx, sig: planSig() }; lsSet("closet-plan", plan);
 }
 const poolAllAny = (c) => items.some(i => inS(i) && i.category === c);
-const planFresh = () => plan.days && plan.days.length === 7 && plan.days[0].date === todayStr() && plan.days.every(d => d.ids.every(byId)) && !(wx && !plan.hasWx);
+const planSig = () => items.filter(i => inS(i) && isActiveCat(i.category)).length + ":" + season;
+// the plan is stale if the closet changed since it was made, or any day came out empty
+const planFresh = () => plan.days && plan.days.length === 7 && plan.sig === planSig() && !plan.days.some(d => !d.ids.length) && plan.days[0].date === todayStr() && plan.days.every(d => d.ids.every(byId)) && !(wx && !plan.hasWx);
 function renderWeek() {
   const el = $("viewWeek");
   if (!items.some(i => inS(i) && isActiveCat(i.category))) {
@@ -2899,7 +3031,7 @@ let crashNote = "";
 /* ---------- More tab ---------- */
 function foldMore() {
   const root = $("viewMore"); if (root.dataset.folded) return; root.dataset.folded = "1";
-  const state = lsGet("closet-fold") || {}, order = [/Smart sort/i, /Photo quality/i, /Photo cleanup/i, /Reminder/i, /Share with/i, /Pair rules/i, /Look/i, /What I wear/i, /Weather/i, /Setup/i, /memory/i, /Backup/i, /Report/i, /About/i];
+  const state = lsGet("closet-fold") || {}, order = [/Smart sort/i, /Photo quality/i, /Photo cleanup/i, /Reminder/i, /Share with/i, /How outfits/i, /Pair rules/i, /Look/i, /What I wear/i, /Weather/i, /Setup/i, /memory/i, /Backup/i, /Report/i, /About/i];
   const cards = [...root.children].filter(c => c.classList.contains("card") && c.querySelector("h2.cat-title"));
   const made = cards.map(card => {
     const h = card.querySelector("h2.cat-title"), title = h.textContent.trim(), det = document.createElement("details");
@@ -3295,7 +3427,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 33;
+const APP_VERSION = 34;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
