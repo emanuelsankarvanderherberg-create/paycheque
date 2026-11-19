@@ -43,6 +43,17 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 .seasons .chip { flex: 1; justify-content: center; border: 0; border-radius: 0; background: var(--surface); padding: 11px 8px; font-weight: 700; }
 .seasons .chip + .chip { border-left: 3px solid var(--fg); }
 .seasons .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.logbanner { border-radius: 16px; padding: 10px 14px; font-size: 14px; border: 2px solid var(--fg); }
+.logbanner.ok { background: var(--accent); color: var(--accent-fg); }
+.logbanner.warn { background: var(--surface); border-color: #c62828; }
+.btn.done { background: var(--accent); color: var(--accent-fg); opacity: 1 !important; }
+@keyframes popin { from { opacity: 0; transform: translateY(10px) scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes pulse { 0% { transform: scale(1); } 40% { transform: scale(1.04); } 100% { transform: scale(1); } }
+.stage.enter .pc, .stage.enter .lab { animation: popin .38s cubic-bezier(.2,.9,.3,1.2) both; animation-delay: calc(var(--i, 0) * 45ms); }
+.stage.pulse { animation: pulse .5s ease; }
+.stage.shuffling .pc, .stage.shuffling .lab { opacity: 0; transform: translateY(-8px) scale(.96); transition: all .16s ease-in; }
+.pc.kept { box-shadow: 0 0 0 3px var(--accent); }
+@media (prefers-reduced-motion: reduce) { .stage.enter .pc, .stage.enter .lab, .stage.pulse { animation: none; } }
 .why { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .why li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.35; }
 .why li i { flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-weight: 800; font-size: 13px; background: var(--accent); color: var(--accent-fg, #fff); }
@@ -234,6 +245,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
     <div class="stagewrap"><div class="stage" id="stage"></div></div>
     <div class="addrow" id="slotRow"></div>
     <div class="addrow" id="addRow"></div>
+    <div id="logState"></div>
     <div id="styleNote"></div>
     <details class="card" id="moodBox">
       <summary>Style it <span id="moodSum">Optional</span></summary>
@@ -472,7 +484,10 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } ca
 let season = "fall-winter", cat = "tops", tab = "today";
 let items = [], worn = [], pending = [], db = null, ready = false;
 let outfit = [], outfitSeason = null, CNT = new Map();
+let outfitTouched = false, outfitGenWx = false, stageSig = "";
+let wxSettled = true;   // set false below once we know a forecast is being fetched
 let place = lsGet("closet-place"), wx = lsGet("closet-wx");
+wxSettled = !place || !!(wx && wx.days && wx.key === place.lat + "," + place.lon + "," + new Date().toLocaleDateString("en-CA"));
 let unitF = lsGet("closet-unitF"); if (unitF === null) unitF = /^en-US/i.test(navigator.language || "");
 let editId = null, delArm = false, edTags = new Set();
 let mood = Object.assign({ weather: true, event: "", feeling: "", energy: "" }, lsGet("closet-mood") || {});
@@ -645,7 +660,7 @@ let undoStash = null, undoT = null;
 async function deleteWithUndo(ids) {
   const recs = [];
   for (const id of ids) { try { const r = await db.collection("closet").doc(id).get(); if (r) recs.push(r); await db.collection("closet").doc(id).delete(); } catch { setMsg("Couldn't delete that photo.", true); } }
-  if (!recs.length) return; undoStash = recs; outfit = [];
+  if (!recs.length) return; undoStash = recs;
   const t = $("toast"); clearTimeout(toastT); t.innerHTML = `${recs.length} deleted<button class="undo" id="undoBtn">Undo</button>`; t.hidden = false;
   clearTimeout(undoT); undoT = setTimeout(() => { undoStash = null; t.hidden = true; }, 7000);
   syncToday();
@@ -654,7 +669,7 @@ document.addEventListener("click", async (e) => {
   if (e.target.id !== "undoBtn" || !undoStash) return;
   const recs = undoStash; undoStash = null; clearTimeout(undoT); $("toast").hidden = true;
   for (const r of recs) { try { await db.collection("closet").doc(r.id).set(r); } catch {} }
-  outfit = []; toast("Restored."); syncToday();
+  toast("Restored."); syncToday();
 });
 function render() {
   const cats = CATS.filter(c => isActiveCat(c.id));
@@ -804,7 +819,7 @@ document.addEventListener("change", async (e) => {
   if (e.target.id !== "selMove" || !e.target.value) return;
   const to = e.target.value, ids = [...sel]; if (!ids.length) { e.target.value = ""; return; }
   for (const id of ids) { const it = byId(id); if (!it) continue; const a = { ...(it.auto || {}), category: false }; await serial(() => db.collection("closet").doc(id).update({ category: to, auto: a })); }
-  toast(`Moved ${ids.length} to ${to === "unsorted" ? "Unsorted" : CATS.find(c => c.id === to).label}.`); sel.clear(); outfit = []; render(); syncToday();
+  toast(`Moved ${ids.length} to ${to === "unsorted" ? "Unsorted" : CATS.find(c => c.id === to).label}.`); sel.clear(); render(); syncToday();
 });
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("button"); if (!t) return;
@@ -969,7 +984,7 @@ async function afterPlaceChange() {
   lsSet("closet-place", place); wx = null; renderWx(); renderMore();
   await fetchWx(true); renderMore();
   if (!wx) $("wxStatus").textContent = "Couldn't get the forecast. Check your connection and try again.";
-  if (!worn.find(w => w.id === todayStr())) outfit = [];
+  if (!worn.find(w => w.id === todayStr()) && !outfitTouched) outfit = [];
   syncToday();
 }
 async function findCity() {
@@ -1277,13 +1292,35 @@ function whyNotes(notes) {
   for (const n of [...w.slice(0, 2), ...g.slice(0, Math.max(1, 3 - Math.min(2, w.length)))]) if (!seen.has(n.t)) { seen.add(n.t); out.push(n); }
   return out;
 }
-function buildCandidate() {
-  const slots = [], add = (c) => { const id = pick(c, null, ctxOf(slots.map(s => s.id))); if (id) slots.push({ cat: c, id }); return id; };
+/* ---------- Keeping today's pick ---------- */
+// Today's outfit is saved on the phone, so closing the app or a background job never swaps it for another one.
+function saveToday() {
+  if (SIM || !outfit.length) return;
+  let st = lsGet("closet-today"); if (!st || st.date !== todayStr()) st = { date: todayStr(), s: {} };
+  st.s[season] = { ids: outfit.map(x => ({ id: x.id, locked: !!x.locked })), from: outfitFrom, touched: outfitTouched, wx: outfitGenWx };
+  lsSet("closet-today", st);
+}
+function restoreToday() {
+  const st = lsGet("closet-today"); if (!st || st.date !== todayStr()) return false;
+  const e = st.s && st.s[season]; if (!e || !e.ids || !e.ids.length || !e.ids.every(x => byId(x.id))) return false;
+  outfit = e.ids.map(x => ({ cat: byId(x.id).category, id: x.id, locked: !!x.locked })); outfitSeason = season;
+  outfitFrom = e.from || ""; outfitTouched = !!e.touched; outfitGenWx = !!e.wx; return true;
+}
+const touchOutfit = () => { outfitTouched = true; };
+function streakDays() {
+  const have = new Set(worn.map(w => w.date)); let n = 0; const d = new Date();
+  if (!have.has(d.toLocaleDateString("en-CA"))) d.setDate(d.getDate() - 1);
+  while (have.has(d.toLocaleDateString("en-CA"))) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+function buildCandidate(locked = []) {
+  const slots = locked.map(x => ({ ...x })), has = (c) => slots.some(x => x.cat === c);
+  const add = (c) => { if (has(c)) return; const id = pick(c, null, ctxOf(slots.map(x => x.id))); if (id) slots.push({ cat: c, id }); };
   const oneP = mood.event === "Active" || mood.event === "Work" ? 0.1 : mood.event === "Dressy" ? 0.4 : 0.25;
   const baseOk = pool("tops").length || pool("layers").length;
-  const useOne = pool("onepiece").length && (Math.random() < oneP || !baseOk || !pool("bottoms").length);
+  const useOne = has("onepiece") || (!has("tops") && !has("bottoms") && pool("onepiece").length && (Math.random() < oneP || !baseOk || !pool("bottoms").length));
   if (useOne) add("onepiece"); else { if (pool("tops").length) add("tops"); add("bottoms"); }
-  if (pool("layers").length && ((!useOne && !pool("tops").length) || Math.random() < 0.5)) add("layers");
+  if (pool("layers").length && ((!useOne && !pool("tops").length && !has("tops")) || Math.random() < 0.5)) add("layers");
   if (pool("outerwear").length && Math.random() < 0.55) add("outerwear");
   if (pool("shoes").length) add("shoes");
   const accP = mood.energy === "High" || mood.feeling === "Confident" ? 0.8 : mood.energy === "Low" ? 0.25 : 0.5;
@@ -1293,7 +1330,8 @@ function buildCandidate() {
 function generate() {
   if (!SIM) refreshCnt();
   outfitFrom = "";
-  if (!mood.event && !mood.feeling && !mood.energy && mem.saved.length) {
+  const locked = SIM ? [] : outfit.filter(x => x.locked && byId(x.id)).map(x => ({ cat: byId(x.id).category, id: x.id, locked: true }));
+  if (!locked.length && !mood.event && !mood.feeling && !mood.energy && mem.saved.length) {
     const rec = recentIds();
     const ok = mem.saved.filter(l => l.ids.every(id => { const it = byId(id); return it && it.season === season && isActiveCat(it.category) && !isDirty(it) && !rec.has(id); }));
     if (ok.length && Math.random() < 0.2) { const l = rndOf(ok); outfit = l.ids.map(id => ({ cat: byId(id).category, id })); outfitSeason = season; outfitFrom = "saved"; return; }
@@ -1301,7 +1339,7 @@ function generate() {
   // build many outfits, judge each one, then choose among the best (with some luck so shuffling still surprises you)
   const cur = outfit.map(s => s.id).sort().join(), seen = new Set(), cands = [];
   for (let n = 0; n < 48; n++) {
-    const slots = buildCandidate(); if (!slots.length) continue;
+    const slots = buildCandidate(locked); if (!slots.length) continue;
     const key = slots.map(s => s.id).sort().join(); if (seen.has(key)) continue; seen.add(key);
     cands.push({ slots, m: scoreOutfit(slots.map(s => byId(s.id))).m, key });
   }
@@ -1312,7 +1350,8 @@ function generate() {
   if (!cands.some(c => c.w > 0)) cands.forEach(c => { c.w = 1; })
   let r = Math.random() * cands.reduce((a, c) => a + c.w, 0), chosen = cands[cands.length - 1];
   for (const c of cands) { r -= c.w; if (r <= 0) { chosen = c; break; } }
-  outfit = chosen.slots; outfitSeason = season;
+  outfit = chosen.slots; outfitSeason = season; outfitGenWx = dayTemp().real;
+  if (!SIM) saveToday();
 }
 // Notes about the outfit on screen
 function whyToday() { const its = outfit.map(s => byId(s.id)).filter(Boolean); if (!its.length) return []; return whyNotes(scoreOutfit(its).notes); }
@@ -1334,10 +1373,16 @@ function syncToday() {
   const w = worn.find(x => x.id === todayStr());
   if ((!outfit.length || outfitSeason !== season) && items.length) {
     if (w && w.season === season && (w.itemIds || []).length && w.itemIds.every(byId)) {
-      outfit = w.itemIds.map(id => ({ cat: byId(id).category, id })); outfitSeason = season;
-    } else generate();
+      outfit = w.itemIds.map(id => ({ cat: byId(id).category, id })); outfitSeason = season; outfitTouched = true; outfitGenWx = true;
+    } else if (restoreToday()) { /* same outfit as before */ }
+    else if (place && !wxSettled) { outfit = []; }   // wait a moment for the forecast, so the first pick already fits the weather
+    else { outfitTouched = false; generate(); }
   }
-  outfit = outfit.filter(s => byId(s.id));
+  // keep categories current and drop anything deleted; if a piece vanished, fill the gap and keep the rest
+  const gone = outfit.some(x => !byId(x.id));
+  outfit.forEach(x => { const it = byId(x.id); if (it) x.cat = it.category; });
+  outfit = outfit.filter(x => byId(x.id) && isActiveCat(byId(x.id).category) && byId(x.id).category !== "unsorted");
+  if (gone && items.length) { outfit.forEach(x => { x.locked = true; }); generate(); outfit.forEach(x => { x.locked = false; }); saveToday(); }
   renderToday();
   if (tab === "laundry") renderLaundry();
 }
@@ -1353,12 +1398,12 @@ function renderMood() {
 function stageHTML() {
   const Lo = stageLayout(), U = 0.25;   // logical 400-wide board, scaled with container width
   const cq = (n) => (n * U).toFixed(2) + "cqw";
-  let html = "";
-  for (const P of Lo.pieces) html += `<button class="pc" data-swap="${P.e.i}" aria-label="Swap ${LABEL[P.e.s.cat]}" style="left:${cq(P.x)};top:${cq(P.y)};width:${cq(P.w)};height:${cq(P.h)}"><img src="${pic(P.e.it)}" ${ca(P.e.it)} alt="${LABEL[P.e.s.cat]}"></button>`;
+  let html = "", k = 0;
+  for (const P of Lo.pieces) html += `<button class="pc${P.e.s.locked ? " kept" : ""}" data-swap="${P.e.i}" aria-label="Swap ${LABEL[P.e.s.cat]}" style="--i:${k++};left:${cq(P.x)};top:${cq(P.y)};width:${cq(P.w)};height:${cq(P.h)}"><img src="${pic(P.e.it)}" ${ca(P.e.it)} alt="${LABEL[P.e.s.cat]}"></button>`;
   for (const l of Lo.lines) html += `<div class="ln" style="left:${cq(l.x)};top:${cq(l.y)};width:${cq(l.w)}"></div>`;
   for (const lb of Lo.labels) {
     const e = lb.e, m = maxWears(e.it), wc = wearsOf(e.it), rew = m > 1 && wc > 0 ? `<i>Re-wear ${wc}/${m}</i>` : "";
-    html += `<button class="lab" data-swap="${e.i}" style="left:${cq(lb.x)};top:${cq(lb.y)};width:${cq(lb.w)}"><small>${LABEL[e.s.cat]}${e.it.favorite ? " ★" : ""}</small><b>${esc(e.it.name || e.it.color || LABEL[e.s.cat])}</b>${rew}</button>`;
+    html += `<button class="lab${e.s.locked ? " kept" : ""}" data-swap="${e.i}" style="--i:${k++};left:${cq(lb.x)};top:${cq(lb.y)};width:${cq(lb.w)}"><small>${LABEL[e.s.cat]}${e.it.favorite ? " ★" : ""}${e.s.locked ? " · kept" : ""}</small><b>${esc(e.it.name || e.it.color || LABEL[e.s.cat])}</b>${rew}</button>`;
   }
   return `<div style="height:${cq(Lo.height)};position:relative">${html}</div>`;
 }
@@ -1376,7 +1421,7 @@ function openSwap(idx) {
   const badge = (o) => o.m >= best * 0.8 ? ["Great fit", "ok"] : o.m >= best * 0.4 ? ["Works", "mid"] : ["Risky", "bad"];
   $("swapPanel").innerHTML = `<h2 class="cat-title" style="margin:0">Swap the ${esc(LABEL[s.cat].toLowerCase())}</h2><p class="tip" style="margin:0">Ranked by how well each one goes with the rest of today's outfit.</p>`
     + `<div class="swapgrid">${opts.map(o => { const [b, c] = badge(o); return `<button class="swapopt ${o.it.id === s.id ? "cur" : ""}" data-swappick="${idx}|${o.it.id}"><img src="${picT(o.it)}" ${ca(o.it)} alt=""><b>${esc(o.it.name || o.it.color || LABEL[s.cat])}</b><span class="fit ${c}">${o.it.id === s.id ? "Now" : b}</span>${o.warn && o.it.id !== s.id ? `<small>${esc(o.warn.t)}</small>` : ""}</button>`; }).join("") || '<div class="empty">Nothing else clean in this category.</div>'}</div>`
-    + `<div class="actions"><button class="btn" data-swaprand="${idx}">Surprise me</button>${optional ? `<button class="btn" data-swapoff="${idx}">Take it off</button>` : ""}</div><button class="btn" id="swapClose">Close</button>`;
+    + `<div class="actions"><button class="btn" data-swapkeep="${idx}">${s.locked ? "Release" : "Keep it"}</button><button class="btn" data-swaprand="${idx}">Surprise me</button>${optional ? `<button class="btn" data-swapoff="${idx}">Take it off</button>` : ""}</div><button class="btn" id="swapClose">Close</button>`;
   $("swapSheet").hidden = false;
 }
 $("swapSheet").addEventListener("click", (e) => { if (e.target.id === "swapSheet") $("swapSheet").hidden = true; });
@@ -1398,15 +1443,25 @@ function renderToday() {
   const w = worn.find(x => x.id === todayStr());
   const n = items.filter(i => i.season === season && isActiveCat(i.category)).length;
   renderWx(); renderMood();
-  $("stage").innerHTML = outfit.length ? stageHTML()
-    : unsortedMsg(n);
+  const sig = outfit.map(x => { const it = byId(x.id); return it ? x.id + (x.locked ? "k" : "") + pic(it) : ""; }).join("|") + "#" + n;
+  if (sig !== stageSig) {   // only redraw the board when something on it actually changed, so background jobs never make it flicker
+    const first = !stageSig; stageSig = sig;
+    $("stage").innerHTML = outfit.length ? stageHTML() : unsortedMsg(n);
+    if (outfit.length && !first) { $("stage").classList.remove("enter"); void $("stage").offsetWidth; $("stage").classList.add("enter"); }
+  }
+  if (outfit.length) saveToday();
+  const same = !!w && (w.itemIds || []).slice().sort().join() === outfit.map(x => x.id).sort().join();
   const asked = [mood.event, mood.feeling, mood.energy && mood.energy + " energy"].filter(Boolean);
   const why = whyToday();
   $("styleNote").innerHTML = (outfitFrom === "saved" ? '<div class="rd">From your saved looks</div>' : "") + (asked.length ? `<div class="rd">Styled for ${asked.map(a => `<mark>${esc(a)}</mark>`).join(" / ")}</div>` : "")
     + (why.length ? `<ul class="why">${why.map(n => `<li class="${n.k}"><i>${n.k === "good" ? "✓" : "!"}</i><span>${esc(n.t)}</span></li>`).join("")}</ul>` : "")
-    + (outfit.length ? `<p class="tip">${w ? "Logged for today. " : ""}Tap a piece or its label to swap it.</p>` : "");
-  $("wear").textContent = w ? "Update today's outfit" : "I'm wearing this today";
-  $("wear").disabled = !outfit.length; $("reroll").disabled = !n;
+    + (outfit.length ? `<p class="tip">Tap a piece or its label to swap it or keep it when you shuffle.</p>` : "");
+  const sn = streakDays();
+  $("logState").innerHTML = !outfit.length ? "" : same ? `<div class="logbanner ok"><b>Locked in for today.</b> ${sn > 1 ? sn + " days in a row." : "Enjoy it."}</div>`
+    : w ? `<div class="logbanner warn"><b>You changed this after logging it.</b> Tap Update to save the new look.</div>` : "";
+  $("wear").textContent = !w ? "I'm wearing this today" : same ? "✓ Logged for today" : "Update today's outfit";
+  $("wear").classList.toggle("done", same);
+  $("wear").disabled = !outfit.length || same; $("reroll").disabled = !n;
   $("rateRow").hidden = !outfit.length;
   $("loveBtn").textContent = lookIdx() >= 0 ? "Saved ★" : "Love it";
   const L = laundryInfo();
@@ -1964,7 +2019,7 @@ function loveIt() {
 }
 function skipIt() {
   if (!outfit.length) return;
-  teach(-1); toast("Got it. I'll show that pairing less."); generate(); renderToday();
+  teach(-1); toast("Got it. I'll show that pairing less."); touchOutfit(); generate(); renderToday();
 }
 function renderSaved() {
   const L = mem.saved.filter(l => l.ids.every(byId));
@@ -2739,7 +2794,7 @@ document.addEventListener("click", async (e) => {
   else if (t.id === "installNo") { lsSet("closet-installDismiss", Date.now()); renderInstall(); renderRemPrompt(); }
   else if (t.dataset.dayshuf !== undefined) {
     const k = +t.dataset.dayshuf;
-    if (k === 0) { generate(); renderToday(); buildPlan(1); } else buildPlan(k);
+    if (k === 0) { touchOutfit(); generate(); renderToday(); buildPlan(1); } else buildPlan(k);
     renderWeek();
   }
   else if (t.dataset.daylock !== undefined) { const d = plan.days[+t.dataset.daylock]; if (d) { d.locked = !d.locked; lsSet("closet-plan", plan); renderWeek(); } }
@@ -2754,7 +2809,7 @@ document.addEventListener("click", async (e) => {
   else if (t.dataset.mood) {
     const [k, v] = t.dataset.mood.split("|");
     if (k === "weather") mood.weather = !mood.weather; else mood[k] = mood[k] === v ? "" : v;
-    lsSet("closet-mood", mood); generate(); renderToday();
+    lsSet("closet-mood", mood); touchOutfit(); generate(); renderToday();
   }
   else if (t.dataset.accent !== undefined) { accent = t.dataset.accent; lsSet("closet-accent", accent); applySkin(); renderMore(); }
   else if (t.dataset.skin) { skin = t.dataset.skin; lsSet("closet-skin", skin); applySkin(); renderMore(); }
@@ -2773,22 +2828,36 @@ document.addEventListener("click", async (e) => {
   else if (t.dataset.swap !== undefined) {
     refreshCnt(); openSwap(+t.dataset.swap);
   } else if (t.dataset.swappick !== undefined) {
-    const [i, id] = t.dataset.swappick.split("|"); if (outfit[+i]) { outfit[+i].id = id; outfitFrom = ""; } $("swapSheet").hidden = true; renderToday();
+    const [i, id] = t.dataset.swappick.split("|"); if (outfit[+i]) { outfit[+i].id = id; outfitFrom = ""; touchOutfit(); } $("swapSheet").hidden = true; renderToday();
   } else if (t.dataset.swaprand !== undefined) {
-    const i = +t.dataset.swaprand, s = outfit[i]; if (s) { s.id = pick(s.cat, s.id, ctxOf(outfit.filter((_, k) => k !== i).map(x => x.id))) || s.id; outfitFrom = ""; } $("swapSheet").hidden = true; renderToday();
+    const i = +t.dataset.swaprand, s = outfit[i]; if (s) { s.id = pick(s.cat, s.id, ctxOf(outfit.filter((_, k) => k !== i).map(x => x.id))) || s.id; outfitFrom = ""; touchOutfit(); } $("swapSheet").hidden = true; renderToday();
   } else if (t.dataset.swapoff !== undefined) {
-    outfit.splice(+t.dataset.swapoff, 1); outfitFrom = ""; $("swapSheet").hidden = true; renderToday();
+    outfit.splice(+t.dataset.swapoff, 1); outfitFrom = ""; touchOutfit(); $("swapSheet").hidden = true; renderToday();
+  } else if (t.dataset.swapkeep !== undefined) {
+    const s = outfit[+t.dataset.swapkeep]; if (s) { s.locked = !s.locked; touchOutfit(); toast(s.locked ? "Kept. Shuffle will leave it alone." : "Released."); } $("swapSheet").hidden = true; renderToday();
   } else if (t.dataset.addslot) {
-    const it = bestForSlot(t.dataset.addslot); if (it) { outfit.push({ cat: t.dataset.addslot, id: it.id }); outfitFrom = ""; renderToday(); } else toast("Nothing clean in that category.");
-  } else if (t.id === "swapClose") { $("swapSheet").hidden = true; } else if (t.id === "reroll") { generate(); renderToday(); }
+    const it = bestForSlot(t.dataset.addslot); if (it) { outfit.push({ cat: t.dataset.addslot, id: it.id }); outfitFrom = ""; touchOutfit(); renderToday(); } else toast("Nothing clean in that category.");
+  } else if (t.id === "swapClose") { $("swapSheet").hidden = true; } else if (t.id === "reroll") {
+    if (outfit.length && outfit.every(x => x.locked)) { toast("Everything is kept. Release a piece to shuffle."); }
+    else {
+      touchOutfit(); if (navigator.vibrate) navigator.vibrate(15);
+      const st = $("stage"); st.classList.add("shuffling"); await new Promise(r => setTimeout(r, 170)); st.classList.remove("shuffling");
+      generate(); renderToday();
+    }
+  }
   else if (t.id === "wear") {
-    t.disabled = true;
-    db.collection("worn").doc(todayStr()).set({ date: todayStr(), season, itemIds: outfit.map(s => s.id), createdAt: new Date().toISOString() })
-      .catch(() => setMsg("Couldn't save today's outfit.", true)).finally(renderToday);
+    t.disabled = true; touchOutfit();
+    try {
+      await db.collection("worn").doc(todayStr()).set({ date: todayStr(), season, itemIds: outfit.map(s => s.id), createdAt: new Date().toISOString() });
+      if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
+      const st = $("stage"); st.classList.remove("pulse"); void st.offsetWidth; st.classList.add("pulse");
+      const n = streakDays(); toast(n > 1 ? `Locked in! ${n} days in a row.` : "Locked in for today. Have a great day!");
+    } catch { setMsg("Couldn't save today's outfit.", true); }
+    renderToday();
   }
 });
 
-const APP_VERSION = 27;
+const APP_VERSION = 28;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
@@ -2801,14 +2870,18 @@ applySkin(); render(); renderInstall();
   db.collection("closet").onSnapshot((snap) => {
     const before = items.length;
     items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    if (items.length !== before && !worn.find(w => w.id === todayStr())) outfit = [];
     render(); syncToday(); renderCut(); renderRec(); renderFix(); if (tab === "stats") renderStats();
     ensureThumbs(); migrateLayers(); refreshColors(); if (items.length && !resumeTimer) resumeTimer = setTimeout(resumeWork, 2500);
     if (!obChecked) { obChecked = true; if (!lsGet("closet-onboarded")) { if (items.length === 0 && !place) openOnboard(); else lsSet("closet-onboarded", true); } }
   });
   db.collection("worn").onSnapshot((snap) => { worn = snap.docs.map(d => ({ id: d.id, ...d.data() })); render(); syncToday(); });
   renderMore();
-  if (place) { await fetchWx(); renderMore(); if (!worn.find(w => w.id === todayStr())) outfit = []; syncToday(); }
+  if (place) {
+    await Promise.race([fetchWx(), new Promise(r => setTimeout(r, 3500))]); wxSettled = true; renderMore();
+    // the first pick was made without a forecast: redo it quietly, but only if you haven't touched it
+    if (outfit.length && !outfitGenWx && !outfitTouched && !worn.find(w => w.id === todayStr()) && wx) outfit = [];
+    syncToday();
+  }
 })();
 if ('serviceWorker' in navigator) {
   // When a new version takes over, reload (once nothing heavy is running) so a long-lived installed app never keeps running old code.
