@@ -43,6 +43,43 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 .seasons .chip { flex: 1; justify-content: center; border: 0; border-radius: 0; background: var(--surface); padding: 11px 8px; font-weight: 700; }
 .seasons .chip + .chip { border-left: 3px solid var(--fg); }
 .seasons .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.logbanner { border-radius: 16px; padding: 10px 14px; font-size: 14px; border: 2px solid var(--fg); }
+.logbanner.ok { background: var(--accent); color: var(--accent-fg); }
+.logbanner.warn { background: var(--surface); border-color: #c62828; }
+.btn.done { background: var(--accent); color: var(--accent-fg); opacity: 1 !important; }
+@keyframes popin { from { opacity: 0; transform: translateY(10px) scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes pulse { 0% { transform: scale(1); } 40% { transform: scale(1.04); } 100% { transform: scale(1); } }
+.stage.enter .pc, .stage.enter .lab { animation: popin .38s cubic-bezier(.2,.9,.3,1.2) both; animation-delay: calc(var(--i, 0) * 45ms); }
+.stage.pulse { animation: pulse .5s ease; }
+.stage.shuffling .pc, .stage.shuffling .lab { opacity: 0; transform: translateY(-8px) scale(.96); transition: all .16s ease-in; }
+.pc.kept { box-shadow: 0 0 0 3px var(--accent); }
+@media (prefers-reduced-motion: reduce) { .stage.enter .pc, .stage.enter .lab, .stage.pulse { animation: none; } }
+.why { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.why li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.35; }
+.why li i { flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-weight: 800; font-size: 13px; background: var(--accent); color: var(--accent-fg, #fff); }
+.why li.warn i { background: #c62828; color: #fff; }
+.swapgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.swapopt { display: flex; flex-direction: column; gap: 4px; align-items: stretch; text-align: left; background: var(--surface); border: 2px solid var(--line, #ddd); border-radius: 16px; padding: 6px; font: inherit; color: var(--fg); cursor: pointer; }
+.swapopt.cur { border-color: var(--fg); }
+.swapopt img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 10px; border: 0; align-self: auto; }
+.swapopt b { font-size: 12px; line-height: 1.2; }
+.swapopt small { font-size: 11px; color: var(--muted); line-height: 1.25; }
+.fit { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 8px; align-self: flex-start; background: var(--soft, #eee); }
+.fit.ok { background: #1b7f4b; color: #fff; } .fit.bad { background: #c62828; color: #fff; }
+.addrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 0; }
+.addrow:empty { display: none; }
+.catscroll { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; }
+.catscroll::-webkit-scrollbar { display: none; }
+.catscroll .chip { flex: none; }
+.selbar { position: fixed; left: 0; right: 0; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 15; display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; background: var(--bg); border-top: 3px solid var(--fg); padding: 10px 16px; }
+.selbar[hidden] { display: none; }
+.selbar select { width: auto; padding: 8px 10px; }
+.selbar .btn { padding: 8px 14px; flex: none; }
+.tile.sel { outline: 4px solid var(--accent); outline-offset: -4px; }
+.tile .tick { position: absolute; top: 6px; left: 6px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; border: 2px solid var(--fg); }
+.tile:has(img[data-cut]) { background: radial-gradient(circle at 50% 35%, var(--surface), var(--soft, #eee)); }
+.tile img[data-cut] { filter: drop-shadow(0 4px 5px rgba(0,0,0,.25)); }
+.undo { margin-left: 10px; text-decoration: underline; font-weight: 700; background: none; border: 0; color: inherit; padding: 0; }
 .cats { display: flex; gap: 8px; flex-wrap: wrap; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -110,12 +147,18 @@ a.btn.primary { color: var(--accent-fg); }
 .camwrap video { width: 100%; max-height: 62vh; display: block; object-fit: contain; }
 .camwrap .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .25s; }
 .camwrap .flash.on { opacity: .8; transition: none; }
+.camtools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.zoomrow { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted); flex: 1; min-width: 140px; }
+.zoomrow input { flex: 1; accent-color: var(--accent); }
+.camcount { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--muted); }
+.hintbar.warn { background: #c62828; color: #fff; } .hintbar.ok { background: #1b7f4b; color: #fff; }
 .camrow { display: flex; gap: 10px; align-items: center; }
 .snap { flex: 1; background: var(--accent); color: var(--accent-fg); border: 3px solid var(--fg); border-radius: var(--r); padding: 20px; font-family: var(--font-display); font-weight: 800; font-size: 22px; box-shadow: inset 0 -5px 0 rgba(0,0,0,.18); }
 .snap:active { transform: scale(.98); }
 .closecam { border: 3px solid var(--fg); background: var(--surface); border-radius: var(--r); padding: 20px 18px; font-weight: 700; }
 .wxline { display: block; width: 100%; text-align: left; background: var(--surface); border: 2px solid var(--fg); border-radius: 16px; padding: 11px 14px; font-size: 14px; color: var(--muted); }
 .wxline b { color: var(--fg); }
+textarea { background: var(--surface); border: 2px solid var(--fg); border-radius: 14px; padding: 10px 12px; width: 100%; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; color: inherit; resize: vertical; }
 input[type=text], input[type=search], input[type=number], select { background: var(--surface); border: 2px solid var(--fg); border-radius: 14px; padding: 11px 12px; width: 100%; min-width: 0; }
 .formrow { display: flex; gap: 8px; align-items: center; }
 .formrow > span { flex: 1; }
@@ -197,8 +240,12 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 
   <section id="viewToday" class="stack">
     <div id="installBanner"></div>
+    <div id="remPrompt"></div>
     <div class="readout" id="readout"></div>
     <div class="stagewrap"><div class="stage" id="stage"></div></div>
+    <div class="addrow" id="slotRow"></div>
+    <div class="addrow" id="addRow"></div>
+    <div id="logState"></div>
     <div id="styleNote"></div>
     <details class="card" id="moodBox">
       <summary>Style it <span id="moodSum">Optional</span></summary>
@@ -221,16 +268,17 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
   </section>
 
   <div id="viewCapture" class="stack" hidden>
-    <div class="cats" id="cats" role="group" aria-label="Category"></div>
-    <div id="smartPrompt"></div>
-    <div id="cutNag"></div>
-    <div id="recNag"></div>
+    <div class="cats catscroll" id="cats" role="group" aria-label="Category"></div>
     <button class="shutter" id="camOpen"><span id="shutterText">Open camera<small>Photos save inside this app, not in your gallery.</small></span></button>
     <div id="camLive" class="stack" hidden>
-      <div class="camwrap"><video id="vid" playsinline muted autoplay></video><div class="guide"></div><div class="hintbar">Lay it flat on a plain surface. Fill the frame.</div><div class="flash" id="flash"></div></div>
+      <div class="camwrap"><video id="vid" playsinline muted autoplay></video><div class="guide"></div><div class="hintbar" id="camHint">Lay it flat on a plain surface. Fill the frame.</div><div class="flash" id="flash"></div></div>
+      <div class="camtools"><button class="chip sm" id="camTorch" hidden aria-pressed="false">Light</button><label class="zoomrow" id="camZoomWrap" hidden>Zoom<input type="range" id="camZoom" min="1" max="3" step="0.1" value="1"></label><button class="chip sm" id="camAuto" aria-pressed="false">Auto-snap</button><span class="camcount" id="camCount"></span></div>
       <div class="camrow"><button class="snap" id="snap">Snap</button><button class="closecam" id="camClose">Done</button></div>
       <div id="shotNote"></div>
     </div>
+    <div id="smartPrompt"></div>
+    <div id="cutNag"></div>
+    <div id="recNag"></div>
     <div class="shutter second pick">
       <span>Or pick existing photos<small style="opacity:.7">Optional. They get shrunk and saved in the app too.</small></span>
       <input id="lib" type="file" accept="image/*" multiple aria-label="Choose photos">
@@ -239,7 +287,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <h2 class="cat-title" id="catTitle"></h2>
       <p class="tip" id="catTip"></p>
     </div>
-    <input type="search" id="search" placeholder="Search by name or color" aria-label="Search this category">
+    <div class="formrow"><input type="search" id="search" placeholder="Search by name or color" aria-label="Search this category"><button class="chip" id="selMode" aria-pressed="false">Select</button></div>
     <div class="grid" id="grid"></div>
   </div>
 
@@ -280,12 +328,20 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
     </div>
     <div class="card">
       <h2 class="cat-title">Smart sort</h2>
+      <p class="tip" id="iosNote" hidden>On iPhone the AI steps use a lot of memory and can be slow or crash the page. Quick cleanup for backgrounds is recommended. Type recognition is off by default and experimental.</p>
       <p class="tip">Reads each photo to fill in its color, pattern and type, for example "Navy hoodie", and moves photos you shot in Auto-sort to the right category. Color and pattern work instantly with no download. Recognizing the type uses an AI model that downloads once (about 150 MB), so use Wi-Fi. It can be wrong, so check the names and fix any in one tap. Anything you edit yourself is never overwritten.</p>
       <div class="tip" id="recStatus"></div>
       <div class="actions"><button class="btn primary" id="recAll">Recognize my photos</button><button class="btn" id="recStop" hidden>Stop</button></div>
       <button class="btn" id="colorAll">Detect colors and patterns (no download)</button>
       <label class="formrow" style="gap:10px"><input type="checkbox" id="colorAuto" style="width:22px;height:22px;accent-color:var(--accent)"><span>Detect color and pattern on new photos</span></label>
       <label class="formrow" style="gap:10px"><input type="checkbox" id="recAuto" style="width:22px;height:22px;accent-color:var(--accent)"><span>Recognize the type of new photos automatically</span></label>
+    </div>
+    <div class="card">
+      <h2 class="cat-title">Photo quality</h2>
+      <p class="tip">Brightens dim photos, evens out a yellow or blue tint and adds a little contrast so every piece looks consistent. It runs on this phone and never uploads anything.</p>
+      <label class="formrow" style="gap:10px"><input type="checkbox" id="fixAuto" style="width:22px;height:22px;accent-color:var(--accent)"><span>Fix lighting on new photos automatically</span></label>
+      <div class="tip" id="fixStatus"></div>
+      <div class="actions"><button class="btn primary" id="fixAll">Improve my existing photos</button><button class="btn" id="fixStop" hidden>Stop</button></div>
     </div>
     <div class="card">
       <h2 class="cat-title">Photo cleanup</h2>
@@ -330,6 +386,15 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <button class="btn" id="shareBtn" hidden>Share backup (Drive, email...)</button>
       <div class="btn pick" style="text-align:center">Restore from a backup file<input id="importFile" type="file" accept="application/json,.json" aria-label="Restore from backup"></div>
       <div class="tip" id="bkStatus"></div>
+      <div class="tip" id="storeInfo"></div>
+    </div>
+    <div class="card">
+      <h2 class="cat-title">Report a problem</h2>
+      <p class="tip">Something broken or confusing? Copy this report and send it with a short message about what happened. It has the app version, your phone and browser, and recent errors. It does not include photos, piece names or your city.</p>
+      <textarea id="reportText" readonly rows="8" aria-label="Report"></textarea>
+      <div class="actions"><button class="btn primary" id="repCopy">Copy report</button><button class="btn" id="repShare">Share report</button></div>
+      <a class="btn" id="repLink" href="#" target="_blank" rel="noopener" hidden>Send feedback</a>
+      <a class="btn" href="test-guide.html" target="_blank" rel="noopener">Open the tester guide</a>
     </div>
   </section>
   <div id="msg"></div>
@@ -344,6 +409,16 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 </nav>
 
 <div class="toast" id="toast" hidden></div>
+<div class="sheet" id="remSheet" hidden><div class="panel" role="dialog" aria-label="Morning reminder">
+  <h2 class="cat-title" style="font-size:24px">Morning reminder</h2>
+  <p>Every morning your phone will say "Choose your outfit for today", with a link that opens this app. It uses your phone's calendar, so it works even when the app is closed.</p>
+  <label class="tip">Remind me at<input type="time" id="remTime2" value="07:30"></label>
+  <a class="btn primary" id="remGcal2" href="#" target="_blank" rel="noopener">Add to Google Calendar</a>
+  <button class="btn" id="remIcs2">Download calendar file (.ics)</button>
+  <p class="tip">Google Calendar: tap Save, then make sure the event has a notification. iPhone and other calendars: open the downloaded file and tap Add.</p>
+  <button class="btn" id="remClose2">Done</button>
+</div></div>
+<div class="sheet" id="swapSheet" hidden><div class="panel" id="swapPanel" role="dialog" aria-label="Swap a piece"></div></div>
 <div class="sheet" id="pickSheet" hidden><div class="panel" id="pickPanel" role="dialog" aria-label="Pick pieces"></div></div>
 <div class="sheet" id="onboard" hidden><div class="panel ob" id="obPanel" role="dialog" aria-label="Welcome"></div></div>
 <div class="sheet" id="sheet" hidden>
@@ -351,6 +426,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
     <img id="edImg" alt="">
     <label>Name<input type="text" id="edName" placeholder="e.g. Black hoodie"></label>
     <label>Category<select id="edCat"></select></label>
+    <label>Type<select id="edType"><option value="">Not set</option></select></label>
     <label>Color<select id="edColor"><option value="">Not set</option></select></label>
     <label>Pattern<select id="edPattern"><option value="solid">Solid</option><option value="patterned">Patterned or graphic</option></select></label>
     <label>Dress level<select id="edForm"><option value="">Automatic</option><option value="0.5">Lounge</option><option value="1.5">Casual</option><option value="2.5">Smart casual</option><option value="3.5">Work</option><option value="4">Dressy</option></select></label>
@@ -366,12 +442,20 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 </div>
 
 <script>
+const FEEDBACK_URL = "";   // set to a feedback form or mailto: link to show a "Send feedback" button
+const errLog = (() => { try { return JSON.parse(localStorage.getItem("closet-errlog")) || []; } catch { return []; } })();
+function logErr(kind, msg) {
+  try { errLog.push({ t: new Date().toISOString(), kind, msg: String(msg || "").replace(/\s+/g, " ").slice(0, 200) }); while (errLog.length > 20) errLog.shift(); localStorage.setItem("closet-errlog", JSON.stringify(errLog)); } catch {}
+}
+window.addEventListener("error", (e) => logErr("error", (e.message || "") + (e.filename ? " @" + String(e.filename).split("/").pop() + ":" + e.lineno : "")));
+window.addEventListener("unhandledrejection", (e) => logErr("promise", e.reason && (e.reason.message || e.reason)));
 const SEASONS = [{ id: "fall-winter", label: "Fall / Winter" }, { id: "spring-summer", label: "Spring / Summer" }];
 const CATS = [
   { id: "unsorted", label: "Auto-sort", tip: "Shoot anything without choosing a category. Smart sort reads each photo and moves it to the right category." },
-  { id: "tops", label: "Tops", tip: "Shirts, sweaters, hoodies, tees." },
+  { id: "tops", label: "Shirts & tees", tip: "T-shirts, button-ups, polos, tanks, long sleeves." },
+  { id: "layers", label: "Sweaters", tip: "Sweaters, hoodies, sweatshirts, cardigans, fleece. Worn over a tee." },
   { id: "bottoms", label: "Bottoms", tip: "Pants, jeans, shorts." },
-  { id: "outerwear", label: "Outerwear", tip: "Coats, jackets, vests." },
+  { id: "outerwear", label: "Jackets & coats", tip: "Coats, jackets, vests." },
   { id: "shoes", label: "Shoes", tip: "Each pair once." },
   { id: "accessories", label: "Accessories", tip: "Hats, scarves, gloves, belts, bags." },
   { id: "onepiece", label: "Dresses & sets", tip: "Dresses, jumpsuits, matching sets." },
@@ -387,7 +471,7 @@ const SKINS = [
 ];
 const COLORS = ["Black", "White", "Gray", "Beige", "Navy", "Brown", "Blue", "Green", "Red", "Pink", "Yellow", "Orange", "Purple", "Multi"];
 const NEUTRAL = new Set(["Black", "White", "Gray", "Beige", "Navy", "Brown"]);
-const LABEL = { tops: "Top", bottoms: "Bottom", outerwear: "Outerwear", shoes: "Shoes", accessories: "Accessory", onepiece: "Dress / set", unsorted: "Unsorted" };
+const LABEL = { tops: "Top", layers: "Sweater", bottoms: "Bottom", outerwear: "Outerwear", shoes: "Shoes", accessories: "Accessory", onepiece: "Dress / set", unsorted: "Unsorted" };
 const EVENTS = ["Casual", "Work", "Dressy", "Active", "Lounge"];
 const FEELINGS = ["Comfy", "Confident", "Playful", "Low-key"];
 const ENERGIES = ["Low", "Medium", "High"];
@@ -400,15 +484,20 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } ca
 let season = "fall-winter", cat = "tops", tab = "today";
 let items = [], worn = [], pending = [], db = null, ready = false;
 let outfit = [], outfitSeason = null, CNT = new Map();
+let outfitTouched = false, outfitGenWx = false, stageSig = "";
+let wxSettled = true;   // set false below once we know a forecast is being fetched
 let place = lsGet("closet-place"), wx = lsGet("closet-wx");
+wxSettled = !place || !!(wx && wx.days && wx.key === place.lat + "," + place.lon + "," + new Date().toLocaleDateString("en-CA"));
 let unitF = lsGet("closet-unitF"); if (unitF === null) unitF = /^en-US/i.test(navigator.language || "");
 let editId = null, delArm = false, edTags = new Set();
 let mood = Object.assign({ weather: true, event: "", feeling: "", energy: "" }, lsGet("closet-mood") || {});
-let activeCats = lsGet("closet-cats") || ["tops", "bottoms", "outerwear", "shoes", "accessories"];
+let activeCats = lsGet("closet-cats") || ["tops", "layers", "bottoms", "outerwear", "shoes", "accessories"];
+// one-time: make sure the new Sweaters category (and shoes, accessories, jackets) are switched on
+if (!lsGet("closet-cats-v2")) { for (const c of ["tops", "layers", "bottoms", "outerwear", "shoes", "accessories"]) if (!activeCats.includes(c)) activeCats.push(c); lsSet("closet-cats", activeCats); lsSet("closet-cats-v2", 1); }
 let laundry = Object.assign({ day: 0, low: 2 }, lsGet("closet-laundry") || {});
 let skin = lsGet("closet-skin") || "editorial";
 let accent = lsGet("closet-accent") || "";
-let cutPrefs = Object.assign({ use: true, auto: false, method: "smart" }, lsGet("closet-cut") || {});
+let cutPrefs = Object.assign({ use: true, auto: false, method: platformInfo().ios ? "quick" : "smart" }, lsGet("closet-cut") || {});
 const cutState = { queue: [], running: false, stop: false, done: 0, total: 0, msg: "", err: "", t0: 0, stage: "", aiFailed: false, note: "" };
 let CUT_TIMEOUT = 150000;
 const pic = (i) => (cutPrefs.use && i.cutUrl) ? i.cutUrl : i.url;
@@ -448,7 +537,7 @@ const openDb = () => idbp || (idbp = new Promise((res, rej) => {
 }));
 async function tx(name, mode, fn) {
   const d = await openDb();
-  return new Promise((res, rej) => { const t = d.transaction(name, mode); const out = fn(t.objectStore(name)); t.oncomplete = () => res(out && out.result); t.onerror = () => rej(t.error); });
+  return new Promise((res, rej) => { const t = d.transaction(name, mode); const out = fn(t.objectStore(name)); t.oncomplete = () => res(out && out.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error("The storage write was cancelled")); });
 }
 async function notify(name) {
   const rows = await tx(name, "readonly", s => s.getAll());
@@ -474,6 +563,7 @@ function makeDb() {
     doc: (id) => ({
       async set(d) { await tx(name, "readwrite", s => s.put({ id, ...d })); await notify(name); },
       async update(d) { const cur = await tx(name, "readonly", s => s.get(id)); if (!cur) return; await tx(name, "readwrite", s => s.put({ ...cur, ...d })); await notify(name); },
+      async get() { return tx(name, "readonly", s => s.get(id)); },
       async delete() { await tx(name, "readwrite", s => s.delete(id)); urls.delete(id); await notify(name); },
     }),
     onSnapshot(next) { subs[name].push(next); notify(name); return () => {}; },
@@ -488,7 +578,7 @@ const fmt = (c) => unitF ? Math.round(c * 9 / 5 + 32) + "°F" : Math.round(c) + 
 function setMsg(text, bad) { $("msg").innerHTML = text ? `<div class="note ${bad ? "bad" : ""}">${esc(text)}</div>` : ""; }
 
 /* ---------- Wear tracking ---------- */
-const DEFAULT_MAX = { tops: 1, bottoms: 3, outerwear: 0, shoes: 0, accessories: 0, onepiece: 1 };
+const DEFAULT_MAX = { tops: 1, layers: 3, bottoms: 3, outerwear: 0, shoes: 0, accessories: 0, onepiece: 1 };
 function maxWears(i) {
   if (i.maxWears !== undefined && i.maxWears !== null && i.maxWears !== "") return +i.maxWears;
   const n = (i.name || "").toLowerCase();
@@ -557,6 +647,30 @@ function renderLaundry() {
 }
 
 /* ---------- Photos tab ---------- */
+let selMode = false, selDelArm = false; const sel = new Set();
+function renderSelBar() {
+  let bar = $("selbar"); if (!bar) { bar = document.createElement("div"); bar.id = "selbar"; bar.className = "selbar"; document.body.appendChild(bar); }
+  bar.hidden = !selMode || tab !== "capture";
+  $("selMode").setAttribute("aria-pressed", selMode); $("selMode").textContent = selMode ? "Cancel" : "Select";
+  if (bar.hidden) return;
+  bar.innerHTML = `<b>${sel.size} selected</b><select id="selMove" aria-label="Move to category"><option value="">Move to...</option>${CATS.map(c => `<option value="${c.id}">${c.id === "unsorted" ? "Unsorted" : esc(c.label)}</option>`).join("")}</select><button class="btn" id="selClean">Clean up</button><button class="btn" id="selDel">${selDelArm ? "Tap again to delete" : "Delete"}</button>`;
+}
+// Deleting keeps a copy for a few seconds so you can bring it back.
+let undoStash = null, undoT = null;
+async function deleteWithUndo(ids) {
+  const recs = [];
+  for (const id of ids) { try { const r = await db.collection("closet").doc(id).get(); if (r) recs.push(r); await db.collection("closet").doc(id).delete(); } catch { setMsg("Couldn't delete that photo.", true); } }
+  if (!recs.length) return; undoStash = recs;
+  const t = $("toast"); clearTimeout(toastT); t.innerHTML = `${recs.length} deleted<button class="undo" id="undoBtn">Undo</button>`; t.hidden = false;
+  clearTimeout(undoT); undoT = setTimeout(() => { undoStash = null; t.hidden = true; }, 7000);
+  syncToday();
+}
+document.addEventListener("click", async (e) => {
+  if (e.target.id !== "undoBtn" || !undoStash) return;
+  const recs = undoStash; undoStash = null; clearTimeout(undoT); $("toast").hidden = true;
+  for (const r of recs) { try { await db.collection("closet").doc(r.id).set(r); } catch {} }
+  toast("Restored."); syncToday();
+});
 function render() {
   const cats = CATS.filter(c => isActiveCat(c.id));
   if (!isActiveCat(cat)) cat = (cats[0] || CATS[0]).id;
@@ -578,22 +692,66 @@ function render() {
   const pend = pending.filter(p => p.season === season && p.category === cat);
   let html = pend.map(p => `<div class="tile ${p.status === "error" ? "err" : ""}"><img src="${p.preview}" alt=""><div class="state">${p.status === "error" ? "Failed: " + esc(p.error) : "Saving..."}</div></div>`).join("");
   html += mine.map(i => {
+    if (selMode) return `<button class="tile ${sel.has(i.id) ? "sel" : ""}" data-sel="${i.id}" aria-pressed="${sel.has(i.id)}"><img src="${picT(i)}" decoding="async" ${ca(i)} alt="" loading="lazy">${sel.has(i.id) ? '<span class="tick">✓</span>' : ""}</button>`;
     const m = maxWears(i), w = wearsOf(i);
     const badge = isDirty(i) ? `<span class="badge dirty">In hamper</span>` : (m > 1 && w > 0 ? `<span class="badge">${w}/${m} worn</span>` : "");
     return `<button class="tile" data-edit="${i.id}" aria-label="Edit ${esc(i.name || c.label)}"><img src="${picT(i)}" decoding="async" ${ca(i)} alt="" loading="lazy">${badge}${i.favorite ? '<span class="star">★</span>' : ""}${(i.name || i.color) ? `<span class="cap">${esc(i.name || i.color)}</span>` : ""}</button>`;
   }).join("");
-  renderSmartPrompt();
+  renderSmartPrompt(); renderSelBar();
   $("grid").innerHTML = html || `<div class="empty" style="grid-column:1/-1">${q ? "No matches." : `Nothing here yet. Open the camera and add your first ${esc(c.label.toLowerCase())} photo.`}</div>`;
 }
-async function shrink(file) {
+/* ---------- Photo fixing: lighting, color cast, clean edges ---------- */
+let photoPrefs = Object.assign({ fix: true }, lsGet("closet-photo") || {});
+// Brightens dim photos, removes a warm or cool color cast a little, adds a touch of contrast and color. Works on the opaque pixels only.
+function autoFixCanvas(cv, opts = {}) {
+  const w = cv.width, h = cv.height, g = cv.getContext("2d", { willReadFrequently: true });
+  const img = g.getImageData(0, 0, w, h), d = img.data, N = w * h;
+  const hist = new Uint32Array(256), step = Math.max(1, Math.floor(Math.sqrt(N / 40000)));
+  let cnt = 0, sr = 0, sg = 0, sb = 0;
+  for (let y = 0; y < h; y += step) for (let x = 0; x < w; x += step) {
+    const i = (y * w + x) * 4; if (d[i + 3] < 200) continue;
+    hist[(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) | 0]++; cnt++; sr += d[i]; sg += d[i + 1]; sb += d[i + 2];
+  }
+  if (cnt < 200) return null;
+  const pct = (q) => { let a = 0; const t = cnt * q; for (let v = 0; v < 256; v++) { a += hist[v]; if (a >= t) return v; } return 255; };
+  const lo = pct(0.02), mid = pct(0.5), hi = pct(0.97);
+  const lim = (v) => Math.max(0.88, Math.min(1.12, v));
+  let kr = 1, kg = 1, kb = 1;
+  if (opts.wb !== false) { const ar = sr / cnt, ag = sg / cnt, ab = sb / cnt, m = (ar + ag + ab) / 3; kr = lim(1 + 0.6 * (m / ar - 1)); kg = lim(1 + 0.6 * (m / ag - 1)); kb = lim(1 + 0.6 * (m / ab - 1)); }
+  const gain = Math.max(0.9, Math.min(1.9, 232 / Math.max(90, hi * (kr + kg + kb) / 3)));
+  const midN = Math.min(0.9, Math.max(0.08, mid * gain / 255)), gamma = Math.max(0.65, Math.min(1.1, Math.log(0.45) / Math.log(midN)));
+  const black = lo * 0.5;
+  const mk = (k) => { const t = new Uint8ClampedArray(256); for (let v = 0; v < 256; v++) { let x = Math.max(0, Math.min(1, (v * k * gain - black * gain) / (255 - black * gain))); x = Math.pow(x, gamma); const sm = x * x * (3 - 2 * x); t[v] = Math.round(255 * (x * 0.78 + sm * 0.22)); } return t; };
+  const LR = mk(kr), LG = mk(kg), LB = mk(kb), sat = opts.sat ?? 1.1;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] === 0) continue;
+    const r = LR[d[i]], gg = LG[d[i + 1]], b = LB[d[i + 2]], l = 0.299 * r + 0.587 * gg + 0.114 * b;
+    d[i] = l + (r - l) * sat; d[i + 1] = l + (gg - l) * sat; d[i + 2] = l + (b - l) * sat;
+  }
+  g.putImageData(img, 0, 0);
+  return { gain: Math.round(gain * 100) / 100, gamma: Math.round(gamma * 100) / 100 };
+}
+const canvasBlob = (cv, type = "image/jpeg", q = 0.88) => new Promise(r => cv.toBlob(r, type, q));
+async function photoCanvas(file, max = 1400) {
+  const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const sc = Math.min(1, max / Math.max(bmp.width, bmp.height)), cv = document.createElement("canvas");
+  cv.width = Math.round(bmp.width * sc); cv.height = Math.round(bmp.height * sc);
+  cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height); return cv;
+}
+// Crisper cutout edge: tightens the soft halo the cleanup leaves, so no bed or wall color rings the piece.
+async function polishCutout(blob, fix) {
   try {
-    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
-    const scale = Math.min(1, 1000 / Math.max(bmp.width, bmp.height));
-    const cv = document.createElement("canvas");
-    cv.width = Math.round(bmp.width * scale); cv.height = Math.round(bmp.height * scale);
-    cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
-    return (await new Promise(r => cv.toBlob(r, "image/jpeg", 0.82))) || file;
-  } catch { return file; }
+    const bmp = await createImageBitmap(blob), cv = document.createElement("canvas"); cv.width = bmp.width; cv.height = bmp.height;
+    const g = cv.getContext("2d", { willReadFrequently: true }); g.drawImage(bmp, 0, 0);
+    const img = g.getImageData(0, 0, cv.width, cv.height), d = img.data;
+    for (let i = 3; i < d.length; i += 4) { const a = d[i]; d[i] = a < 40 ? 0 : a > 215 ? 255 : Math.round((a - 40) * 255 / 175); }
+    g.putImageData(img, 0, 0);
+    if (fix) autoFixCanvas(cv, { wb: false });
+    return (await canvasBlob(cv, "image/webp", 0.88)) || blob;
+  } catch { return blob; }
+}
+async function shrink(file) {
+  try { return await canvasBlob(await photoCanvas(file), "image/jpeg", 0.88) || file; } catch { return file; }
 }
 async function handleFiles(files) {
   if (!ready) return;
@@ -601,44 +759,150 @@ async function handleFiles(files) {
     const p = { season, category: cat, preview: URL.createObjectURL(file), status: "saving" };
     pending.push(p); render();
     try {
-      const blob = await shrink(file);
-      const issue = qualityIssue(await photoQuality(blob));
-      const newId = await db.collection("closet").add({ season: p.season, category: p.category, blob, thumb: await makeThumb(blob), createdAt: new Date().toISOString() });
+      let blob = file, probe = file, fixed = 0;
+      try {
+        const cv = await photoCanvas(file), small = document.createElement("canvas"), k = Math.min(1, 480 / Math.max(cv.width, cv.height));
+        small.width = Math.round(cv.width * k); small.height = Math.round(cv.height * k); small.getContext("2d").drawImage(cv, 0, 0, small.width, small.height);
+        probe = await canvasBlob(small, "image/jpeg", 0.8);            // judged before fixing, so the warnings stay honest
+        if (photoPrefs.fix) { try { if (autoFixCanvas(cv)) fixed = 1; } catch {} }
+        blob = (await canvasBlob(cv, "image/jpeg", 0.88)) || file;
+      } catch {}
+      const issue = qualityIssue(await photoQuality(probe));
+      const newId = await db.collection("closet").add({ season: p.season, category: p.category, blob, thumb: await makeThumb(blob), createdAt: new Date().toISOString(), fixVer: fixed });
       pending = pending.filter(x => x !== p);
+      if (items.filter(i => !i.demo).length === 10 && !lsGet("closet-lastBackup")) toast("10 pieces! Save a backup so you never lose them: More, then Backup.");
       lastShot = { id: newId, issue }; renderShotNote(); clearTimeout(shotT); if (issue) shotT = setTimeout(() => { lastShot = null; renderShotNote(); }, 9000);
       (async () => {
         if (smart.color) { try { await analyzeAndSave(newId); } catch {} }
         if (cutPrefs.auto) enqueueCut([newId]);
         if (smart.ai || p.category === "unsorted") enqueueRec([newId]);
       })();
-    } catch (err) { p.status = "error"; p.error = (err && err.message) || "try again"; }
+    } catch (err) { p.status = "error"; p.error = isQuota(err) ? "Storage is full" : ((err && err.message) || "try again"); logErr("save", p.error); if (isQuota(err)) storageFull(); }
     render();
   }
 }
+// Improve photos taken earlier: same fix, applied to the saved photo and its cutout.
+const fixState = { running: false, done: 0, total: 0, stop: false };
+const fixable = () => items.filter(i => !i.demo && i.url && !i.fixVer);
+async function fixExisting() {
+  if (fixState.running) return; fixState.running = true; fixState.stop = false;
+  const todo = fixable().map(i => i.id); fixState.total = todo.length; fixState.done = 0; renderFix();
+  await withHeavy(async () => {
+    for (const id of todo) {
+      if (fixState.stop) break; await calm();
+      const it = byId(id); if (!it) { fixState.done++; continue; }
+      try {
+        const cv = await photoCanvas(await (await fetch(it.url)).blob(), 1400), res = autoFixCanvas(cv);
+        const upd = { fixVer: 1 };
+        if (res) { upd.blob = await canvasBlob(cv, "image/jpeg", 0.88); upd.thumb = await makeThumb(upd.blob); }
+        if (it.cutUrl) {
+          const cc = await photoCanvas(await (await fetch(it.cutUrl)).blob(), 1400); const r2 = autoFixCanvas(cc, { wb: false });
+          if (r2) { upd.cutout = await canvasBlob(cc, "image/webp", 0.88); upd.cutThumb = await makeThumb(upd.cutout); }
+        }
+        await serial(() => db.collection("closet").doc(id).update(upd));
+      } catch (e) { logErr("fix", e && e.message); }
+      fixState.done++; renderFix();
+    }
+  });
+  fixState.running = false; renderFix(); render(); renderToday();
+}
+function renderFix() {
+  const el = $("fixStatus"); if (!el) return;
+  const left = fixable().length;
+  el.textContent = fixState.running ? `Improving photo ${Math.min(fixState.done + 1, fixState.total)} of ${fixState.total}...` : (left ? `${left} ${left === 1 ? "photo hasn't" : "photos haven't"} been improved yet.` : "All your photos are improved.");
+  $("fixStop").hidden = !fixState.running; $("fixAll").disabled = fixState.running || !left; $("fixAuto").checked = photoPrefs.fix;
+}
 $("lib").addEventListener("change", (e) => { const f = [...e.target.files]; e.target.value = ""; if (f.length) handleFiles(f); });
 $("search").addEventListener("input", render);
+$("selMode").addEventListener("click", () => { selMode = !selMode; sel.clear(); selDelArm = false; render(); });
+document.addEventListener("change", async (e) => {
+  if (e.target.id !== "selMove" || !e.target.value) return;
+  const to = e.target.value, ids = [...sel]; if (!ids.length) { e.target.value = ""; return; }
+  for (const id of ids) { const it = byId(id); if (!it) continue; const a = { ...(it.auto || {}), category: false }; await serial(() => db.collection("closet").doc(id).update({ category: to, auto: a })); }
+  toast(`Moved ${ids.length} to ${to === "unsorted" ? "Unsorted" : CATS.find(c => c.id === to).label}.`); sel.clear(); render(); syncToday();
+});
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.sel) { sel.has(t.dataset.sel) ? sel.delete(t.dataset.sel) : sel.add(t.dataset.sel); selDelArm = false; render(); }
+  else if (t.id === "selClean") { const ids = [...sel]; if (!ids.length) return; const todo = ids.filter(id => { const it = byId(id); return it && !it.cutUrl; }); selMode = false; sel.clear(); render(); if (todo.length) { toast("Cleaning " + todo.length + " photos. Keep the app open."); enqueueCut(todo); } else toast("Those are already clean."); }
+  else if (t.id === "selDel") {
+    if (!sel.size) return; if (!selDelArm) { selDelArm = true; renderSelBar(); return; }
+    const ids = [...sel]; selMode = false; sel.clear(); selDelArm = false; render(); await deleteWithUndo(ids);
+  }
+}, true);
+$("fixAll").addEventListener("click", fixExisting);
+$("fixStop").addEventListener("click", () => { fixState.stop = true; });
+$("fixAuto").addEventListener("change", (e) => { photoPrefs.fix = e.target.checked; lsSet("closet-photo", photoPrefs); });
 
 /* ---------- Live camera ---------- */
-let stream = null;
+let stream = null, camTrack = null, imgCap = null, camLoop = null, camShots = 0;
+let autoSnap = lsGet("closet-autosnap") === true;
+const camSt = { prev: null, moved: true, steady: 0, hint: "" };
 async function openCam() {
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1600 }, height: { ideal: 1600 } }, audio: false });
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 2048 }, height: { ideal: 2048 } }, audio: false });
     $("vid").srcObject = stream; $("camOpen").hidden = true; $("camLive").hidden = false; setMsg("");
+    camTrack = stream.getVideoTracks()[0]; camShots = 0; camSt.prev = null; camSt.moved = true; camSt.steady = 0;
+    try { imgCap = window.ImageCapture ? new ImageCapture(camTrack) : null; } catch { imgCap = null; }
+    let caps = {}; try { caps = camTrack.getCapabilities ? camTrack.getCapabilities() : {}; } catch {}
+    try { if (caps.focusMode && caps.focusMode.includes("continuous")) await camTrack.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch {}
+    $("camTorch").hidden = !caps.torch; $("camTorch").setAttribute("aria-pressed", "false");
+    const z = caps.zoom; $("camZoomWrap").hidden = !(z && z.max > z.min);
+    if (z && z.max > z.min) { const zi = $("camZoom"); zi.min = z.min; zi.max = Math.min(z.max, z.min * 4); zi.step = z.step || 0.1; zi.value = z.min; }
+    renderAutoSnap(); clearInterval(camLoop); camLoop = setInterval(camTick, 250);
   } catch (e) { setMsg("The camera is blocked. Tap the lock icon in the address bar, set Camera to Allow, then reload and try again.", true); }
 }
 function stopCam() {
+  clearInterval(camLoop); camLoop = null;
   if (stream) stream.getTracks().forEach(t => t.stop());
-  stream = null; $("vid").srcObject = null; $("camOpen").hidden = false; $("camLive").hidden = true;
+  stream = null; camTrack = null; imgCap = null; $("vid").srcObject = null; $("camOpen").hidden = false; $("camLive").hidden = true;
 }
+function renderAutoSnap() { $("camAuto").setAttribute("aria-pressed", autoSnap); $("camAuto").textContent = autoSnap ? "Auto-snap on" : "Auto-snap"; }
+// Looks at the live picture a few times a second: too dark? moving? Then, if Auto-snap is on, takes the photo when it holds still.
+function camTick() {
+  const v = $("vid"); if (!v.videoWidth || !stream) return;
+  const W = 40, H = 54, cv = camTick.cv || (camTick.cv = document.createElement("canvas")); cv.width = W; cv.height = H;
+  const g = cv.getContext("2d", { willReadFrequently: true }); g.drawImage(v, 0, 0, W, H);
+  const d = g.getImageData(0, 0, W, H).data, L = new Float32Array(W * H); let sum = 0;
+  for (let i = 0; i < W * H; i++) { L[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]; sum += L[i]; }
+  const mean = sum / (W * H); let diff = 0;
+  if (camSt.prev) { for (let i = 0; i < W * H; i++) diff += Math.abs(L[i] - camSt.prev[i]); diff /= W * H; }
+  camSt.prev = L;
+  const moving = diff > 7, dark = mean < 70, bright = mean > 225;
+  if (moving) { camSt.moved = true; camSt.steady = 0; } else camSt.steady += 250;
+  let hint = "Lay it flat on a plain surface. Fill the frame.", cls = "";
+  if (dark) { hint = $("camTorch").hidden ? "Too dark. Move to a brighter spot or turn on a lamp." : "Too dark. Tap Light, or move somewhere brighter."; cls = "warn"; }
+  else if (bright) { hint = "Very bright. Move away from glare or direct light."; cls = "warn"; }
+  else if (moving) hint = "Hold still...";
+  else { hint = autoSnap ? (camSt.moved ? "Hold steady. Snapping in a moment..." : "Swap the piece, then hold still.") : "Looks good. Tap Snap."; cls = "ok"; }
+  const hb = $("camHint"); if (hb.textContent !== hint) hb.textContent = hint; hb.className = "hintbar " + cls;
+  if (autoSnap && !dark && !bright && !moving && camSt.moved && camSt.steady >= 1250) { camSt.moved = false; camSt.steady = 0; snap(); }
+}
+let snapBusy = false;
 async function snap() {
-  const v = $("vid"); if (!v.videoWidth) return;
-  const sc = Math.min(1, 1000 / Math.max(v.videoWidth, v.videoHeight)), cv = document.createElement("canvas");
-  cv.width = Math.round(v.videoWidth * sc); cv.height = Math.round(v.videoHeight * sc);
-  cv.getContext("2d").drawImage(v, 0, 0, cv.width, cv.height);
-  const f = $("flash"); f.classList.add("on"); setTimeout(() => f.classList.remove("on"), 60);
-  if (navigator.vibrate) navigator.vibrate(30);
-  handleFiles([await new Promise(r => cv.toBlob(r, "image/jpeg", 0.82))]);
+  const v = $("vid"); if (!v.videoWidth || snapBusy) return; snapBusy = true;
+  try {
+    const f = $("flash"); f.classList.add("on"); setTimeout(() => f.classList.remove("on"), 60);
+    if (navigator.vibrate) navigator.vibrate(30);
+    let blob = null;
+    // the phone's own still-photo mode gives a sharper, better exposed picture than a frame of the preview
+    if (imgCap && imgCap.takePhoto) { try { blob = await Promise.race([imgCap.takePhoto(), new Promise((_, rej) => setTimeout(() => rej(new Error("slow")), 3000))]); } catch { blob = null; } }
+    if (!blob) {
+      const sc = Math.min(1, 1600 / Math.max(v.videoWidth, v.videoHeight)), cv = document.createElement("canvas");
+      cv.width = Math.round(v.videoWidth * sc); cv.height = Math.round(v.videoHeight * sc); cv.getContext("2d").drawImage(v, 0, 0, cv.width, cv.height);
+      blob = await canvasBlob(cv, "image/jpeg", 0.9);
+    }
+    camShots++; $("camCount").textContent = camShots + (camShots === 1 ? " photo" : " photos") + " taken";
+    handleFiles([blob]);
+  } finally { snapBusy = false; }
 }
+$("camTorch").addEventListener("click", async () => {
+  const on = $("camTorch").getAttribute("aria-pressed") !== "true";
+  try { await camTrack.applyConstraints({ advanced: [{ torch: on }] }); $("camTorch").setAttribute("aria-pressed", on); } catch {}
+});
+$("camZoom").addEventListener("input", async (e) => { try { await camTrack.applyConstraints({ advanced: [{ zoom: +e.target.value }] }); } catch {} });
+$("camAuto").addEventListener("click", () => { autoSnap = !autoSnap; lsSet("closet-autosnap", autoSnap); camSt.moved = true; camSt.steady = 0; renderAutoSnap(); });
+$("vid").addEventListener("dblclick", snap);
 $("camOpen").addEventListener("click", openCam);
 $("camClose").addEventListener("click", stopCam);
 $("snap").addEventListener("click", snap);
@@ -654,7 +918,7 @@ function openEditor(id) {
   editId = id; delArm = false; refreshCnt();
   $("edImg").src = pic(it); $("edName").value = it.name || ""; $("edColor").value = it.color || "";
   $("edForm").value = it.formality === undefined || it.formality === null ? "" : String(it.formality);
-  $("edCat").value = it.category; $("edPattern").value = it.pattern || "solid"; $("edFav").checked = !!it.favorite;
+  $("edCat").value = it.category; $("edType").value = typeOf(it) || ""; $("edPattern").value = it.pattern || "solid"; $("edFav").checked = !!it.favorite;
   $("edMax").value = it.maxWears === undefined || it.maxWears === null ? "" : String(it.maxWears);
   const m = maxWears(it); $("edWear").textContent = m === 0 ? "Not tracked for washing." : `Worn ${wearsOf(it)} of ${m} since the last wash${isDirty(it) ? ". It's in the hamper." : "."}`;
   $("edPrice").value = it.price === undefined || it.price === null ? "" : it.price;
@@ -672,6 +936,13 @@ async function closeEditor() {
   if ($("edColor").value !== (it.color || "")) { upd.color = $("edColor").value; a.color = false; }
   if ($("edPattern").value !== (it.pattern || "solid")) { upd.pattern = $("edPattern").value; a.pattern = false; }
   if ($("edCat").value !== it.category) { upd.category = $("edCat").value; a.category = false; }
+  const tv = $("edType").value;
+  if (tv && tv !== (typeOf(it) || "")) {
+    const T = TYPES.find(x => x[0] === tv); upd.typeLabel = tv;
+    if (T && $("edCat").value === it.category) { upd.category = T[1]; a.category = false; }
+    if (T && !(it.tags || []).length && tags.slice().sort().join() === (it.tags || []).slice().sort().join()) { upd.tags = T[3]; a.tags = true; }
+    if (T && !name) upd.name = `${it.color ? it.color + " " : ""}${T[2].toLowerCase()}`;
+  }
   if (tags.slice().sort().join() !== (it.tags || []).slice().sort().join()) { upd.tags = tags; a.tags = false; }
   const fm = $("edForm").value === "" ? null : +$("edForm").value; if (fm !== (it.formality === undefined ? null : it.formality)) upd.formality = fm;
   if ($("edFav").checked !== !!it.favorite) upd.favorite = $("edFav").checked;
@@ -692,8 +963,7 @@ $("edCut").addEventListener("click", async () => {
 $("edWash").addEventListener("click", async () => { const id = editId; await closeEditor(); const it = byId(id); if (it) await washItems([it]); });
 $("edDelete").addEventListener("click", async () => {
   if (!delArm) { delArm = true; $("edDelete").textContent = "Tap again to delete"; return; }
-  const id = editId; editId = null; $("sheet").hidden = true;
-  try { await db.collection("closet").doc(id).delete(); } catch { setMsg("Couldn't delete that photo.", true); }
+  const id = editId; editId = null; $("sheet").hidden = true; await deleteWithUndo([id]);
 });
 
 /* ---------- Weather ---------- */
@@ -714,7 +984,7 @@ async function afterPlaceChange() {
   lsSet("closet-place", place); wx = null; renderWx(); renderMore();
   await fetchWx(true); renderMore();
   if (!wx) $("wxStatus").textContent = "Couldn't get the forecast. Check your connection and try again.";
-  if (!worn.find(w => w.id === todayStr())) outfit = [];
+  if (!worn.find(w => w.id === todayStr()) && !outfitTouched) outfit = [];
   syncToday();
 }
 async function findCity() {
@@ -735,6 +1005,14 @@ function useLocation() {
     place = { name: "Your location", lat: +p.coords.latitude.toFixed(2), lon: +p.coords.longitude.toFixed(2) };
     await afterPlaceChange();
   }, () => { $("wxStatus").textContent = "Location was blocked. Type your city instead."; }, { timeout: 15000 });
+}
+function wantLayer() {
+  const W = SIM ? SIM.wx : wx; if (mood.event === "Active") return false;
+  let p;
+  if (W && mood.weather) p = (W.tmin <= 6 || W.tmax <= 12) ? 0.9 : W.tmax <= 18 ? 0.6 : W.tmax <= 23 ? 0.25 : 0.05;
+  else p = season === "fall-winter" ? 0.6 : 0.15;
+  if (mood.feeling === "Comfy") p = Math.min(0.95, p + 0.2);
+  return Math.random() < p;
 }
 function wantOuter() {
   const W = SIM ? SIM.wx : wx;
@@ -795,7 +1073,7 @@ function formalFactor(i, ctx) {
   return d <= 0.7 ? 1.15 : d <= 1.3 ? 1 : d <= 2 ? 0.5 : 0.15;
 }
 const HUES = { Red: 0, Orange: 28, Yellow: 48, Green: 140, Blue: 214, Purple: 269, Pink: 346 };
-const NEUTRAL_PAIRS = { "Beige|Black": 1.0, "Beige|Brown": 1.3, "Beige|Gray": 0.85, "Beige|Navy": 1.35, "Beige|White": 1.15, "Black|Brown": 0.6, "Black|Gray": 1.15, "Black|Navy": 0.8, "Black|White": 1.3, "Brown|Gray": 0.8, "Brown|Navy": 1.25, "Brown|White": 1.15, "Gray|Navy": 1.15, "Gray|White": 1.15, "Navy|White": 1.25 };
+const NEUTRAL_PAIRS = { "Beige|Black": 1.0, "Beige|Brown": 1.3, "Beige|Gray": 0.85, "Beige|Navy": 1.35, "Beige|White": 1.15, "Black|Brown": 0.75, "Black|Gray": 1.15, "Black|Navy": 0.8, "Black|White": 1.3, "Brown|Gray": 0.8, "Brown|Navy": 1.25, "Brown|White": 1.15, "Gray|Navy": 1.15, "Gray|White": 1.15, "Navy|White": 1.25 };
 const ACCENT_NEUTRAL = { "Red|Brown": 0.7, "Purple|Brown": 0.65, "Pink|Brown": 0.8, "Green|Brown": 1.2, "Orange|Brown": 1.1, "Red|Navy": 1.15, "Blue|Navy": 0.85, "Green|Navy": 1.1, "Yellow|Navy": 1.2, "Orange|Navy": 1.25, "Pink|Navy": 1.2, "Purple|Beige": 0.9, "Yellow|Beige": 0.9, "Red|Beige": 1.1, "Blue|Beige": 1.2, "Green|Beige": 1.15, "Orange|Beige": 1.0 };
 function colorPair(a, b) {
   if (!a || !b) return 1;
@@ -804,9 +1082,7 @@ function colorPair(a, b) {
   if (an && bn) return NEUTRAL_PAIRS[[a, b].sort().join("|")] ?? 1;
   if (a === "Multi" || b === "Multi") return (an || bn) ? 1.05 : 0.6;
   if (an || bn) { const acc = an ? b : a, neu = an ? a : b; return ACCENT_NEUTRAL[acc + "|" + neu] ?? 1.1; }
-  if ((a === "Red" && b === "Pink") || (a === "Pink" && b === "Red")) return 0.5;
-  const diff = Math.abs(HUES[a] - HUES[b]), d = Math.min(diff, 360 - diff);
-  if (d <= 40) return 1.15; if (d >= 160) return 1.2; if (d >= 105 && d <= 135) return 1.0; if (d > 135) return 0.95; return 0.55;
+  return PAIR_ACCENT[[a, b].sort().join("|")] ?? 1;
 }
 function harmonyFactor(i, ctx) {
   if (!i.color || !ctx || !ctx.ids || !ctx.ids.length) return 1;
@@ -836,66 +1112,279 @@ function pick(c, exclude, ctx) {
   if (exclude && p.length > 1) p = p.filter(i => i.id !== exclude);
   if (ctx) {
     if (ctx.patterned) { const q = p.filter(i => i.pattern !== "patterned"); if (q.length) p = q; }
-    if (ctx.accent && !relaxed() && ["tops", "bottoms", "outerwear"].includes(c)) { const q = p.filter(i => !i.color || NEUTRAL.has(i.color)); if (q.length) p = q; }
+    if (ctx.accent && !relaxed() && ["tops", "layers", "bottoms", "outerwear"].includes(c)) { const q = p.filter(i => !i.color || NEUTRAL.has(i.color)); if (q.length) p = q; }
   }
   const recent = recentIds(), fresh = p.filter(i => !recent.has(i.id)), from = fresh.length ? fresh : p;
   const w = from.map(i => weight(i, ctx)); let r = Math.random() * w.reduce((a, b) => a + b, 0);
   for (let k = 0; k < from.length; k++) { r -= w[k]; if (r <= 0) return from[k].id; }
   return from[from.length - 1].id;
 }
+/* ---------- Stylist: how outfits are judged ---------- */
+// Reads a piece's type from the photo reading, or from its name ("Black joggers" -> joggers).
+const TYPE_WORDS = [
+  [/denim jacket|jean jacket/, "denim jacket"], [/leather jacket/, "leather jacket"], [/rain ?coat|rain jacket/, "raincoat"], [/puffer|parka|down jacket/, "puffer jacket"],
+  [/wool coat|peacoat|overcoat|camel coat|\bcoat\b/, "wool coat"], [/blazer|sport coat/, "blazer"], [/trench/, "trench coat"], [/bomber/, "bomber jacket"], [/fleece/, "fleece jacket"], [/\bvest\b|gilet/, "vest"], [/jacket/, "bomber jacket"],
+  [/turtleneck|mock neck/, "turtleneck sweater"], [/cardigan/, "cardigan"], [/hoodie|hooded/, "hoodie"], [/sweatshirt|crewneck|crew neck/, "sweatshirt"], [/sweater|jumper|pullover|knit|quarter-?zip|half-?zip/, "sweater"],
+  [/button|oxford|dress shirt/, "button-up dress shirt"], [/blouse/, "blouse"], [/polo/, "polo shirt"], [/flannel/, "flannel shirt"], [/tank|camisole/, "tank top"], [/athletic|gym|workout|performance/, "athletic shirt"],
+  [/long ?sleeve|henley/, "long sleeve shirt"], [/t-?shirt|\btee\b|tshirt/, "t-shirt"],
+  [/sweatpant/, "sweatpants"], [/jogger/, "joggers"], [/legging|tights/, "leggings"], [/shorts?\b/, "shorts"], [/skirt/, "skirt"], [/cargo/, "cargo pants"], [/corduroy|\bcords?\b/, "corduroy pants"],
+  [/slack|dress pant|trouser/, "dress pants"], [/chino|khaki|work pant/, "chinos"], [/jeans?\b|denim/, "jeans"], [/pants?\b/, "chinos"],
+  [/running shoe|runner|trainer/, "running shoes"], [/sneaker|kicks/, "sneakers"], [/loafer|moccasin/, "loafers"], [/dress shoe|derby|oxford shoe|brogue/, "dress shoes"], [/boot/, "boots"], [/sandal|slide|flip/, "sandals"], [/heel|pump|stiletto/, "high heels"], [/slipper/, "slippers"],
+  [/beanie|toque|winter hat/, "beanie hat"], [/\bcap\b|baseball|\bhat\b/, "baseball cap"], [/scarf/, "scarf"], [/belt/, "belt"], [/glove|mitten/, "gloves"], [/backpack/, "backpack"], [/bag|purse|tote/, "handbag"], [/\btie\b|necktie/, "necktie"],
+  [/jumpsuit|romper/, "jumpsuit"], [/\bdress\b/, "dress"],
+];
+const WARM = { "t-shirt": 1, "polo shirt": 1, "button-up dress shirt": 1.5, "blouse": 1.2, "tank top": 0.3, "long sleeve shirt": 1.8, "flannel shirt": 2.2, "athletic shirt": 1, "sweater": 3.3, "hoodie": 3.3, "sweatshirt": 3, "cardigan": 3, "turtleneck sweater": 3.3,
+  "shorts": 0.3, "skirt": 1, "leggings": 1.5, "jeans": 2.2, "chinos": 1.8, "dress pants": 1.8, "cargo pants": 2, "corduroy pants": 2.6, "sweatpants": 2.4, "joggers": 2.2,
+  "puffer jacket": 5, "wool coat": 4.5, "denim jacket": 2.5, "leather jacket": 3, "blazer": 2.5, "trench coat": 3, "bomber jacket": 3, "raincoat": 2.5, "fleece jacket": 3.5, "vest": 2,
+  "sneakers": 2, "running shoes": 1.5, "boots": 3.5, "dress shoes": 2, "loafers": 1.5, "sandals": 0.3, "high heels": 1, "slippers": 1,
+  "beanie hat": 2, "baseball cap": 0, "scarf": 2, "gloves": 2, "belt": 0, "handbag": 0, "backpack": 0, "necktie": 0, "dress": 2, "jumpsuit": 2 };
+const CAT_WARM = { tops: 1.2, layers: 3.2, bottoms: 2.2, outerwear: 3.5, shoes: 2, accessories: 0, onepiece: 2.5 };
+function typeOf(i) {
+  const byName = () => { const n = (i.name || "").toLowerCase(); for (const [re, t] of TYPE_WORDS) if (re.test(n)) return t; return null; };
+  if (i.auto && i.auto.name === false) { const t = byName(); if (t) return t; }
+  if (i.typeLabel && WARM[i.typeLabel] !== undefined) return i.typeLabel;
+  return byName();
+}
+const warmthOf = (i) => { const t = typeOf(i); return t && WARM[t] !== undefined ? WARM[t] : (CAT_WARM[i.category] ?? 1.5); };
+const LUM = { Black: 0.06, Navy: 0.16, Brown: 0.26, Green: 0.32, Purple: 0.3, Red: 0.4, Gray: 0.5, Blue: 0.45, Orange: 0.6, Pink: 0.75, Beige: 0.75, Yellow: 0.78, White: 0.95 };
+function lumOf(i) {
+  let v = LUM[i.color]; if (v === undefined) return null;
+  const n = (i.name || "").toLowerCase();
+  if (/light|pale|baby|sky|cream|ivory/.test(n)) v = Math.min(0.95, v + 0.25); else if (/dark|deep|charcoal|midnight/.test(n)) v = Math.max(0.05, v - 0.2);
+  return typeof i.lum === "number" ? 0.5 * v + 0.5 * i.lum : v;
+}
+const isDenim = (i) => i.color === "Blue" && (typeOf(i) === "jeans" || /denim|jean/i.test(i.name || ""));
+const isNeutralish = (i) => !i.color || NEUTRAL.has(i.color) || isDenim(i);
+function dayTemp() {
+  const W = SIM ? SIM.wx : (mood.weather ? wx : null);
+  if (W && typeof W.tmax === "number" && typeof W.tmin === "number") return { t: W.tmin * 0.4 + W.tmax * 0.6, rain: W.rain || 0, real: true, tmin: W.tmin, tmax: W.tmax };
+  return { t: season === "fall-winter" ? 8 : 22, rain: 0, real: false };
+}
+const S = (...a) => new Set(a);
+const LOUNGEB = S("sweatpants", "joggers", "leggings"), HOODIES = S("hoodie", "sweatshirt"), SMARTSHOE = S("dress shoes", "loafers", "high heels"), SMARTOUT = S("blazer", "wool coat", "trench coat"),
+  DRESSTOP = S("button-up dress shirt", "blouse"), BELTBOT = S("jeans", "dress pants", "chinos", "cargo pants", "corduroy pants", "skirt"), TEES = S("t-shirt", "long sleeve shirt", "polo shirt");
+// [group A, group B, multiplier, text]. Multipliers under 1 are warnings, over 1 are good news.
+const TYPE_RULES = [
+  [LOUNGEB, SMARTOUT, 0.3, "Sweats and a tailored coat look mismatched."], [LOUNGEB, SMARTSHOE, 0.3, "Sweats with dress shoes look mismatched."], [LOUNGEB, DRESSTOP, 0.45, "Sweats with a collared shirt looks unfinished."],
+  [HOODIES, S("blazer"), 0.2, "A hoodie under a blazer rarely works."], [HOODIES, S("wool coat", "trench coat"), 0.5, "A hoodie under a dressy coat looks bulky."], [HOODIES, SMARTSHOE, 0.5, "A hoodie and dress shoes are an odd mix."], [HOODIES, DRESSTOP, 0.75, "A hoodie over a collared shirt is hit or miss."],
+  [S("shorts"), S("wool coat", "trench coat", "blazer", "turtleneck sweater", "puffer jacket"), 0.4, "Shorts with a heavy layer doesn't make sense."], [S("shorts"), S("dress shoes"), 0.5, "Shorts and dress shoes clash."], [S("shorts"), S("boots"), 0.8, "Shorts with boots is a stretch."],
+  [S("sandals"), S("dress pants"), 0.5, "Sandals with dress pants looks off."], [S("sandals"), S("sweater", "turtleneck sweater", "hoodie", "sweatshirt"), 0.6, "Sandals with a heavy knit looks off."],
+  [S("running shoes"), S("dress pants", "skirt", "blazer", "wool coat", "trench coat"), 0.35, "Running shoes undercut a dressier outfit."], [S("running shoes"), S("chinos", "button-up dress shirt", "blouse"), 0.6, "Running shoes make this look sloppy."], [S("running shoes"), S("jeans"), 0.85, "Running shoes with jeans is a gym look."],
+  [SMARTSHOE, S("tank top", "athletic shirt"), 0.4, "Dress shoes with a tank or gym shirt clash."], [SMARTSHOE, S("baseball cap"), 0.6, "A cap with dress shoes clashes."],
+  [S("blazer"), S("tank top"), 0.4, "A blazer over a tank looks off."], [S("blazer"), S("athletic shirt"), 0.2, "A blazer over a gym shirt looks off."], [S("blazer"), S("t-shirt", "polo shirt", "button-up dress shirt", "blouse", "sweater"), 1.15, "A blazer dresses up a simple top."],
+  [S("puffer jacket"), S("dress pants", "blazer"), 0.5, "A puffer over tailoring looks bulky."], [S("puffer jacket"), SMARTSHOE, 0.6, "A puffer with dress shoes is a mismatch."],
+  [S("denim jacket"), S("jeans"), 0.7, "Denim on denim is tricky unless the washes differ."], [S("leather jacket"), S("jeans", "chinos"), 1.12, "A leather jacket with jeans is a classic."], [S("leather jacket"), S("boots"), 1.1, "A leather jacket and boots go together."],
+  [S("turtleneck sweater"), DRESSTOP, 0.5, "A collar under a turtleneck is awkward."], [S("sweater", "cardigan"), DRESSTOP, 1.15, "A collar peeking out of a sweater looks sharp."], [S("sweater", "cardigan", "hoodie", "sweatshirt"), TEES, 1.05, "A tee under a sweater is easy layering."],
+  [S("dress", "jumpsuit"), HOODIES, 0.6, "A hoodie over a dress is hard to pull off."], [S("dress"), S("boots", "sneakers"), 1.1, "Boots or sneakers dress down a dress nicely."], [S("flannel shirt"), S("blazer"), 0.5, "A flannel under a blazer is too busy."],
+  [S("high heels"), S("sweatpants", "joggers", "shorts"), 0.3, "Heels with sweats or shorts clash."],
+];
+function typeScore(its) {
+  let m = 1; const notes = [];
+  const tmap = its.map(i => ({ i, t: typeOf(i) }));
+  const of = (set) => tmap.filter(x => x.t && set.has(x.t));
+  for (const [A, B, mult, text] of TYPE_RULES) {
+    const a = of(A), b = of(B);
+    if (a.some(x => b.some(y => y.i !== x.i))) { m *= mult; notes.push({ k: mult < 1 ? "warn" : "good", t: text, w: Math.abs(Math.log(mult)) }); }
+  }
+  const types = new Set(tmap.map(x => x.t).filter(Boolean)), ev = mood.event, dt = dayTemp();
+  if (types.has("necktie") && !(types.has("button-up dress shirt") || types.has("blouse"))) { m *= 0.15; notes.push({ k: "warn", t: "A tie needs a collared shirt.", w: 1.9 }); }
+  if (types.has("belt") && !its.some(i => i.category === "onepiece") && !tmap.some(x => x.t && BELTBOT.has(x.t))) { m *= 0.5; notes.push({ k: "warn", t: "These bottoms have no belt loops. Skip the belt.", w: 0.7 }); }
+  if (types.has("slippers") && ev !== "Lounge") { m *= 0.1; notes.push({ k: "warn", t: "Slippers are for staying home.", w: 2.3 }); }
+  if ((types.has("beanie hat") && (ev === "Dressy" || ev === "Work")) || (types.has("baseball cap") && (ev === "Dressy" || ev === "Work"))) { m *= 0.45; notes.push({ k: "warn", t: "A hat is too casual for a " + ev.toLowerCase() + " day.", w: 0.8 }); }
+  if (types.has("scarf")) { if (dt.t < 12) { m *= 1.1; notes.push({ k: "good", t: "A scarf is a good call in the cold.", w: 0.1 }); } else if (dt.t > 20) { m *= 0.6; notes.push({ k: "warn", t: "A scarf is too much for the warm weather.", w: 0.5 }); } }
+  if ((types.has("gloves") || types.has("beanie hat")) && dt.t > 14) { m *= 0.4; notes.push({ k: "warn", t: "Too warm for gloves or a beanie.", w: 0.9 }); }
+  return { m, notes };
+}
+const PAIR_ACCENT = { "Orange|Red": 0.55, "Red|Yellow": 0.8, "Green|Red": 0.6, "Blue|Red": 1.0, "Purple|Red": 0.75, "Pink|Red": 0.5, "Orange|Yellow": 0.75, "Green|Orange": 0.9, "Blue|Orange": 1.2, "Orange|Purple": 0.7, "Orange|Pink": 0.5,
+  "Green|Yellow": 0.95, "Blue|Yellow": 1.05, "Purple|Yellow": 1.0, "Pink|Yellow": 0.8, "Blue|Green": 0.95, "Green|Purple": 1.0, "Green|Pink": 1.0, "Blue|Purple": 0.95, "Blue|Pink": 1.0, "Pink|Purple": 1.0 };
+function colorScore(its) {
+  let m = 1; const notes = [], cl = its.filter(i => i.category !== "accessories" && i.color);
+  const accents = [...new Set(cl.filter(i => !isNeutralish(i) && i.color !== "Multi").map(i => i.color))];
+  // pairs
+  let sum = 0, np = 0, worst = null, best = null;
+  for (let x = 0; x < cl.length; x++) for (let y = x + 1; y < cl.length; y++) {
+    const a = cl[x], b = cl[y]; let v = colorPair(a.color, b.color);
+    if ((isDenim(a) && !NEUTRAL.has(b.color)) || (isDenim(b) && !NEUTRAL.has(a.color))) v = Math.max(v, 1.0);   // denim goes with most colors
+    sum += Math.log(Math.max(0.3, v)); np++;
+    if (!worst || v < worst.v) worst = { v, a, b }; if (!best || v > best.v) best = { v, a, b };
+  }
+  if (np) m *= Math.exp(1.5 * sum / np);
+  if (worst && worst.v < 0.7) notes.push({ k: "warn", t: `${worst.a.color} and ${worst.b.color} clash. Swap one for a neutral.`, w: 1 - Math.log(worst.v) });
+  else if (best && best.v >= 1.25) notes.push({ k: "good", t: `${best.a.color} with ${best.b.color} is a classic pairing.`, w: Math.log(best.v) * 3 });
+  // how many colors
+  if (accents.length === 0 && cl.length) { m *= 1.05; notes.push({ k: "good", t: "A neutral palette: easy and polished.", w: 0.1 }); }
+  else if (accents.length === 1) { m *= 1.1; notes.push({ k: "good", t: `${accents[0]} is the one color here, so it stands out in a good way.`, w: 0.2 }); }
+  else if (accents.length === 2) { const v = PAIR_ACCENT[[...accents].sort().join("|")] ?? 1; m *= v < 0.8 ? 0.7 : 0.88; }
+  else if (accents.length >= 3) { m *= 0.4; notes.push({ k: "warn", t: "Three or more colors is a lot. Keep it to one or two.", w: 0.9 }); }
+  // patterns
+  const pats = its.filter(i => i.pattern === "patterned" && i.category !== "accessories");
+  if (pats.length >= 2) { m *= 0.5; notes.push({ k: "warn", t: "Two patterns at once compete. Keep one solid.", w: 0.7 }); }
+  else if (pats.length === 1) notes.push({ k: "good", t: "One pattern is the statement piece, the rest stays solid.", w: 0.1 });
+  // loud pieces: bold colors and patterns together
+  const loud = accents.length + its.filter(i => i.pattern === "patterned" && i.category !== "accessories").length;
+  if (loud >= 3) { m *= 0.6; notes.push({ k: "warn", t: "Too many statement pieces at once. Let one of them lead.", w: 0.6 }); }
+  // light and dark
+  const tops = cl.filter(i => i.category === "tops" || i.category === "layers" || i.category === "onepiece"), bots = cl.filter(i => i.category === "bottoms");
+  if (tops.length && bots.length) {
+    const vis = tops.find(i => i.category === "layers") || tops[0], lt = lumOf(vis), lb = lumOf(bots[0]);
+    if (lt !== null && lb !== null) {
+      const d = Math.abs(lt - lb);
+      if (d >= 0.3) { m *= 1.12; notes.push({ k: "good", t: lt > lb ? "A lighter top over darker bottoms gives good contrast." : "A darker top with lighter bottoms gives good contrast.", w: 0.15 }); }
+      else if (d < 0.06 && vis.color !== bots[0].color && !isDenim(bots[0])) { m *= 0.9; notes.push({ k: "warn", t: "Top and bottom are the same shade. Add contrast.", w: 0.2 }); }
+    }
+  }
+  // head to toe the same non-neutral color
+  if (cl.length >= 3 && accents.length === 1 && cl.filter(i => i.color === accents[0]).length === cl.length) { m *= 0.8; notes.push({ k: "warn", t: "All one bold color is heavy. Break it up with a neutral.", w: 0.3 }); }
+  // tee under sweater in the same color
+  const lay = cl.find(i => i.category === "layers"), base = cl.find(i => i.category === "tops");
+  if (lay && base && lay.color === base.color && !NEUTRAL.has(lay.color)) m *= 0.85;
+  // accessory echoing the outfit
+  const acc = its.filter(i => i.category === "accessories" && i.color);
+  for (const a of acc) { if (accents.includes(a.color)) { m *= 1.08; notes.push({ k: "good", t: `The ${(a.name || "accessory").toLowerCase()} echoes the ${a.color.toLowerCase()} in the outfit.`, w: 0.1 }); } else if (!isNeutralish(a) && a.color !== "Multi" && accents.length) { m *= 0.7; } }
+  // shoes
+  const sh = cl.find(i => i.category === "shoes");
+  if (sh && !isNeutralish(sh) && accents.some(c => c !== sh.color)) m *= 0.65;
+  return { m, notes };
+}
+function scoreOutfit(its) {
+  let m = 1; const notes = [];
+  const cl = its.filter(i => i.category !== "accessories");
+  // weather
+  const dt = dayTemp(); let ins = 0;
+  for (const i of its) ins += warmthOf(i) * (i.category === "shoes" ? 0.3 : i.category === "accessories" ? 0.35 : 1);
+  if (its.some(i => i.category === "onepiece")) ins += 1;
+  const need = Math.max(1.2, Math.min(16, 12 - 0.38 * dt.t)), dev = ins - need, k = dt.real ? 1 : 0.5;
+  m *= dev < 0 ? Math.exp(0.22 * dev * k) : Math.exp(-0.16 * dev * k);
+  if (dt.real) {
+    if (dev < -2.5) notes.push({ k: "warn", t: `Light for ${fmt(dt.t)}. Add a layer or a jacket.`, w: -dev * 0.22 });
+    else if (dev > 3) notes.push({ k: "warn", t: `Warm for ${fmt(dt.t)}. Drop a layer.`, w: dev * 0.16 });
+    else notes.push({ k: "good", t: `Right for ${fmt(dt.t)} today.`, w: 0.25 });
+  }
+  if (dt.rain >= 60) {
+    const types = its.map(typeOf);
+    if (types.includes("sandals") || types.includes("slippers") || types.includes("high heels")) { m *= 0.35; notes.push({ k: "warn", t: "Rain is likely. These shoes will get soaked.", w: 1 }); }
+    else if (types.includes("boots") || types.includes("raincoat") || types.includes("trench coat")) { m *= 1.15; notes.push({ k: "good", t: "Good choices for a rainy day.", w: 0.15 }); }
+  }
+  // dress level
+  const fl = cl.map(formalityOf).filter(f => f !== null);
+  if (fl.length >= 2) {
+    const range = Math.max(...fl) - Math.min(...fl);
+    if (range > 1.3) { m *= Math.exp(-0.5 * (range - 1.3)); if (range > 2.2) { const mean = fl.reduce((a, b) => a + b, 0) / fl.length, odd = cl.filter(i => formalityOf(i) !== null).reduce((p, q) => Math.abs(formalityOf(q) - mean) > Math.abs(formalityOf(p) - mean) ? q : p); notes.push({ k: "warn", t: `Dress levels are uneven: ${(odd.name || LABEL[odd.category]).toLowerCase()} is much ${formalityOf(odd) > mean ? "dressier" : "more casual"} than the rest.`, w: range * 0.3 }); } }
+    else if (range <= 0.9 && its.length >= 3) notes.push({ k: "good", t: "Every piece is at the same dress level, so it feels put together.", w: 0.12 });
+  }
+  if (mood.event && EVENT_FORMAL[mood.event] !== undefined && fl.length) {
+    const mean = fl.reduce((a, b) => a + b, 0) / fl.length, d = Math.abs(mean - EVENT_FORMAL[mood.event]);
+    m *= Math.exp(-0.35 * Math.max(0, d - 0.8));
+    if (d <= 0.8) notes.push({ k: "good", t: `Suits a ${mood.event.toLowerCase()} day.`, w: 0.2 }); else if (d > 1.6) notes.push({ k: "warn", t: `${d > 0 && mean > EVENT_FORMAL[mood.event] ? "Dressier" : "More casual"} than a ${mood.event.toLowerCase()} day needs.`, w: 0.5 });
+  }
+  if (mood.event) for (const i of cl) { const tg = i.tags || []; if (tg.length) m *= tg.includes(mood.event) ? 1.08 : 0.75; }
+  const ts = typeScore(its), cs = colorScore(its);
+  m *= ts.m * cs.m; notes.push(...ts.notes, ...cs.notes);
+  // what you loved or skipped before
+  let ms = 0; for (const i of its) ms += mem.item[i.id] || 0;
+  let ps = 0; for (let x = 0; x < its.length; x++) for (let y = x + 1; y < its.length; y++) ps += mem.pair[pairKey(its[x].id, its[y].id)] || 0;
+  m *= Math.exp(0.15 * Math.max(-4, Math.min(4, ms)) + 0.4 * Math.max(-3, Math.min(4, ps)));
+  return { m, notes };
+}
+// Picks a handful of notes: the best news first, then the biggest warnings.
+function whyNotes(notes) {
+  const seen = new Set(), g = notes.filter(n => n.k === "good").sort((a, b) => b.w - a.w), w = notes.filter(n => n.k === "warn").sort((a, b) => b.w - a.w), out = [];
+  for (const n of [...w.slice(0, 2), ...g.slice(0, Math.max(1, 3 - Math.min(2, w.length)))]) if (!seen.has(n.t)) { seen.add(n.t); out.push(n); }
+  return out;
+}
+/* ---------- Keeping today's pick ---------- */
+// Today's outfit is saved on the phone, so closing the app or a background job never swaps it for another one.
+function saveToday() {
+  if (SIM || !outfit.length) return;
+  let st = lsGet("closet-today"); if (!st || st.date !== todayStr()) st = { date: todayStr(), s: {} };
+  st.s[season] = { ids: outfit.map(x => ({ id: x.id, locked: !!x.locked })), from: outfitFrom, touched: outfitTouched, wx: outfitGenWx };
+  lsSet("closet-today", st);
+}
+function restoreToday() {
+  const st = lsGet("closet-today"); if (!st || st.date !== todayStr()) return false;
+  const e = st.s && st.s[season]; if (!e || !e.ids || !e.ids.length || !e.ids.every(x => byId(x.id))) return false;
+  outfit = e.ids.map(x => ({ cat: byId(x.id).category, id: x.id, locked: !!x.locked })); outfitSeason = season;
+  outfitFrom = e.from || ""; outfitTouched = !!e.touched; outfitGenWx = !!e.wx; return true;
+}
+const touchOutfit = () => { outfitTouched = true; };
+function streakDays() {
+  const have = new Set(worn.map(w => w.date)); let n = 0; const d = new Date();
+  if (!have.has(d.toLocaleDateString("en-CA"))) d.setDate(d.getDate() - 1);
+  while (have.has(d.toLocaleDateString("en-CA"))) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+function buildCandidate(locked = []) {
+  const slots = locked.map(x => ({ ...x })), has = (c) => slots.some(x => x.cat === c);
+  const add = (c) => { if (has(c)) return; const id = pick(c, null, ctxOf(slots.map(x => x.id))); if (id) slots.push({ cat: c, id }); };
+  const oneP = mood.event === "Active" || mood.event === "Work" ? 0.1 : mood.event === "Dressy" ? 0.4 : 0.25;
+  const baseOk = pool("tops").length || pool("layers").length;
+  const useOne = has("onepiece") || (!has("tops") && !has("bottoms") && pool("onepiece").length && (Math.random() < oneP || !baseOk || !pool("bottoms").length));
+  if (useOne) add("onepiece"); else { if (pool("tops").length) add("tops"); add("bottoms"); }
+  if (pool("layers").length && ((!useOne && !pool("tops").length && !has("tops")) || Math.random() < 0.5)) add("layers");
+  if (pool("outerwear").length && Math.random() < 0.55) add("outerwear");
+  if (pool("shoes").length) add("shoes");
+  const accP = mood.energy === "High" || mood.feeling === "Confident" ? 0.8 : mood.energy === "Low" ? 0.25 : 0.5;
+  if (pool("accessories").length && Math.random() < accP) add("accessories");
+  return slots;
+}
 function generate() {
   if (!SIM) refreshCnt();
   outfitFrom = "";
-  const slots = [];
-  if (!mood.event && !mood.feeling && !mood.energy && mem.saved.length) {
+  const locked = SIM ? [] : outfit.filter(x => x.locked && byId(x.id)).map(x => ({ cat: byId(x.id).category, id: x.id, locked: true }));
+  if (!locked.length && !mood.event && !mood.feeling && !mood.energy && mem.saved.length) {
     const rec = recentIds();
     const ok = mem.saved.filter(l => l.ids.every(id => { const it = byId(id); return it && it.season === season && isActiveCat(it.category) && !isDirty(it) && !rec.has(id); }));
     if (ok.length && Math.random() < 0.2) { const l = rndOf(ok); outfit = l.ids.map(id => ({ cat: byId(id).category, id })); outfitSeason = season; outfitFrom = "saved"; return; }
   }
-  const add = (c) => { const id = pick(c, null, ctxOf(slots.map(s => s.id))); if (id) slots.push({ cat: c, id }); };
-  const oneP = mood.event === "Active" || mood.event === "Work" ? 0.1 : mood.event === "Dressy" ? 0.4 : 0.25;
-  const useOne = pool("onepiece").length && (Math.random() < oneP || !pool("tops").length || !pool("bottoms").length);
-  if (useOne) add("onepiece"); else { add("tops"); add("bottoms"); }
-  if (pool("outerwear").length && wantOuter()) add("outerwear");
-  if (pool("shoes").length) add("shoes");
-  const accP = mood.energy === "High" || mood.feeling === "Confident" ? 0.9 : mood.energy === "Low" ? 0.2 : 0.5;
-  if (pool("accessories").length && Math.random() < accP) add("accessories");
-  outfit = slots; outfitSeason = season;
+  // build many outfits, judge each one, then choose among the best (with some luck so shuffling still surprises you)
+  const cur = outfit.map(s => s.id).sort().join(), seen = new Set(), cands = [];
+  for (let n = 0; n < 48; n++) {
+    const slots = buildCandidate(locked); if (!slots.length) continue;
+    const key = slots.map(s => s.id).sort().join(); if (seen.has(key)) continue; seen.add(key);
+    cands.push({ slots, m: scoreOutfit(slots.map(s => byId(s.id))).m, key });
+  }
+  if (!cands.length) { outfit = []; outfitSeason = season; return; }
+  // only the better outfits are in the running; the more similar to the best, the better the odds
+  const top = Math.max(...cands.map(c => c.m));
+  for (const c of cands) c.w = (c.m >= top * 0.45 ? Math.pow(c.m / top, 3) : 0) * (c.key === cur ? 0.05 : 1);
+  if (!cands.some(c => c.w > 0)) cands.forEach(c => { c.w = 1; })
+  let r = Math.random() * cands.reduce((a, c) => a + c.w, 0), chosen = cands[cands.length - 1];
+  for (const c of cands) { r -= c.w; if (r <= 0) { chosen = c; break; } }
+  outfit = chosen.slots; outfitSeason = season; outfitGenWx = dayTemp().real;
+  if (!SIM) saveToday();
 }
+// Notes about the outfit on screen
+function whyToday() { const its = outfit.map(s => byId(s.id)).filter(Boolean); if (!its.length) return []; return whyNotes(scoreOutfit(its).notes); }
+// Swap sheet: every clean piece in a slot, ranked by how well the outfit works with it
+function swapOptions(idx) {
+  const s = outfit[idx]; if (!s) return [];
+  const others = outfit.filter((_, k) => k !== idx).map(x => byId(x.id)).filter(Boolean);
+  const opts = pool(s.cat).map(it => { const sc = scoreOutfit([...others, it]); return { it, m: sc.m, warn: sc.notes.filter(n => n.k === "warn").sort((a, b) => b.w - a.w)[0] }; });
+  opts.sort((a, b) => b.m - a.m); return opts;
+}
+function bestForSlot(cat) {
+  const cur = outfit.map(s => byId(s.id)).filter(Boolean), opts = pool(cat).map(it => ({ it, m: scoreOutfit([...cur, it]).m }));
+  opts.sort((a, b) => b.m - a.m); const top = opts.slice(0, 3); if (!top.length) return null;
+  return top[Math.floor(Math.random() * top.length)].it;
+}
+
 function syncToday() {
   refreshCnt();
   const w = worn.find(x => x.id === todayStr());
   if ((!outfit.length || outfitSeason !== season) && items.length) {
     if (w && w.season === season && (w.itemIds || []).length && w.itemIds.every(byId)) {
-      outfit = w.itemIds.map(id => ({ cat: byId(id).category, id })); outfitSeason = season;
-    } else generate();
+      outfit = w.itemIds.map(id => ({ cat: byId(id).category, id })); outfitSeason = season; outfitTouched = true; outfitGenWx = true;
+    } else if (restoreToday()) { /* same outfit as before */ }
+    else if (place && !wxSettled) { outfit = []; }   // wait a moment for the forecast, so the first pick already fits the weather
+    else { outfitTouched = false; generate(); }
   }
-  outfit = outfit.filter(s => byId(s.id));
+  // keep categories current and drop anything deleted; if a piece vanished, fill the gap and keep the rest
+  const gone = outfit.some(x => !byId(x.id));
+  outfit.forEach(x => { const it = byId(x.id); if (it) x.cat = it.category; });
+  outfit = outfit.filter(x => byId(x.id) && isActiveCat(byId(x.id).category) && byId(x.id).category !== "unsorted");
+  if (gone && items.length) { outfit.forEach(x => { x.locked = true; }); generate(); outfit.forEach(x => { x.locked = false; }); saveToday(); }
   renderToday();
   if (tab === "laundry") renderLaundry();
-}
-function tips() {
-  const its = outfit.map(s => byId(s.id)).filter(Boolean); if (!its.length) return "";
-  const t = [], tagged = its.filter(i => i.color).length;
-  const accents = [...new Set(its.filter(isAccent).map(i => i.color))];
-  const pats = its.filter(i => i.pattern === "patterned");
-  if (!tagged) t.push("Tap a photo in Photos and set its color to get style tips here.");
-  else if (!accents.length) t.push("Neutral palette, so it's easy to wear. Add one bold accessory for a pop of color.");
-  else if (accents.length === 1) t.push(relaxed() ? accents[0] + " leads today. Let it be the star." : accents[0] + " is the color of the day. Keep the rest neutral.");
-  else t.push(accents.join(" and ") + " are competing. Swap one for something neutral.");
-  if (pats.length > 1) t.push("Two patterns at once. Swap one for a solid."); else if (pats.length === 1) t.push("One pattern is the statement piece. Keep the rest solid.");
-  const cl = its.filter(i => i.color && i.category !== "accessories"); let minP = 9, minPair = null, sum = 0, np = 0;
-  for (let x = 0; x < cl.length; x++) for (let y = x + 1; y < cl.length; y++) { if (cl[x].color === cl[y].color) continue; const v = colorPair(cl[x].color, cl[y].color); sum += v; np++; if (v < minP) { minP = v; minPair = [cl[x].color, cl[y].color]; } }
-  if (minPair && minP < 0.7) t.push(`${minPair[0]} and ${minPair[1]} don't sit well together. Swap one.`);
-  else if (minPair && sum / np >= 1.15) t.push(`${minPair[0]} with ${minPair[1]} is a classic pairing.`);
-  const fl = its.filter(i => i.category !== "accessories").map(i => [i, formalityOf(i)]).filter(([, f]) => f !== null);
-  if (fl.length >= 2) {
-    const vs = fl.map(([, f]) => f), mean = vs.reduce((a, b) => a + b, 0) / vs.length;
-    if (Math.max(...vs) - Math.min(...vs) >= 2) { const [o, f] = fl.reduce((p, q) => Math.abs(q[1] - mean) > Math.abs(p[1] - mean) ? q : p); t.push(`The ${(o.name || o.color || LABEL[o.category]).toLowerCase()} is much ${f > mean ? "dressier" : "more casual"} than the rest. Swap it, or lean into the contrast on purpose.`); }
-  }
-  if (wx && mood.weather && wx.rain >= 60) t.push("Rain is likely. Pick shoes you don't mind getting wet.");
-  if (wx && mood.weather && wx.tmin <= 8 && !its.some(i => i.category === "outerwear")) t.push("It's cold. Add a coat or jacket if you have one.");
-  return t.join(" ");
 }
 function renderMood() {
   const grp = (label, key, opts) => `<div class="moodgrp"><span class="lab2">${label}</span>${opts.map(o => `<button class="chip sm" data-mood="${key}|${o}" aria-pressed="${mood[key] === o}">${o}</button>`).join("")}</div>`;
@@ -909,40 +1398,82 @@ function renderMood() {
 function stageHTML() {
   const Lo = stageLayout(), U = 0.25;   // logical 400-wide board, scaled with container width
   const cq = (n) => (n * U).toFixed(2) + "cqw";
-  let html = "";
-  for (const P of Lo.pieces) html += `<button class="pc" data-swap="${P.e.i}" aria-label="Swap ${LABEL[P.e.s.cat]}" style="left:${cq(P.x)};top:${cq(P.y)};width:${cq(P.w)};height:${cq(P.h)}"><img src="${pic(P.e.it)}" ${ca(P.e.it)} alt="${LABEL[P.e.s.cat]}"></button>`;
+  let html = "", k = 0;
+  for (const P of Lo.pieces) html += `<button class="pc${P.e.s.locked ? " kept" : ""}" data-swap="${P.e.i}" aria-label="Swap ${LABEL[P.e.s.cat]}" style="--i:${k++};left:${cq(P.x)};top:${cq(P.y)};width:${cq(P.w)};height:${cq(P.h)}"><img src="${pic(P.e.it)}" ${ca(P.e.it)} alt="${LABEL[P.e.s.cat]}"></button>`;
   for (const l of Lo.lines) html += `<div class="ln" style="left:${cq(l.x)};top:${cq(l.y)};width:${cq(l.w)}"></div>`;
   for (const lb of Lo.labels) {
     const e = lb.e, m = maxWears(e.it), wc = wearsOf(e.it), rew = m > 1 && wc > 0 ? `<i>Re-wear ${wc}/${m}</i>` : "";
-    html += `<button class="lab" data-swap="${e.i}" style="left:${cq(lb.x)};top:${cq(lb.y)};width:${cq(lb.w)}"><small>${LABEL[e.s.cat]}${e.it.favorite ? " ★" : ""}</small><b>${esc(e.it.name || e.it.color || LABEL[e.s.cat])}</b>${rew}</button>`;
+    html += `<button class="lab${e.s.locked ? " kept" : ""}" data-swap="${e.i}" style="--i:${k++};left:${cq(lb.x)};top:${cq(lb.y)};width:${cq(lb.w)}"><small>${LABEL[e.s.cat]}${e.it.favorite ? " ★" : ""}${e.s.locked ? " · kept" : ""}</small><b>${esc(e.it.name || e.it.color || LABEL[e.s.cat])}</b>${rew}</button>`;
   }
   return `<div style="height:${cq(Lo.height)};position:relative">${html}</div>`;
 }
+function unsortedMsg(n) {
+  const un = items.filter(i => i.season === season && i.category === "unsorted").length;
+  if (n && un && !poolAllAny("tops") && !poolAllAny("bottoms") && !poolAllAny("onepiece")) {
+    const ios = platformInfo().ios;
+    return `<div class="empty" style="margin:14px"><b>${un} ${un === 1 ? "photo isn't" : "photos aren't"} sorted yet.</b><br>The outfit maker needs to know which are tops, bottoms and shoes.<div class="row" style="margin-top:10px;gap:8px;justify-content:center"><button class="btn primary" id="sortNow">${ios ? "Sort by hand" : "Sort them for me"}</button>${ios ? "" : '<button class="btn" id="sortHand">Sort by hand</button>'}</div></div>`;
+  }
+  return `<div class="empty" style="margin:14px">${n ? (items.some(i => i.season === season && isDirty(i)) ? "Everything clean is already used up. Check the Laundry tab." : "Building your outfit...") : "No photos in this season yet. Open Photos and take a few tops, bottoms and shoes."}</div>`;
+}
+function openSwap(idx) {
+  const s = outfit[idx]; if (!s) return;
+  const opts = swapOptions(idx), best = opts.length ? opts[0].m : 1, optional = !["tops", "bottoms", "onepiece"].includes(s.cat);
+  const badge = (o) => o.m >= best * 0.8 ? ["Great fit", "ok"] : o.m >= best * 0.4 ? ["Works", "mid"] : ["Risky", "bad"];
+  $("swapPanel").innerHTML = `<h2 class="cat-title" style="margin:0">Swap the ${esc(LABEL[s.cat].toLowerCase())}</h2><p class="tip" style="margin:0">Ranked by how well each one goes with the rest of today's outfit.</p>`
+    + `<div class="swapgrid">${opts.map(o => { const [b, c] = badge(o); return `<button class="swapopt ${o.it.id === s.id ? "cur" : ""}" data-swappick="${idx}|${o.it.id}"><img src="${picT(o.it)}" ${ca(o.it)} alt=""><b>${esc(o.it.name || o.it.color || LABEL[s.cat])}</b><span class="fit ${c}">${o.it.id === s.id ? "Now" : b}</span>${o.warn && o.it.id !== s.id ? `<small>${esc(o.warn.t)}</small>` : ""}</button>`; }).join("") || '<div class="empty">Nothing else clean in this category.</div>'}</div>`
+    + `<div class="actions"><button class="btn" data-swapkeep="${idx}">${s.locked ? "Release" : "Keep it"}</button><button class="btn" data-swaprand="${idx}">Surprise me</button>${optional ? `<button class="btn" data-swapoff="${idx}">Take it off</button>` : ""}</div><button class="btn" id="swapClose">Close</button>`;
+  $("swapSheet").hidden = false;
+}
+$("swapSheet").addEventListener("click", (e) => { if (e.target.id === "swapSheet") $("swapSheet").hidden = true; });
+function renderSlotRow() {
+  const el = $("slotRow"); if (!el) return;
+  const have = new Set(outfit.map(s => s.cat)), names = { layers: "a sweater", outerwear: "a jacket", accessories: "an accessory", shoes: "shoes" };
+  const can = outfit.length ? ["layers", "outerwear", "accessories", "shoes"].filter(c => !have.has(c) && pool(c).length) : [];
+  el.innerHTML = can.length ? `<span class="lab2">Add to this outfit</span>` + can.map(c => `<button class="chip sm" data-addslot="${c}">+ ${names[c]}</button>`).join("") : "";
+}
+function renderAddRow() {
+  const el = $("addRow"); if (!el) return;
+  const names = { shoes: "shoes", accessories: "accessories", outerwear: "a jacket", layers: "a sweater", tops: "a tee", bottoms: "pants" };
+  const miss = ["tops", "layers", "bottoms", "outerwear", "shoes", "accessories"].filter(c => isActiveCat(c) && !poolAllAny(c) && items.some(i => i.season === season && !i.demo));
+  const un = items.filter(i => i.season === season && i.category === "unsorted").length;
+  el.innerHTML = (miss.length || un) ? `<span class="lab2">Add to your closet</span>` + miss.map(c => `<button class="chip sm" data-addcat="${c}">+ ${names[c]}</button>`).join("") : "";
+}
 function renderToday() {
-  refreshCnt();
+  refreshCnt(); renderAddRow(); renderSlotRow();
   const w = worn.find(x => x.id === todayStr());
   const n = items.filter(i => i.season === season && isActiveCat(i.category)).length;
   renderWx(); renderMood();
-  $("stage").innerHTML = outfit.length ? stageHTML()
-    : `<div class="empty" style="margin:14px">${n ? (items.some(i => i.season === season && isDirty(i)) ? "Everything clean is already used up. Check the Laundry tab." : "Building your outfit...") : "No photos in this season yet. Open Photos and take a few tops, bottoms and shoes."}</div>`;
+  const sig = outfit.map(x => { const it = byId(x.id); return it ? x.id + (x.locked ? "k" : "") + pic(it) : ""; }).join("|") + "#" + n;
+  if (sig !== stageSig) {   // only redraw the board when something on it actually changed, so background jobs never make it flicker
+    const first = !stageSig; stageSig = sig;
+    $("stage").innerHTML = outfit.length ? stageHTML() : unsortedMsg(n);
+    if (outfit.length && !first) { $("stage").classList.remove("enter"); void $("stage").offsetWidth; $("stage").classList.add("enter"); }
+  }
+  if (outfit.length) saveToday();
+  const same = !!w && (w.itemIds || []).slice().sort().join() === outfit.map(x => x.id).sort().join();
   const asked = [mood.event, mood.feeling, mood.energy && mood.energy + " energy"].filter(Boolean);
-  const tp = tips();
+  const why = whyToday();
   $("styleNote").innerHTML = (outfitFrom === "saved" ? '<div class="rd">From your saved looks</div>' : "") + (asked.length ? `<div class="rd">Styled for ${asked.map(a => `<mark>${esc(a)}</mark>`).join(" / ")}</div>` : "")
-    + (tp ? `<div class="note-style">${esc(tp)}</div>` : "")
-    + (outfit.length ? `<p class="tip">${w ? "Logged for today. " : ""}Tap a piece or its label to swap it.</p>` : "");
-  $("wear").textContent = w ? "Update today's outfit" : "I'm wearing this today";
-  $("wear").disabled = !outfit.length; $("reroll").disabled = !n;
+    + (why.length ? `<ul class="why">${why.map(n => `<li class="${n.k}"><i>${n.k === "good" ? "✓" : "!"}</i><span>${esc(n.t)}</span></li>`).join("")}</ul>` : "")
+    + (outfit.length ? `<p class="tip">Tap a piece or its label to swap it or keep it when you shuffle.</p>` : "");
+  const sn = streakDays();
+  $("logState").innerHTML = !outfit.length ? "" : same ? `<div class="logbanner ok"><b>Locked in for today.</b> ${sn > 1 ? sn + " days in a row." : "Enjoy it."}</div>`
+    : w ? `<div class="logbanner warn"><b>You changed this after logging it.</b> Tap Update to save the new look.</div>` : "";
+  $("wear").textContent = !w ? "I'm wearing this today" : same ? "✓ Logged for today" : "Update today's outfit";
+  $("wear").classList.toggle("done", same);
+  $("wear").disabled = !outfit.length || same; $("reroll").disabled = !n;
   $("rateRow").hidden = !outfit.length;
   $("loveBtn").textContent = lookIdx() >= 0 ? "Saved ★" : "Love it";
   const L = laundryInfo();
   $("laundryNag").innerHTML = L.due ? `<button class="wxline" data-tab="laundry" style="border-color:var(--warn)"><b>${esc(L.due)}</b> Open Laundry.</button>` : "";
   $("navDot").hidden = !L.due;
-  const last = lsGet("closet-lastBackup"), stale = !last || Date.now() - last > 3 * 864e5;
-  $("backupNag").innerHTML = items.length >= 5 && stale ? `<button class="wxline" data-tab="more"><b>Back up your closet.</b> Your photos exist only on this phone.</button>` : "";
+  const last = lsGet("closet-lastBackup"), snooze = lsGet("closet-bkSnooze"), realN = items.filter(i => !i.demo).length;
+  const needBk = realN >= 10 && (!last || Date.now() - last > 7 * 864e5) && !(snooze && Date.now() - snooze < 2 * 864e5);
+  $("backupNag").innerHTML = needBk ? `<div class="install"><b>${last ? "Time for a backup" : "Save a backup"}</b><p>${last ? "It's been a week since your last backup." : `You've added ${realN} pieces. Your closet lives only on this phone. If the browser clears its data or the phone is lost, it's gone.`}</p><div class="actions"><button class="chip" id="bkNow" style="background:var(--accent);color:var(--accent-fg)">Save backup now</button><button class="chip" id="bkLater">Later</button></div></div>` : "";
   const done = worn.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
   $("history").innerHTML = done.length ? done.map(h => `<div class="hrow"><div class="d">${new Date(h.date + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div><div class="th">${(h.itemIds || []).map(byId).filter(Boolean).map(i => `<img src="${picT(i)}" decoding="async" ${ca(i)} alt="">`).join("")}</div>${h.date !== todayStr() ? `<button class="chip sm" data-logday="${h.date}">Edit</button>` : ""}</div>`).join("")
     : `<div class="empty">Nothing logged yet. Tap "I'm wearing this today" and it shows up here.</div>`;
-  renderSaved();
+  renderSaved(); renderRemPrompt();
 }
 
 /* ---------- Backup ---------- */
@@ -1014,56 +1545,93 @@ function rgb2hsl(r, g, b) {
   let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
   h = (h * 60 + 360) % 360; return [h, s, l];
 }
-function nameColor(r, g, b) {
-  const [h, s, l] = rgb2hsl(r, g, b);
-  if (l < 0.14) return "Black";
-  if (l > 0.9 && s < 0.3) return "White";
-  if (s < 0.10) return l > 0.82 ? "White" : (l < 0.22 ? "Black" : "Gray");
-  if (h < 12 || h >= 345) return l > 0.72 ? "Pink" : (l < 0.26 && s < 0.5 ? "Brown" : "Red");
-  if (h < 45) { if (s > 0.6 && l > 0.45) return "Orange"; if (l < 0.40) return "Brown"; return "Beige"; }
-  if (h < 70) return (l > 0.5 && s > 0.5) ? "Yellow" : (l < 0.4 ? "Brown" : "Beige");
+// Names a color. `rel` is the lightness compared with the brightest part of the photo, so dim or warm lighting doesn't turn black into gray.
+function nameColor(r, g, b, rel) {
+  const [h, s, l] = rgb2hsl(r, g, b), rl = rel == null ? l : rel;
+  const warm = (h >= 12 && h < 70) || h >= 345;
+  if (s < (warm ? 0.15 : 0.045)) return rl < 0.46 ? "Black" : (l < 0.8 ? "Gray" : "White");
+  if (rl < 0.3 && s < 0.45) return "Black";
+  if (l > 0.86 && s < 0.5) return "White";
+  if (h < 12 || h >= 345) return l > 0.72 ? "Pink" : (l < 0.3 && s < 0.5 ? "Brown" : "Red");
+  if (h < 48) { if (s > 0.5 && l > 0.3) return h < 30 ? "Orange" : "Yellow"; if (l < 0.48) return "Brown"; return "Beige"; }
+  if (h < 70) return (s > 0.4 && l > 0.35) ? "Yellow" : (l < 0.3 ? "Brown" : "Beige");
   if (h < 170) return "Green";
-  if (h < 255) return l < 0.28 ? "Navy" : "Blue";
+  if (h < 255) return l < 0.24 ? "Navy" : "Blue";
   if (h < 320) return "Purple";
   return "Pink";
+}
+// Groups pixels into k color clusters (deterministic k-means).
+function kmeans(px, k, iters) {
+  const n = px.length / 3, lum = (i) => px[i * 3] * 0.299 + px[i * 3 + 1] * 0.587 + px[i * 3 + 2] * 0.114;
+  const order = Array.from({ length: n }, (_, i) => i).sort((p, q) => lum(p) - lum(q));
+  let C = []; for (let j = 0; j < k; j++) { const i = order[Math.min(n - 1, Math.floor((j + 0.5) * n / k))]; C.push([px[i * 3], px[i * 3 + 1], px[i * 3 + 2]]); }
+  const asg = new Uint8Array(n);
+  for (let it = 0; it < iters; it++) {
+    const sum = C.map(() => [0, 0, 0, 0]);
+    for (let i = 0; i < n; i++) {
+      let best = 0, bd = 1e9;
+      for (let j = 0; j < k; j++) { const dr = px[i * 3] - C[j][0], dg = px[i * 3 + 1] - C[j][1], db = px[i * 3 + 2] - C[j][2], dd = dr * dr + dg * dg + db * db; if (dd < bd) { bd = dd; best = j; } }
+      asg[i] = best; const m = sum[best]; m[0] += px[i * 3]; m[1] += px[i * 3 + 1]; m[2] += px[i * 3 + 2]; m[3]++;
+    }
+    C = C.map((c, j) => sum[j][3] ? [sum[j][0] / sum[j][3], sum[j][1] / sum[j][3], sum[j][2] / sum[j][3]] : c);
+  }
+  return { asg, C };
 }
 async function analyzeLook(it) {
   const src = it.cutUrl || it.url; if (!src) return null;
   const img = new Image(); img.src = src;
   try { await img.decode(); } catch { return null; }
-  const sc = 72 / Math.max(img.naturalWidth, img.naturalHeight);
+  const sc = 64 / Math.max(img.naturalWidth, img.naturalHeight);
   const w = Math.max(8, Math.round(img.naturalWidth * sc)), h = Math.max(8, Math.round(img.naturalHeight * sc));
   const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
   const g = cv.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0, w, h);
-  const d = g.getImageData(0, 0, w, h).data, N = w * h, fg = new Uint8Array(N);
-  if (it.cutUrl) { for (let i = 0; i < N; i++) fg[i] = d[i * 4 + 3] > 200 ? 1 : 0; }
-  else {
-    // photo with a background: look at the middle of the frame, ignoring pixels that match the border color
-    const ring = []; for (let x = 0; x < w; x++) { ring.push((x) * 4, ((h - 1) * w + x) * 4); } for (let y = 0; y < h; y++) { ring.push((y * w) * 4, (y * w + w - 1) * 4); }
-    const med = (k) => { const v = ring.map(i => d[i + k]).sort((p, q) => p - q); return v[v.length >> 1]; };
-    const br = med(0), bg = med(1), bb = med(2);
-    let inE = 0, keep = 0;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const dx = (x / w - 0.5) / 0.34, dy = (y / h - 0.5) / 0.40, i = y * w + x;
-      if (dx * dx + dy * dy > 1) continue; inE++;
-      const dist = Math.abs(d[i * 4] - br) + Math.abs(d[i * 4 + 1] - bg) + Math.abs(d[i * 4 + 2] - bb);
-      if (dist > 60) { fg[i] = 1; keep++; }
-    }
-    if (keep < inE * 0.08) { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const dx = (x / w - 0.5) / 0.34, dy = (y / h - 0.5) / 0.40; fg[y * w + x] = dx * dx + dy * dy <= 1 ? 1 : 0; } }
-  }
-  const counts = {}; let total = 0, edge = 0, pairs = 0;
+  const d = g.getImageData(0, 0, w, h).data, N = w * h;
   const L = (i) => 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x; if (!fg[i]) continue;
-    const c = nameColor(d[i * 4], d[i * 4 + 1], d[i * 4 + 2]); counts[c] = (counts[c] || 0) + 1; total++;
-    if (x + 1 < w && fg[i + 1]) { edge += Math.abs(L(i) - L(i + 1)); pairs++; }
-    if (y + 1 < h && fg[i + w]) { edge += Math.abs(L(i) - L(i + w)); pairs++; }
+  // how bright the scene is (for judging black vs gray in dim photos)
+  const lums = []; for (let i = 0; i < N; i++) if (d[i * 4 + 3] > 200) lums.push(L(i)); lums.sort((p, q) => p - q);
+  if (lums.length < 30) return null;
+  const P = it.cutUrl ? 235 : Math.min(255, Math.max(150, lums[Math.floor(lums.length * 0.95)]));
+  const group = []; // pixels the garment colour is measured from
+  const grpIdx = [];
+  if (it.cutUrl) { for (let i = 0; i < N; i++) if (d[i * 4 + 3] > 200) grpIdx.push(i); }
+  else {
+    // photo with a background: group all pixels by color, then pick the group that sits in the middle and doesn't reach the edges
+    const px = new Float32Array(N * 3); for (let i = 0; i < N; i++) { px[i * 3] = d[i * 4]; px[i * 3 + 1] = d[i * 4 + 1]; px[i * 3 + 2] = d[i * 4 + 2]; }
+    const { asg, C } = kmeans(px, 6, 10), score = new Array(6).fill(0), cnt = new Array(6).fill(0), ring = new Array(6).fill(0);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x, j = asg[i], r = Math.hypot((x / w - 0.5) / 0.5, (y / h - 0.5) / 0.5);
+      score[j] += Math.exp(-Math.pow(r / 0.55, 2)); cnt[j]++; if (r > 0.8) ring[j]++;
+    }
+    let bj = -1, bs = -1; for (let j = 0; j < 6; j++) { if (cnt[j] < 20) continue; const s = score[j] * (1 - ring[j] / cnt[j]); if (s > bs) { bs = s; bj = j; } }
+    if (bj < 0) return null;
+    // measure the garment from its group plus similar-colored neighbors inside the central area
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x, dx = (x / w - 0.5) / 0.46, dy = (y / h - 0.5) / 0.5; if (dx * dx + dy * dy > 1) continue;
+      if (asg[i] === bj) grpIdx.push(i);
+    }
+    if (grpIdx.length < 20) return null;
   }
-  if (total < 30) return null;
-  const ranked = Object.entries(counts).sort((p, q) => q[1] - p[1]).map(([c, n]) => [c, n / total]);
-  const edgeAvg = pairs ? edge / pairs : 0, top = ranked[0], second = ranked[1];
-  const patterned = edgeAvg >= 11 || (!!second && second[1] >= 0.2 && edgeAvg >= 6);
-  return { color: patterned && top[1] < 0.6 ? "Multi" : top[0], pattern: patterned ? "patterned" : "solid", edge: edgeAvg, ranked };
+  const counts = {}, ranked = []; let total = 0, edge = 0, pairs = 0;
+  // second pass: split the garment's own pixels into a few colors to see if it is patterned
+  const gp = new Float32Array(grpIdx.length * 3); grpIdx.forEach((i, n) => { gp[n * 3] = d[i * 4]; gp[n * 3 + 1] = d[i * 4 + 1]; gp[n * 3 + 2] = d[i * 4 + 2]; });
+  const inGrp = new Uint8Array(N); grpIdx.forEach(i => inGrp[i] = 1);
+  for (const i of grpIdx) {
+    const c = nameColor(d[i * 4], d[i * 4 + 1], d[i * 4 + 2], L(i) / P); counts[c] = (counts[c] || 0) + 1; total++;
+    const x = i % w, y = (i / w) | 0;
+    if (x + 1 < w && inGrp[i + 1]) { edge += Math.abs(L(i) - L(i + 1)); pairs++; }
+    if (y + 1 < h && inGrp[i + w]) { edge += Math.abs(L(i) - L(i + w)); pairs++; }
+  }
+  // the garment's main color: the average of its pixels, named with the lighting taken into account
+  let mr = 0, mg = 0, mb = 0; for (const i of grpIdx) { mr += d[i * 4]; mg += d[i * 4 + 1]; mb += d[i * 4 + 2]; }
+  const n = grpIdx.length, main = nameColor(mr / n, mg / n, mb / n, (0.299 * mr + 0.587 * mg + 0.114 * mb) / n / P);
+  Object.entries(counts).sort((p, q) => q[1] - p[1]).forEach(([c, m]) => ranked.push([c, m / total]));
+  const edgeAvg = pairs ? edge / pairs : 0;
+  const NEUTRALISH = new Set(["Black", "White", "Gray", "Beige"]);
+  const strong = ranked.filter(r => r[1] >= 0.25);
+  const chromatic = strong.filter(r => !NEUTRALISH.has(r[0]));
+  const patterned = edgeAvg >= 9 && strong.length >= 2 && (chromatic.length >= 2 || strong.length >= 3);
+  const avgL = Math.max(0, Math.min(1, ((0.299 * mr + 0.587 * mg + 0.114 * mb) / n) / P));
+  return { lum: Math.round(avgL * 100) / 100, color: patterned ? "Multi" : ranked[0][0], pattern: patterned ? "patterned" : "solid", edge: edgeAvg, ranked, ver: 2 };
 }
 const wq = { p: Promise.resolve() };
 function serial(fn) { const run = wq.p.then(fn, fn); wq.p = run.catch(() => {}); return run; }
@@ -1072,8 +1640,8 @@ async function analyzeAndSave(id) {
   const res = await analyzeLook(it0); if (!res) return;
   return serial(async () => {
     const it = byId(id); if (!it) return;
-    const a = { ...(it.auto || {}) }, upd = { analyzedAt: new Date().toISOString() };
-    if (a.color === true || !it.color) { upd.color = res.color; a.color = true; }
+    const a = { ...(it.auto || {}) }, upd = { analyzedAt: new Date().toISOString(), colVer: 2 };
+    if (a.color === true || !it.color) { upd.color = res.color; upd.lum = res.lum; a.color = true; }
     if (a.pattern === true || !it.pattern) { upd.pattern = res.pattern; a.pattern = true; }
     upd.auto = a;
     const T = it.typeLabel && TYPES.find(t => t[0] === it.typeLabel);
@@ -1085,9 +1653,9 @@ async function analyzeAndSave(id) {
 // label, category, display name, suggested event tags, dress level (0 lounge, 1.5 casual, 2.5 smart casual, 3.5 work, 4 dressy)
 const TYPES = [
   ["t-shirt", "tops", "T-shirt", ["Casual"], 1.5], ["polo shirt", "tops", "Polo shirt", ["Casual", "Work"], 2.5], ["button-up dress shirt", "tops", "Button-up shirt", ["Work", "Dressy"], 3.2],
-  ["blouse", "tops", "Blouse", ["Work", "Dressy"], 3.2], ["sweater", "tops", "Sweater", ["Casual", "Work"], 2.5], ["hoodie", "tops", "Hoodie", ["Casual", "Lounge"], 1],
-  ["sweatshirt", "tops", "Sweatshirt", ["Casual", "Lounge"], 1], ["cardigan", "tops", "Cardigan", ["Casual", "Work"], 2.5], ["tank top", "tops", "Tank top", ["Casual", "Active"], 1],
-  ["turtleneck sweater", "tops", "Turtleneck", ["Work", "Dressy"], 3], ["flannel shirt", "tops", "Flannel shirt", ["Casual"], 1.5], ["long sleeve shirt", "tops", "Long sleeve", ["Casual"], 1.5],
+  ["blouse", "tops", "Blouse", ["Work", "Dressy"], 3.2], ["sweater", "layers", "Sweater", ["Casual", "Work"], 2.5], ["hoodie", "layers", "Hoodie", ["Casual", "Lounge"], 1],
+  ["sweatshirt", "layers", "Sweatshirt", ["Casual", "Lounge"], 1], ["cardigan", "layers", "Cardigan", ["Casual", "Work"], 2.5], ["tank top", "tops", "Tank top", ["Casual", "Active"], 1],
+  ["turtleneck sweater", "layers", "Turtleneck", ["Work", "Dressy"], 3], ["flannel shirt", "tops", "Flannel shirt", ["Casual"], 1.5], ["long sleeve shirt", "tops", "Long sleeve", ["Casual"], 1.5],
   ["athletic shirt", "tops", "Athletic shirt", ["Active"], 0.5],
   ["jeans", "bottoms", "Jeans", ["Casual"], 1.5], ["dress pants", "bottoms", "Dress pants", ["Work", "Dressy"], 3.5], ["chinos", "bottoms", "Chinos", ["Work", "Casual"], 2.5],
   ["sweatpants", "bottoms", "Sweatpants", ["Lounge", "Active"], 0.5], ["joggers", "bottoms", "Joggers", ["Lounge", "Active"], 0.7], ["leggings", "bottoms", "Leggings", ["Active", "Lounge"], 0.5],
@@ -1106,7 +1674,16 @@ const TYPES = [
   ["dress", "onepiece", "Dress", ["Dressy"], 3.5], ["jumpsuit", "onepiece", "Jumpsuit", ["Casual", "Dressy"], 3],
 ];
 const TYPE_LABELS = TYPES.map(t => t[0]);
+(function fillTypes() {
+  const groups = { tops: "Shirts & tees", layers: "Sweaters", bottoms: "Bottoms", outerwear: "Jackets & coats", shoes: "Shoes", accessories: "Accessories", onepiece: "Dresses & sets" };
+  $("edType").innerHTML = '<option value="">Not set</option>' + Object.entries(groups).map(([c, l]) => `<optgroup label="${l}">${TYPES.filter(t => t[1] === c).map(t => `<option value="${t[0]}">${t[2]}</option>`).join("")}</optgroup>`).join("");
+})();
 const TF_LIB = "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
+const REC_VER = 2;
+// Plainer descriptions help the model tell similar pieces apart.
+const PHRASE = { "t-shirt": "short sleeve t-shirt", "hoodie": "hoodie with a hood", "sweatshirt": "crewneck sweatshirt without a hood", "fleece jacket": "zip-up fleece jacket", "joggers": "joggers with elastic ankles", "sweatpants": "loose sweatpants", "long sleeve shirt": "long sleeve cotton shirt", "dress pants": "dress trousers", "puffer jacket": "quilted puffer jacket", "athletic shirt": "athletic performance shirt", "sweater": "knit sweater", "jeans": "blue denim jeans", "button-up dress shirt": "collared button-up dress shirt", "polo shirt": "polo shirt with a collar and buttons" };
+const TYPE_PROMPTS = TYPES.map(t => PHRASE[t[0]] || t[0]);
+const TEMPLATES = ["a photo of a {}.", "a photo of a {}, a piece of clothing laid flat."];
 const recState = { queue: [], running: false, stop: false, done: 0, total: 0, msg: "", err: "", unclear: 0 };
 let tfMod = null, clf = null;
 async function loadClip() {
@@ -1114,35 +1691,52 @@ async function loadClip() {
   recState.msg = "Loading the recognition tool..."; renderRec();
   if (!tfMod) tfMod = await import(TF_LIB);
   tfMod.env.allowLocalModels = false;
+  try { tfMod.env.backends.onnx.wasm.proxy = true; tfMod.env.backends.onnx.wasm.numThreads = 1; } catch {}   // run the model on a separate thread so the app stays smooth
   recState.msg = "Downloading the recognition model. One time only, about 150 MB..."; renderRec();
-  clf = await tfMod.pipeline("zero-shot-image-classification", "Xenova/clip-vit-base-patch32", {
-    progress_callback: (p) => { if (p && p.status === "progress" && typeof p.progress === "number") { recState.msg = "Downloading the recognition model, " + Math.round(p.progress) + "%. One time only."; renderRec(); } },
-  });
+  const progress_callback = (p) => { if (p && p.status === "progress" && typeof p.progress === "number") { recState.msg = "Downloading the recognition model, " + Math.round(p.progress) + "%. One time only."; renderRec(); } };
+  try { clf = await tfMod.pipeline("zero-shot-image-classification", "Xenova/clip-vit-base-patch16", { progress_callback }); }
+  catch { clf = await tfMod.pipeline("zero-shot-image-classification", "Xenova/clip-vit-base-patch32", { progress_callback }); }
   return clf;
 }
+// The model sees just the garment: the cutout on white if there is one, otherwise the middle of the photo.
+async function recInput(it) {
+  try {
+    const img = new Image(); img.src = it.cutUrl || it.url; await img.decode();
+    const S = 336, cv = document.createElement("canvas"); cv.width = cv.height = S; const g = cv.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, S, S);
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    if (it.cutUrl) { const k = Math.min(S / iw, S / ih) * 0.92; g.drawImage(img, (S - iw * k) / 2, (S - ih * k) / 2, iw * k, ih * k); }
+    else { const side = Math.min(iw, ih) * 0.88, sx = (iw - side) / 2, sy = (ih - side) / 2; g.drawImage(img, sx, sy, side, side, 0, 0, S, S); }
+    return cv.toDataURL("image/jpeg", 0.92);
+  } catch { return it.url; }
+}
 async function recognizeOne(it) {
-  const c = await loadClip();
-  const out = await c(it.url, TYPE_LABELS, { hypothesis_template: "a photo of a {}." });
-  const top = out[0], T = TYPES.find(t => t[0] === top.label);
-  return { label: top.label, score: top.score, category: T[1], display: T[2], tags: T[3] };
+  const c = await loadClip(), src = await recInput(it), score = new Array(TYPES.length).fill(0);
+  for (const tpl of TEMPLATES) {
+    const out = await c(src, TYPE_PROMPTS, { hypothesis_template: tpl });
+    for (const o of out) score[TYPE_PROMPTS.indexOf(o.label)] += o.score / TEMPLATES.length;
+  }
+  let bi = 0; score.forEach((v, i) => { if (v > score[bi]) bi = i; });
+  const T = TYPES[bi];
+  return { label: T[0], score: score[bi], category: T[1], display: T[2], tags: T[3] };
 }
 function applyRecognition(it, r) {
   return serial(async () => {
     const cur = byId(it.id) || it, a = { ...(cur.auto || {}) };
-    const upd = { typeLabel: r.label, typeScore: Math.round(r.score * 1000) / 1000, recognizedAt: new Date().toISOString() };
+    const upd = { typeLabel: r.label, typeScore: Math.round(r.score * 1000) / 1000, recognizedAt: new Date().toISOString(), recVer: REC_VER };
     const confident = r.score >= 0.2;
     if (confident) {
-      if (cur.category === "unsorted") { upd.category = r.category; a.category = true; }
+      if (cur.category === "unsorted" || a.category === true) { upd.category = r.category; a.category = true; }
       const nm = cur.color ? `${cur.color} ${r.display.toLowerCase()}` : r.display;
       if (a.name !== false && (!cur.name || (a.name && cur.name === cur.autoName))) { upd.name = nm; upd.autoName = nm; a.name = true; }
-      if (a.tags !== false && (!(cur.tags || []).length || a.tags)) { upd.tags = r.tags; a.tags = true; }
+      if (a.tags !== false && (!(cur.tags || []).length || a.tags)) { upd.tags = r.tags; a.tags = true; upd.formality = undefined; }
     }
     upd.auto = a;
     await db.collection("closet").doc(it.id).update(upd);
     return confident;
   });
 }
-const eligibleRec = () => items.filter(i => !i.demo && i.url && !i.recognizedAt && (i.category === "unsorted" || !i.name || !(i.tags || []).length));
+const eligibleRec = () => items.filter(i => !i.demo && i.url && (!i.recognizedAt || ((i.recVer || 1) < REC_VER && i.auto && (i.auto.name || i.auto.category || i.auto.tags))) && (i.category === "unsorted" || !i.name || !(i.tags || []).length || (i.recVer || 1) < REC_VER));
 function enqueueRec(ids) {
   for (const id of ids) if (!recState.queue.includes(id)) { recState.queue.push(id); recState.total++; }
   drainRec();
@@ -1151,10 +1745,12 @@ async function drainRec() {
   if (recState.running) return;
   recState.running = true; recState.stop = false; recState.err = ""; recState.unclear = 0;
   await withHeavy(async () => {
+    lsSet("closet-heavy", { kind: "rec", t: Date.now() });
     let lock = null; try { lock = navigator.wakeLock && await navigator.wakeLock.request("screen"); } catch {}
     while (recState.queue.length && !recState.stop) {
+      await calm();
       const id = recState.queue.shift(), it = byId(id);
-      if (!it || it.recognizedAt) { recState.done++; continue; }
+      if (!it || (it.recognizedAt && (it.recVer || 1) >= REC_VER)) { recState.done++; continue; }
       recState.msg = `Reading photo ${recState.done + 1} of ${recState.total}...`; renderRec();
       try { const r = await recognizeOne(it); if (!(await applyRecognition(it, r))) recState.unclear++; recState.done++; }
       catch (e) {
@@ -1163,6 +1759,7 @@ async function drainRec() {
       }
     }
     if (lock) try { lock.release(); } catch {}
+    try { localStorage.removeItem("closet-heavy"); } catch {}
   });
   const unclear = recState.unclear;
   recState.running = false; recState.queue.length = 0; recState.msg = ""; recState.total = 0; recState.done = 0;
@@ -1170,6 +1767,7 @@ async function drainRec() {
   renderRec(); render(); renderToday();
 }
 function renderRec() {
+  const iosNote = $("iosNote"); if (iosNote) iosNote.hidden = !platformInfo().ios;
   const left = eligibleRec().length, unsorted = items.filter(i => i.category === "unsorted").length;
   const t = recState.msg || recState.err || (items.some(i => !i.demo) ? `${items.filter(i => !i.demo && i.recognizedAt).length} of ${items.filter(i => !i.demo).length} photos recognized.` : "No photos yet.");
   $("recStatus").textContent = t;
@@ -1212,7 +1810,12 @@ async function trimCutout(blob) {
   out.getContext("2d").drawImage(cv, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
   return new Promise(r => out.toBlob(r, "image/webp", 0.85));
 }
-const errText = (e) => { const m = (e && (e.message || String(e))) || ""; return m ? " Details: " + m.replace(/\s+/g, " ").slice(0, 140) : ""; };
+const errText = (e) => {
+  const m = (e && (e.message || String(e))) || ""; logErr("job", m);
+  if (!m) return "";
+  const mem = /memory|alloc|RangeError|out of|abort/i.test(m) ? " This looks like a memory problem, which is common on older phones. Try Quick cleanup in More." : "";
+  return " Details: " + m.replace(/\s+/g, " ").slice(0, 140) + "." + mem;
+};
 async function loadBg() {
   if (bgMod) return bgMod;
   const sources = ["./vendor/imgly-bg-1.4.5.mjs", BG_LIB, "https://esm.sh/@imgly/background-removal@1.4.5"];
@@ -1276,6 +1879,7 @@ async function cutOne(it) {
     }
   }
   if (!trimmed) { await db.collection("closet").doc(it.id).update({ cutFail: true }); return false; }
+  trimmed = await polishCutout(trimmed, photoPrefs.fix && !it.fixVer);
   await db.collection("closet").doc(it.id).update({ cutout: trimmed, cutThumb: await makeThumb(trimmed), cutAt: new Date().toISOString(), cutFail: false, cutMethod: method });
   return true;
 }
@@ -1288,8 +1892,10 @@ async function drainCut() {
   cutState.running = true; cutState.stop = false; cutState.err = ""; cutState.note = "";
   const tick = setInterval(() => { if (cutState.running) renderCut(); }, 1000);
   await withHeavy(async () => {
+    lsSet("closet-heavy", { kind: "cut", t: Date.now() });
     let lock = null; try { lock = navigator.wakeLock && await navigator.wakeLock.request("screen"); } catch {}
     while (cutState.queue.length && !cutState.stop) {
+      await calm();
       const id = cutState.queue.shift(), it = byId(id);
       if (!it || it.cutUrl) { cutState.done++; continue; }
       cutState.msg = `Cleaning photo ${cutState.done + 1} of ${cutState.total}...`; cutState.t0 = Date.now(); cutState.stage = ""; renderCut();
@@ -1300,18 +1906,20 @@ async function drainCut() {
       }
     }
     if (lock) try { lock.release(); } catch {}
+    try { localStorage.removeItem("closet-heavy"); } catch {}
   });
   clearInterval(tick);
   cutState.running = false; cutState.queue.length = 0; cutState.msg = ""; cutState.total = 0; cutState.done = 0; cutState.t0 = 0;
   if (cutState.note) { cutState.err = cutState.err || cutState.note; cutState.note = ""; }
   renderCut(); render(); renderToday();
 }
-const smartOn = () => smart.ai && cutPrefs.auto;
+const smartOn = () => cutPrefs.auto && (smart.ai || platformInfo().ios);
 function renderSmartPrompt() {
   const el = $("smartPrompt"); if (!el) return;
   const d = lsGet("closet-smartDismiss");
   if (smartOn() || (d && Date.now() - d < 7 * 864e5)) { el.innerHTML = ""; return; }
-  el.innerHTML = `<div class="install"><b>Let the app clean and sort your photos</b><p>It removes the background, reads each piece's type, color and pattern, and puts it in the right category for you. The first time it downloads about 200 MB, so use Wi-Fi. It all runs on your phone.</p><div class="actions"><button class="chip" id="smartOn" style="background:var(--accent);color:var(--accent-fg)">Turn on</button><button class="chip" id="smartNo">Not now</button></div></div>`;
+  const ios = platformInfo().ios;
+  el.innerHTML = `<div class="install"><b>Let the app clean up your photos</b><p>${ios ? "It removes plain backgrounds and reads each piece's color and pattern. It's instant and needs no big download. Type recognition uses a large AI model that can crash iPhones, so it's off by default. You can try it in More." : "It removes the background, reads each piece's type, color and pattern, and puts it in the right category for you. The first time it downloads about 200 MB, so use Wi-Fi. It all runs on your phone."}</p><div class="actions"><button class="chip" id="smartOn" style="background:var(--accent);color:var(--accent-fg)">Turn on</button><button class="chip" id="smartNo">Not now</button></div></div>`;
 }
 function renderCut() {
   const left = eligible().length, total = items.filter(i => !i.demo).length, done = items.filter(i => !i.demo && i.cutUrl).length;
@@ -1320,13 +1928,14 @@ function renderCut() {
   if (cutState.msg) t = cutState.msg + el; else if (cutState.err) t = cutState.err;
   $("cutStatus").textContent = t;
   $("cutMethod").value = cutPrefs.method;
+  { const q = $("cutMethod").querySelector("option[value=quick]"); if (q) q.textContent = "Quick: instant, needs a plain background" + (platformInfo().ios ? " (recommended on iPhone)" : ""); const sm = $("cutMethod").querySelector("option[value=smart]"); if (sm) sm.textContent = "Smart (AI): works on any background, slower" + (platformInfo().ios ? " (experimental on iPhone)" : ""); }
   $("cutAll").disabled = cutState.running || !left; $("cutAll").textContent = left ? `Remove backgrounds (${left})` : "All photos cleaned";
   $("cutStop").hidden = !cutState.running;
   $("cutAuto").checked = cutPrefs.auto; $("cutShow").checked = cutPrefs.use;
   const nag = left >= 5 && !cutPrefs.auto && !cutState.running;
   $("cutNag").innerHTML = cutState.running ? `<div class="wxline"><b>${esc((cutState.msg || "Cleaning photos...") + (cutState.running && cutState.t0 ? ` (${Math.round((Date.now() - cutState.t0) / 1000)} s)` : ""))}</b></div>`
     : cutState.err ? `<div class="wxline" style="border-color:var(--danger)"><b>${esc(cutState.err)}</b></div>`
-    : (nag ? `<button class="wxline" data-tab="more"><b>${left} photos still have backgrounds.</b> Clean them up in More.</button>` : "");
+    : (nag ? `<button class="wxline" id="cutNow"><b>${left} photos still have backgrounds.</b> Tap here to clean them up now. Keep the app open.</button>` : "");
 }
 $("cutAll").addEventListener("click", () => { cutState.aiFailed = false; enqueueCut(eligible().map(i => i.id)); });
 $("cutMethod").addEventListener("change", (e) => { cutPrefs.method = e.target.value; lsSet("closet-cut", cutPrefs); });
@@ -1338,6 +1947,7 @@ $("cutShow").addEventListener("change", (e) => { cutPrefs.use = e.target.checked
 const HEX = { Black: "#25252a", White: "#f4f4f2", Gray: "#8d9096", Beige: "#cdb99a", Navy: "#1f2f4f", Brown: "#6b4a32", Blue: "#3f6fb5", Green: "#3f7a52", Red: "#b83a3a", Pink: "#e59aae", Yellow: "#e5c445", Orange: "#e08a3c", Purple: "#7a56a8", Multi: "#7a56a8" };
 const SHAPES = {
   tops: "M110 70 L60 100 L30 170 L70 190 L90 160 L90 340 L210 340 L210 160 L230 190 L270 170 L240 100 L190 70 Q150 100 110 70 Z",
+  layers: "M110 70 L55 105 L25 215 L65 230 L90 170 L90 340 L210 340 L210 170 L235 230 L275 215 L245 105 L190 70 Q150 100 110 70 Z",
   bottoms: "M90 60 L210 60 L225 340 L165 340 L150 140 L135 340 L75 340 Z",
   outerwear: "M110 60 Q150 85 190 60 L255 100 L275 330 L225 340 L215 170 L215 360 L85 360 L85 170 L75 340 L25 330 L45 100 Z",
   shoes: "M40 250 L40 160 Q100 150 130 190 L150 200 Q230 210 265 250 L265 285 L40 285 Z",
@@ -1359,9 +1969,9 @@ function drawGarment(kind, color, pattern) {
 }
 const DEMO = [
   ["tops", "Black tee", "Black", "", ["Casual", "Lounge"]], ["tops", "White button-up", "White", "", ["Work"]],
-  ["tops", "Gray sweater", "Gray", "", ["Casual", "Work"]], ["tops", "Navy hoodie", "Navy", "", ["Casual", "Lounge", "Active"], 1],
-  ["tops", "Red knit", "Red", "", ["Dressy", "Casual"]], ["tops", "Striped tee", "Multi", "patterned", ["Casual"]],
-  ["tops", "Green flannel", "Green", "patterned", ["Casual"]], ["tops", "Beige turtleneck", "Beige", "", ["Work", "Dressy"], 1],
+  ["layers", "Gray sweater", "Gray", "", ["Casual", "Work"]], ["layers", "Navy hoodie", "Navy", "", ["Casual", "Lounge", "Active"], 1],
+  ["layers", "Red knit", "Red", "", ["Dressy", "Casual"]], ["tops", "Striped tee", "Multi", "patterned", ["Casual"]],
+  ["tops", "Green flannel", "Green", "patterned", ["Casual"]], ["layers", "Beige turtleneck", "Beige", "", ["Work", "Dressy"], 1],
   ["bottoms", "Blue jeans", "Blue", "", ["Casual"]], ["bottoms", "Dark jeans", "Navy", "", ["Casual", "Dressy"]],
   ["bottoms", "Black slacks", "Black", "", ["Work", "Dressy"]], ["bottoms", "Gray joggers", "Gray", "", ["Lounge", "Active"]],
   ["bottoms", "Khaki chinos", "Beige", "", ["Work", "Casual"]], ["bottoms", "Black leggings", "Black", "", ["Active", "Lounge"]],
@@ -1409,7 +2019,7 @@ function loveIt() {
 }
 function skipIt() {
   if (!outfit.length) return;
-  teach(-1); toast("Got it. I'll show that pairing less."); generate(); renderToday();
+  teach(-1); toast("Got it. I'll show that pairing less."); touchOutfit(); generate(); renderToday();
 }
 function renderSaved() {
   const L = mem.saved.filter(l => l.ids.every(byId));
@@ -1458,10 +2068,10 @@ function buildPlan(fromIdx = 0) {
     days.push({ date, ids, locked, laundry: lday });
   });
   outfit = saveO; outfitSeason = saveS; outfitFrom = saveF;
-  plan = { days, short, madeAt: Date.now() }; lsSet("closet-plan", plan);
+  plan = { days, short, madeAt: Date.now(), hasWx: !!wx }; lsSet("closet-plan", plan);
 }
 const poolAllAny = (c) => items.some(i => i.season === season && i.category === c);
-const planFresh = () => plan.days && plan.days.length === 7 && plan.days[0].date === todayStr() && plan.days.every(d => d.ids.every(byId));
+const planFresh = () => plan.days && plan.days.length === 7 && plan.days[0].date === todayStr() && plan.days.every(d => d.ids.every(byId)) && !(wx && !plan.hasWx);
 function renderWeek() {
   const el = $("viewWeek");
   if (!items.some(i => i.season === season && isActiveCat(i.category))) {
@@ -1516,6 +2126,7 @@ function renderStats() {
   if (isActiveCat("tops") && cnt("tops") < 4) gaps.push(`Only ${cnt("tops")} ${cnt("tops") === 1 ? "top" : "tops"} for ${sname}. Aim for 5 or more so you don't run out between washes.`);
   if (isActiveCat("bottoms") && cnt("bottoms") < 3) gaps.push(`Only ${cnt("bottoms")} ${cnt("bottoms") === 1 ? "bottom" : "bottoms"} for ${sname}. 3 or more keeps outfits varied.`);
   if (isActiveCat("shoes") && cnt("shoes") < 2) gaps.push(`Only ${cnt("shoes")} ${cnt("shoes") === 1 ? "pair" : "pairs"} of shoes for ${sname}.`);
+  if (isActiveCat("layers") && season === "fall-winter" && !cnt("layers")) gaps.push("No sweater or hoodie for fall / winter.");
   if (isActiveCat("outerwear") && season === "fall-winter" && !cnt("outerwear")) gaps.push("No coat or jacket for fall / winter.");
   const bottoms = S.filter(i => i.category === "bottoms");
   if (bottoms.length && !bottoms.some(i => !i.color || NEUTRAL.has(i.color))) gaps.push("No neutral bottoms, which makes bold tops harder to pair.");
@@ -1644,6 +2255,7 @@ function generatePack() {
   };
   const ensure = (cat, pred, n) => { const have = chosen.filter(c => c.category === cat && pred(c)).length; for (let k = have; k < n; k++) { const pool = avail(cat).filter(i => !chosen.includes(i) && pred(i)); if (!pool.length) break; pool.sort((a, b) => scoreOf(b, cat) - scoreOf(a, cat)); chosen.push(pool[0]); } };
   take("bottoms", eff); take("tops", eff);
+  if (W === "cold" || W === "cool") take("layers", W === "cold" ? Math.ceil(N / 2) : Math.ceil(N / 3));
   const formal = (i) => (formalityOf(i) ?? 0) >= 3.3, smart = (i) => (formalityOf(i) ?? 0) >= 2.5, active = (i) => (i.tags || []).includes("Active") || (formalityOf(i) ?? 9) <= 1;
   if (occ.has("Dressy")) { ensure("tops", formal, 1); ensure("bottoms", formal, 1); ensure("shoes", formal, 1); }
   if (occ.has("Work")) { ensure("tops", smart, Math.min(3, Math.ceil(N / 2))); ensure("bottoms", smart, 1); ensure("shoes", smart, 1); }
@@ -1766,15 +2378,113 @@ function renderRem() {
   t.value = remTimeVal(); $("remGcal").href = gcalUrl();
 }
 $("remTime").addEventListener("change", (e) => { lsSet("closet-remTime", e.target.value || "07:30"); renderRem(); });
-$("remIcs").addEventListener("click", () => {
+function downloadIcs() {
   const blob = new Blob([buildIcs()], { type: "text/calendar;charset=utf-8" }), a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = "my-closet-morning-reminder.ics"; document.body.appendChild(a); a.click(); a.remove();
   toast("Saved. Open the file to add it to your calendar.");
+  remDone();
+}
+function remDone() { lsSet("closet-remDone", true); renderRemPrompt(); }
+$("remIcs").addEventListener("click", downloadIcs);
+$("remGcal").addEventListener("click", remDone);
+
+/* ---------- Ask people if they want the reminder ---------- */
+function openRemSheet() { $("remTime2").value = remTimeVal(); $("remGcal2").href = gcalUrl(); $("remSheet").hidden = false; }
+function renderRemPrompt() {
+  const el = $("remPrompt"); if (!el) return;
+  const d = lsGet("closet-remDismiss"), installShown = $("installBanner") && $("installBanner").innerHTML.trim() !== "";
+  if (lsGet("closet-remDone") || lsGet("closet-remNever") || (d && Date.now() - d < 7 * 864e5) || !lsGet("closet-onboarded") || installShown) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="install"><b>Want a morning reminder?</b><p>Get a nudge every morning at the time you pick: "Choose your outfit for today". It uses your phone's calendar, so it works even when the app is closed.</p><div class="actions"><button class="chip" id="remYes" style="background:var(--accent);color:var(--accent-fg)">Set it up</button><button class="chip" id="remNo">Not now</button><button class="chip" id="remNever">Don't ask again</button></div></div>`;
+}
+$("remTime2").addEventListener("change", (e) => { lsSet("closet-remTime", e.target.value || "07:30"); $("remGcal2").href = gcalUrl(); renderRem(); });
+$("remGcal2").addEventListener("click", remDone);
+$("remIcs2").addEventListener("click", downloadIcs);
+$("remClose2").addEventListener("click", () => { $("remSheet").hidden = true; });
+$("remSheet").addEventListener("click", (e) => { if (e.target.id === "remSheet") $("remSheet").hidden = true; });
+
+/* ---------- Backups, storage and problem reports ---------- */
+const isQuota = (e) => !!e && (e.name === "QuotaExceededError" || /quota|storage is full/i.test(e.message || ""));
+function storageFull() { logErr("storage", "quota exceeded"); setMsg("This app's storage on your phone is full. Save a backup (More, then Backup), then delete photos you don't need.", true); }
+async function backupNow() {
+  let canShareFiles = false; try { const f = new File(["x"], "t.json", { type: "application/json" }); canShareFiles = !!(navigator.canShare && navigator.canShare({ files: [f] })); } catch {}
+  if (canShareFiles) await shareBackup(); else await exportBackup();
+  renderToday();
+}
+async function renderStorage() {
+  const el = $("storeInfo"); if (!el) return;
+  let est = null, persisted = null;
+  try { est = navigator.storage && navigator.storage.estimate && await navigator.storage.estimate(); } catch {}
+  try { persisted = navigator.storage && navigator.storage.persisted && await navigator.storage.persisted(); } catch {}
+  const mb = (n) => n >= 1073741824 ? (n / 1073741824).toFixed(1) + " GB" : Math.round(n / 1048576) + " MB";
+  const last = lsGet("closet-lastBackup"), days = last ? Math.floor((Date.now() - last) / 864e5) : null;
+  const parts = [est && est.quota ? `Using ${mb(est.usage)} of about ${mb(est.quota)} on this phone.` : "", persisted === null ? "" : (persisted ? "Protected from automatic clearing." : "Not marked as protected from automatic clearing."), last ? `Last backup: ${days === 0 ? "today" : days + (days === 1 ? " day" : " days") + " ago"}.` : "You haven't saved a backup yet."];
+  if (platformInfo().ios && !isInstalled()) parts.push("Safari can clear data from sites you don't use for about a week. Adding the app to your Home Screen avoids that.");
+  el.textContent = parts.filter(Boolean).join(" ");
+}
+async function buildReport() {
+  const P = platformInfo(); let est = null, persisted = null;
+  try { est = navigator.storage && navigator.storage.estimate && await navigator.storage.estimate(); } catch {}
+  try { persisted = navigator.storage && navigator.storage.persisted && await navigator.storage.persisted(); } catch {}
+  const real = items.filter(i => !i.demo), last = lsGet("closet-lastBackup");
+  const L = [`My Closet report (version ${APP_VERSION})`, `Time: ${new Date().toISOString()}`,
+    `Device: ${P.ios ? "iPhone or iPad" : P.android ? "Android" : "Other"} | ${navigator.userAgent}`,
+    `Screen: ${screen.width}x${screen.height} at ${window.devicePixelRatio || 1}x | Installed as app: ${isInstalled() ? "yes" : "no"} | Online: ${navigator.onLine ? "yes" : "no"} | Language: ${navigator.language}`,
+    `Storage: ${est && est.quota ? Math.round(est.usage / 1048576) + " MB used of about " + Math.round(est.quota / 1048576) + " MB" : "unknown"} | Protected from clearing: ${persisted === null ? "unknown" : persisted ? "yes" : "no"}`,
+    `Closet: ${real.length} real pieces (${items.length - real.length} samples), ${real.filter(i => i.cutUrl).length} with cutouts, ${real.filter(i => i.recognizedAt).length} recognized, ${real.filter(i => i.thumbUrl).length} with thumbnails, ${worn.length} logged days`,
+    `By category: ${CATS.map(c => c.id + "=" + items.filter(i => i.category === c.id).length).join(", ")}`,
+    `Last backup: ${last ? new Date(last).toISOString() : "never"}`,
+    `Settings: color detection ${smart.color}, type recognition ${smart.ai}, auto cleanup ${cutPrefs.auto}, cleanup method ${cutPrefs.method}, look ${skin}`,
+    `Cleanup status: ${($("cutStatus") && $("cutStatus").textContent) || "-"}`, `Recognition status: ${($("recStatus") && $("recStatus").textContent) || "-"}`];
+  const recent = errLog.slice(-10);
+  L.push("", recent.length ? "Recent errors:" : "Recent errors: none", ...recent.map(e => `- ${e.t} [${e.kind}] ${e.msg}`));
+  return L.join("\n");
+}
+async function renderReport() {
+  const ta = $("reportText"); if (!ta) return;
+  ta.value = await buildReport();
+  const a = $("repLink"); if (a) { a.hidden = !FEEDBACK_URL; if (FEEDBACK_URL) a.href = FEEDBACK_URL; }
+}
+$("repCopy").addEventListener("click", async () => {
+  const text = $("reportText").value;
+  try { await navigator.clipboard.writeText(text); toast("Copied. Paste it into your message."); }
+  catch { $("reportText").select(); try { document.execCommand("copy"); toast("Copied. Paste it into your message."); } catch { toast("Select the text and copy it."); } }
 });
+$("repShare").addEventListener("click", async () => {
+  const text = $("reportText").value;
+  if (navigator.share) { try { await navigator.share({ title: "My Closet report", text }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+  try { await navigator.clipboard.writeText(text); toast("Sharing isn't available here, so I copied it."); } catch { toast("Select the text and copy it."); }
+});
+// If a heavy job (cleanup or recognition) never finished last time, the page was probably killed for using too much memory.
+let crashNote = "";
+(function crashCheck() {
+  const hv = lsGet("closet-heavy"); if (!hv) return;
+  try { localStorage.removeItem("closet-heavy"); } catch {}
+  if (Date.now() - hv.t > 20 * 60000) return;
+  logErr("interrupted", `${hv.kind === "cut" ? "cleanup" : "recognition"} did not finish`);
+  if (platformInfo().ios) {
+    if (hv.kind === "cut") { cutPrefs.method = "quick"; lsSet("closet-cut", cutPrefs); } else { smart.ai = false; lsSet("closet-smart", smart); }
+    crashNote = "The last " + (hv.kind === "cut" ? "cleanup" : "recognition") + " didn't finish, probably because the phone ran out of memory. I switched to the lighter option. You can change it in More.";
+  }
+})();
 
 /* ---------- More tab ---------- */
+function foldMore() {
+  const root = $("viewMore"); if (root.dataset.folded) return; root.dataset.folded = "1";
+  const state = lsGet("closet-fold") || {}, order = [/Smart sort/i, /Photo quality/i, /Photo cleanup/i, /Morning reminder/i, /Look/i, /What I wear/i, /Weather/i, /Setup/i, /memory/i, /Backup/i, /Report/i, /About/i];
+  const cards = [...root.children].filter(c => c.classList.contains("card") && c.querySelector("h2.cat-title"));
+  const made = cards.map(card => {
+    const h = card.querySelector("h2.cat-title"), title = h.textContent.trim(), det = document.createElement("details");
+    det.className = card.className; det.id = card.id || ""; det.open = !!state[title];
+    const sum = document.createElement("summary"); sum.textContent = title; h.remove();
+    det.appendChild(sum); while (card.firstChild) det.appendChild(card.firstChild);
+    det.addEventListener("toggle", () => { const st = lsGet("closet-fold") || {}; st[title] = det.open; lsSet("closet-fold", st); });
+    card.replaceWith(det); return { det, rank: (order.findIndex(re => re.test(title)) + 1) || 99 };
+  });
+  made.sort((a, b) => a.rank - b.rank).forEach(m => root.appendChild(m.det));
+}
 function renderMore() {
-  renderCut(); renderMem(); renderRec(); renderRem();
+  foldMore();
+  renderCut(); renderMem(); renderRec(); renderRem(); renderStorage(); renderReport();
   $("unitC").setAttribute("aria-pressed", !unitF); $("unitF").setAttribute("aria-pressed", unitF);
   if (place && !$("wxStatus").textContent.startsWith("Couldn't")) {
     $("wxStatus").textContent = wx ? `${place.name}: ${fmt(wx.tmin)} to ${fmt(wx.tmax)}, ${wx.rain}% chance of rain today.` : `${place.name} saved. Loading forecast...`;
@@ -1812,7 +2522,7 @@ function renderInstall() {
   el.innerHTML = `<div class="install"><b>Use it as an app</b>${body}</div>`;
 }
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredPrompt = e; renderInstall(); });
-window.addEventListener("appinstalled", () => { lsSet("closet-installed", true); deferredPrompt = null; renderInstall(); });
+window.addEventListener("appinstalled", () => { lsSet("closet-installed", true); deferredPrompt = null; renderInstall(); renderRemPrompt(); });
 
 /* ---------- Thumbnails (small copies for lists, so big closets stay fast) ---------- */
 async function makeThumb(blob, max = 240) {
@@ -1824,6 +2534,41 @@ async function makeThumb(blob, max = 240) {
   } catch { return null; }
 }
 const thumbTried = new Set(); let thumbBusy = false;
+let lastTouch = 0;
+["pointerdown", "touchstart", "scroll", "keydown"].forEach(e => addEventListener(e, () => { lastTouch = Date.now(); }, { passive: true, capture: true }));
+// Heavy photo work waits for you to stop tapping or scrolling, then takes a short breath so the app stays smooth.
+async function calm() {
+  const t0 = Date.now(), nap = (ms) => new Promise(r => setTimeout(r, ms));
+  while (Date.now() - lastTouch < 1500 && Date.now() - t0 < 12000) await nap(300);
+  await nap(400);
+}
+let lastResume = 0, resumeTimer = null;
+// On open (and when you come back to the app), carry on with photos that weren't finished, if Smart photos is on.
+function resumeWork() {
+  if (Date.now() - lastResume < 600000 || cutState.running || recState.running) return;
+  const cuts = cutPrefs.auto ? eligible().map(i => i.id) : [];
+  const recs = smart.ai && !platformInfo().ios ? eligibleRec().map(i => i.id) : [];
+  if (!cuts.length && !recs.length) return;
+  lastResume = Date.now();
+  toast("Picking up where it left off. Keep the app open until it finishes.");
+  if (cuts.length) enqueueCut(cuts);
+  if (recs.length) enqueueRec(recs);
+}
+let layersMigrated = false;
+// Sweaters and hoodies the app sorted itself used to land in Tops; move them to the new Sweaters category.
+async function migrateLayers() {
+  if (layersMigrated) return; layersMigrated = true;
+  const LAY = new Set(["sweater", "hoodie", "sweatshirt", "cardigan", "turtleneck sweater"]);
+  const todo = items.filter(i => !i.demo && i.category === "tops" && i.auto && i.auto.category !== false && ((i.typeLabel && LAY.has(i.typeLabel) && i.auto.category) || (i.auto.name && /sweater|hoodie|sweatshirt|cardigan|fleece|pullover|turtleneck/i.test(i.name || ""))));
+  for (const it of todo) { try { await serial(() => db.collection("closet").doc(it.id).update({ category: "layers" })); } catch {} }
+}
+let colorsRefreshed = false;
+// Older photos were colored with the first version of the detector; redo the ones the app colored itself (never ones you set by hand).
+async function refreshColors() {
+  if (colorsRefreshed || !smart.color) return; colorsRefreshed = true;
+  const todo = items.filter(i => !i.demo && i.url && i.auto && i.auto.color && (i.colVer || 1) < 2);
+  for (const it of todo) { try { await analyzeAndSave(it.id); } catch {} }
+}
 async function ensureThumbs() {
   if (thumbBusy || !db) return;
   const todo = items.filter(i => i.url && ((!i.thumbUrl) || (i.cutUrl && !i.cutThumbUrl)) && !thumbTried.has(i.id));
@@ -1889,9 +2634,12 @@ function stageLayout() {
     Lo.labels.push({ e, x: x + w + 14, y: y + h / 2 - 22, w: 386 - (x + w + 14) });
     y += h + 10;
   }
-  const o = by("outerwear");
-  if (o) { const oy = topY === null ? 16 : topY; Lo.pieces.push({ e: o, x: 8, y: oy, w: 92, h: 122 }); Lo.labels.push({ e: o, x: 8, y: oy + 128, w: 92 }); }
-  Lo.height = Math.max(y + 6, 300);
+  let ly = topY === null ? 16 : topY;
+  for (const [c, w, h] of [["outerwear", 92, 118], ["layers", 92, 104]]) {
+    const e = by(c); if (!e) continue;
+    Lo.pieces.push({ e, x: 8, y: ly, w, h }); Lo.labels.push({ e, x: 8, y: ly + h + 6, w: 92 }); ly += h + 92;
+  }
+  Lo.height = Math.max(y + 6, ly + 2, 300);
   return Lo;
 }
 const loadImg = (src) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
@@ -1973,7 +2721,7 @@ function renderOnboard() {
   else if (st === 1) body = `<h2 class="cat-title">What do you wear?</h2><p class="tip">Turn off anything you don't wear. You can change this later in More.</p><div class="cats">${CATS.filter(c => c.id !== "unsorted").map(c => `<button class="chip" data-obcat="${c.id}" aria-pressed="${isActiveCat(c.id)}">${c.label}</button>`).join("")}</div>`;
   else if (st === 2) body = `<h2 class="cat-title">Where are you?</h2><p class="tip">Outfits use today's forecast, so you get a coat on cold days. Optional. Only the city is sent, to a free weather service.</p><div class="formrow"><input type="text" id="obCity" placeholder="City, e.g. Toronto" aria-label="City" value="${place ? esc(place.name.split(",")[0]) : ""}"><button class="btn" id="obFind">Find</button></div><button class="btn" id="obGeo">Use my location</button><div class="tip" id="obWx">${place ? "Saved: " + esc(place.name) : ""}</div><div class="formrow"><span>Temperature units</span><button class="chip" data-obunit="C" aria-pressed="${!unitF}">°C</button><button class="chip" data-obunit="F" aria-pressed="${unitF}">°F</button></div>`;
   else if (st === 3) body = `<h2 class="cat-title">Laundry day</h2><p class="tip">When do you usually do laundry? It plans your week around it and warns you before you run out of clean clothes.</p><select id="obDay">${[["-1", "No set day"], ...DAYS.map((d, k) => [String(k), d])].map(([v, t]) => `<option value="${v}" ${+v === laundry.day ? "selected" : ""}>${t}</option>`).join("")}</select>`;
-  else { body = `<h2 class="cat-title">Take your photos</h2><ul><li>Lay each piece flat on one plain surface, like a bed with a solid sheet.</li><li>Pick a color that contrasts with the piece.</li><li>Fill the frame, one piece per photo.</li><li>Use <b>Auto-sort</b> if you don't want to pick categories. It reads each photo for you.</li></ul><div class="actions"><button class="btn primary" id="obPhotos">Open the camera</button><button class="btn" id="obDemo">Try sample clothes first</button></div>`; next = "Done"; }
+  else { body = `<h2 class="cat-title">Take your photos</h2><ul><li>Lay each piece flat on one plain surface, like a bed with a solid sheet.</li><li>Pick a color that contrasts with the piece.</li><li>Fill the frame, one piece per photo.</li><li>Use <b>Auto-sort</b> if you don't want to pick categories. It reads each photo for you.</li></ul><div class="actions"><button class="btn primary" id="obPhotos">Open the camera</button><button class="btn" id="obDemo">Try sample clothes first</button><button class="btn" id="obRem">Set a morning reminder</button></div>`; next = "Done"; }
   $("obPanel").innerHTML = `<div class="dots">${Array.from({ length: OB_LAST + 1 }, (_, k) => `<i class="${k === st ? "on" : ""}"></i>`).join("")}</div>${body}
     <div class="actions">${st > 0 ? `<button class="btn" id="obBack">Back</button>` : ""}<button class="btn primary" id="obNext">${next}</button></div><button class="skip" id="obSkip">Skip setup</button>`;
 }
@@ -1990,24 +2738,30 @@ $("onboard").addEventListener("click", async (e) => {
   else if (t.id === "obBack") { obStep = Math.max(0, obStep - 1); renderOnboard(); }
   else if (t.id === "obSkip") { closeOnboard(true); }
   else if (t.id === "obPhotos") { closeOnboard(true); showTab("capture"); }
+  else if (t.id === "obRem") { closeOnboard(true); openRemSheet(); }
   else if (t.id === "obDemo") { closeOnboard(true); showTab("more"); await loadDemo(); showTab("today"); }
 });
 $("obAgain").addEventListener("click", openOnboard);
 
 /* ---------- Tabs and clicks ---------- */
 function showTab(name) {
-  tab = name; if (tab !== "capture") stopCam();
+  tab = name; if (tab !== "capture") { stopCam(); selMode = false; sel.clear(); selDelArm = false; }
   const navTab = (tab === "stats" || tab === "pack") ? "more" : tab;
   document.querySelectorAll(".nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === navTab));
   const V = { today: "viewToday", week: "viewWeek", capture: "viewCapture", laundry: "viewLaundry", more: "viewMore", stats: "viewStats", pack: "viewPack" };
   for (const [k, id] of Object.entries(V)) $(id).hidden = tab !== k;
   $("seasons").hidden = tab === "more";
   if (tab === "more") renderMore(); if (tab === "laundry") renderLaundry(); if (tab === "week") renderWeek(); if (tab === "stats") renderStats(); if (tab === "pack") renderPack();
-  window.scrollTo(0, 0);
+  window.scrollTo(0, 0); renderSelBar();
 }
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("button"); if (!t) return;
-  if (t.dataset.logday) openLogDay(t.dataset.logday);
+  if (t.id === "bkNow") { backupNow(); }
+  else if (t.id === "bkLater") { lsSet("closet-bkSnooze", Date.now()); renderToday(); }
+  else if (t.id === "remYes") openRemSheet();
+  else if (t.id === "remNo") { lsSet("closet-remDismiss", Date.now()); renderRemPrompt(); }
+  else if (t.id === "remNever") { lsSet("closet-remNever", true); renderRemPrompt(); }
+  else if (t.dataset.logday) openLogDay(t.dataset.logday);
   else if (t.id === "logMissed") openLogDay();
   else if (t.dataset.packdays) { pack.days = Math.max(1, Math.min(30, pack.days + (+t.dataset.packdays))); savePack(); renderPack(); }
   else if (t.dataset.packw) { pack.weather = t.dataset.packw; if (pack.seasonAuto) pack.season = autoSeason(); savePack(); renderPack(); }
@@ -2022,19 +2776,25 @@ document.addEventListener("click", async (e) => {
   else if (t.id === "packShare") sharePack();
   else if (t.id === "packReset") { pack.checked = {}; savePack(); renderPack(); }
   else if (t.id === "smartOn") {
-    smart.ai = true; smart.color = true; cutPrefs.auto = true; lsSet("closet-smart", smart); lsSet("closet-cut", cutPrefs);
-    cat = "unsorted"; render(); renderCut(); renderRec();
-    toast("Smart photos on. New photos get cleaned and sorted.");
-    const c1 = eligible().map(i => i.id), c2 = eligibleRec().map(i => i.id);
+    const ios = platformInfo().ios;
+    smart.ai = !ios; smart.color = true; cutPrefs.auto = true; if (ios) cutPrefs.method = "quick";
+    lsSet("closet-smart", smart); lsSet("closet-cut", cutPrefs);
+    if (!ios) cat = "unsorted"; render(); renderCut(); renderRec();
+    toast(ios ? "Smart photos on. Backgrounds and colors are handled on this phone." : "Smart photos on. New photos get cleaned and sorted.");
+    const c1 = eligible().map(i => i.id), c2 = ios ? [] : eligibleRec().map(i => i.id);
     if (c1.length) enqueueCut(c1); if (c2.length) enqueueRec(c2);
   }
+  else if (t.id === "sortNow" && !platformInfo().ios) { smart.ai = true; lsSet("closet-smart", smart); toast("Sorting your photos. Keep this page open."); enqueueRec(eligibleRec().map(i => i.id)); showTab("more"); }
+  else if (t.id === "sortNow" || t.id === "sortHand") { cat = "unsorted"; render(); showTab("capture"); }
+  else if (t.dataset.addcat) { cat = t.dataset.addcat; render(); showTab("capture"); }
+  else if (t.id === "cutNow") { cutState.aiFailed = false; enqueueCut(eligible().map(i => i.id)); toast("Cleaning your photos. You can keep using the app."); }
   else if (t.id === "smartNo") { lsSet("closet-smartDismiss", Date.now()); renderSmartPrompt(); }
   else if (t.dataset.undoshot && lastShot) { const id = lastShot.id; lastShot = null; renderShotNote(); try { await db.collection("closet").doc(id).delete(); toast("Photo removed. Try again."); } catch {} }
   else if (t.id === "installGo" && deferredPrompt) { deferredPrompt.prompt(); try { await deferredPrompt.userChoice; } catch {} deferredPrompt = null; renderInstall(); }
-  else if (t.id === "installNo") { lsSet("closet-installDismiss", Date.now()); renderInstall(); }
+  else if (t.id === "installNo") { lsSet("closet-installDismiss", Date.now()); renderInstall(); renderRemPrompt(); }
   else if (t.dataset.dayshuf !== undefined) {
     const k = +t.dataset.dayshuf;
-    if (k === 0) { generate(); renderToday(); buildPlan(1); } else buildPlan(k);
+    if (k === 0) { touchOutfit(); generate(); renderToday(); buildPlan(1); } else buildPlan(k);
     renderWeek();
   }
   else if (t.dataset.daylock !== undefined) { const d = plan.days[+t.dataset.daylock]; if (d) { d.locked = !d.locked; lsSet("closet-plan", plan); renderWeek(); } }
@@ -2049,7 +2809,7 @@ document.addEventListener("click", async (e) => {
   else if (t.dataset.mood) {
     const [k, v] = t.dataset.mood.split("|");
     if (k === "weather") mood.weather = !mood.weather; else mood[k] = mood[k] === v ? "" : v;
-    lsSet("closet-mood", mood); generate(); renderToday();
+    lsSet("closet-mood", mood); touchOutfit(); generate(); renderToday();
   }
   else if (t.dataset.accent !== undefined) { accent = t.dataset.accent; lsSet("closet-accent", accent); applySkin(); renderMore(); }
   else if (t.dataset.skin) { skin = t.dataset.skin; lsSet("closet-skin", skin); applySkin(); renderMore(); }
@@ -2066,21 +2826,43 @@ document.addEventListener("click", async (e) => {
   else if (t.dataset.cat) { cat = t.dataset.cat; render(); }
   else if (t.dataset.edit) openEditor(t.dataset.edit);
   else if (t.dataset.swap !== undefined) {
-    refreshCnt(); const i = +t.dataset.swap, s = outfit[i];
-    s.id = pick(s.cat, s.id, ctxOf(outfit.filter((_, k) => k !== i).map(x => x.id))); outfitFrom = ""; renderToday();
-  } else if (t.id === "reroll") { generate(); renderToday(); }
+    refreshCnt(); openSwap(+t.dataset.swap);
+  } else if (t.dataset.swappick !== undefined) {
+    const [i, id] = t.dataset.swappick.split("|"); if (outfit[+i]) { outfit[+i].id = id; outfitFrom = ""; touchOutfit(); } $("swapSheet").hidden = true; renderToday();
+  } else if (t.dataset.swaprand !== undefined) {
+    const i = +t.dataset.swaprand, s = outfit[i]; if (s) { s.id = pick(s.cat, s.id, ctxOf(outfit.filter((_, k) => k !== i).map(x => x.id))) || s.id; outfitFrom = ""; touchOutfit(); } $("swapSheet").hidden = true; renderToday();
+  } else if (t.dataset.swapoff !== undefined) {
+    outfit.splice(+t.dataset.swapoff, 1); outfitFrom = ""; touchOutfit(); $("swapSheet").hidden = true; renderToday();
+  } else if (t.dataset.swapkeep !== undefined) {
+    const s = outfit[+t.dataset.swapkeep]; if (s) { s.locked = !s.locked; touchOutfit(); toast(s.locked ? "Kept. Shuffle will leave it alone." : "Released."); } $("swapSheet").hidden = true; renderToday();
+  } else if (t.dataset.addslot) {
+    const it = bestForSlot(t.dataset.addslot); if (it) { outfit.push({ cat: t.dataset.addslot, id: it.id }); outfitFrom = ""; touchOutfit(); renderToday(); } else toast("Nothing clean in that category.");
+  } else if (t.id === "swapClose") { $("swapSheet").hidden = true; } else if (t.id === "reroll") {
+    if (outfit.length && outfit.every(x => x.locked)) { toast("Everything is kept. Release a piece to shuffle."); }
+    else {
+      touchOutfit(); if (navigator.vibrate) navigator.vibrate(15);
+      const st = $("stage"); st.classList.add("shuffling"); await new Promise(r => setTimeout(r, 170)); st.classList.remove("shuffling");
+      generate(); renderToday();
+    }
+  }
   else if (t.id === "wear") {
-    t.disabled = true;
-    db.collection("worn").doc(todayStr()).set({ date: todayStr(), season, itemIds: outfit.map(s => s.id), createdAt: new Date().toISOString() })
-      .catch(() => setMsg("Couldn't save today's outfit.", true)).finally(renderToday);
+    t.disabled = true; touchOutfit();
+    try {
+      await db.collection("worn").doc(todayStr()).set({ date: todayStr(), season, itemIds: outfit.map(s => s.id), createdAt: new Date().toISOString() });
+      if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
+      const st = $("stage"); st.classList.remove("pulse"); void st.offsetWidth; st.classList.add("pulse");
+      const n = streakDays(); toast(n > 1 ? `Locked in! ${n} days in a row.` : "Locked in for today. Have a great day!");
+    } catch { setMsg("Couldn't save today's outfit.", true); }
+    renderToday();
   }
 });
 
-const APP_VERSION = 22;
+const APP_VERSION = 28;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
 if (smart.ai) cat = "unsorted";
+if (crashNote) setTimeout(() => toast(crashNote), 1500);
 applySkin(); render(); renderInstall();
 (async () => {
   db = makeDb(); ready = true;
@@ -2088,14 +2870,18 @@ applySkin(); render(); renderInstall();
   db.collection("closet").onSnapshot((snap) => {
     const before = items.length;
     items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    if (items.length !== before && !worn.find(w => w.id === todayStr())) outfit = [];
-    render(); syncToday(); renderCut(); renderRec(); if (tab === "stats") renderStats();
-    ensureThumbs();
+    render(); syncToday(); renderCut(); renderRec(); renderFix(); if (tab === "stats") renderStats();
+    ensureThumbs(); migrateLayers(); refreshColors(); if (items.length && !resumeTimer) resumeTimer = setTimeout(resumeWork, 2500);
     if (!obChecked) { obChecked = true; if (!lsGet("closet-onboarded")) { if (items.length === 0 && !place) openOnboard(); else lsSet("closet-onboarded", true); } }
   });
   db.collection("worn").onSnapshot((snap) => { worn = snap.docs.map(d => ({ id: d.id, ...d.data() })); render(); syncToday(); });
   renderMore();
-  if (place) { await fetchWx(); renderMore(); if (!worn.find(w => w.id === todayStr())) outfit = []; syncToday(); }
+  if (place) {
+    await Promise.race([fetchWx(), new Promise(r => setTimeout(r, 3500))]); wxSettled = true; renderMore();
+    // the first pick was made without a forecast: redo it quietly, but only if you haven't touched it
+    if (outfit.length && !outfitGenWx && !outfitTouched && !worn.find(w => w.id === todayStr()) && wx) outfit = [];
+    syncToday();
+  }
 })();
 if ('serviceWorker' in navigator) {
   // When a new version takes over, reload (once nothing heavy is running) so a long-lived installed app never keeps running old code.
@@ -2104,7 +2890,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (!hadController || reloading) return; reloading = true; try { toast("Updated. Reloading..."); } catch {} setTimeout(reloadWhenIdle, 800); });
   navigator.serviceWorker.register('sw.js').then((reg) => {
     reg.update().catch(() => {});
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { reg.update().catch(() => {}); setTimeout(resumeWork, 1500); } });
   }).catch(() => {});
 }
 </script>

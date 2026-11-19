@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Closet tester guide</title>
+<meta name="theme-color" content="#ffffff">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one column, numbered steps in rounded bordered cards, checkboxes that remember progress. Matches the app: serif headings, white, ink and electric blue. */
+:root { --bg:#fff; --surface:#fff; --fg:#111; --muted:#5b5b5b; --line:#d9d9d9; --soft:#eef0ff; --accent:#2b44ff; --accent-fg:#fff; }
+@media (prefers-color-scheme: dark) { :root { --bg:#0e1020; --surface:#171a2e; --fg:#eceefe; --muted:#9aa0c4; --line:#2a2f4d; --soft:#232845; --accent:#8b9cff; --accent-fg:#0e1020; color-scheme: dark; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 Inter, system-ui, sans-serif; padding: 16px max(16px, env(safe-area-inset-left)) calc(40px + env(safe-area-inset-bottom)); }
+main { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+h1 { font: 800 32px/1.1 Fraunces, Georgia, serif; letter-spacing: -.03em; margin: 0; }
+h2 { font: 800 20px/1.2 Fraunces, Georgia, serif; margin: 0; letter-spacing: -.01em; }
+p { margin: 0; }
+.muted { color: var(--muted); font-size: 14px; }
+.card { background: var(--surface); border: 3px solid var(--fg); border-radius: 22px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.card.soft { background: var(--soft); }
+.num { display: inline-flex; width: 28px; height: 28px; border-radius: 50%; background: var(--fg); color: var(--bg); align-items: center; justify-content: center; font-weight: 700; font-size: 14px; margin-right: 8px; flex: none; }
+.step-h { display: flex; align-items: center; }
+ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+li label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+li input { width: 22px; height: 22px; flex: none; accent-color: var(--accent); margin-top: 1px; }
+.tag { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+.expect { border-left: 4px solid var(--accent); padding-left: 10px; }
+.report { border-left: 4px solid #c62828; padding-left: 10px; }
+.btn { display: block; text-align: center; text-decoration: none; background: var(--accent); color: var(--accent-fg); border: 3px solid var(--fg); border-radius: 18px; padding: 14px 18px; font-weight: 700; }
+.bar { height: 12px; border: 2px solid var(--fg); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+pre { margin: 0; white-space: pre-wrap; background: var(--soft); border-radius: 14px; padding: 12px; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+</style></head><body><main>
+<h1>My Closet tester guide</h1>
+<p class="muted">About 15 minutes. Use Wi-Fi, because a few steps download large files. Your closet stays on your own phone and nothing is uploaded. Tick each box as you go. It remembers where you stopped.</p>
+<div class="card"><div class="muted" id="progressText">0 of 0 done</div><div class="bar"><i id="bar"></i></div></div>
+<a class="btn" href="./" target="_blank" rel="noopener">Open My Closet</a>
+
+<div class="card soft">
+  <h2>Before you start</h2>
+  <ul>
+    <li><label><input type="checkbox" data-k="b1"><span>Add the app to your home screen. <b>iPhone:</b> open the link in Safari, tap Share, then Add to Home Screen. <b>Android:</b> open it in Chrome, tap the ⋮ menu, then Install app.</span></label></li>
+    <li><label><input type="checkbox" data-k="b2"><span>Have 5 to 8 pieces of clothing nearby (tops, bottoms, shoes) and a plain surface, like a bed with a solid sheet.</span></label></li>
+  </ul>
+  <p class="tag">How to report a problem</p>
+  <p>In the app go to <b>More, then Report a problem, then Copy report</b>. Paste it into your message and add:</p>
+  <pre>What I did:
+What I expected:
+What happened:</pre>
+  <p class="muted">The report has your app version, phone type and recent errors. It does not include photos, piece names or your city. Screenshots help a lot.</p>
+</div>
+
+<section class="card">
+  <div class="step-h"><span class="num">1</span><h2>First-time setup</h2></div>
+  <ul><li><label><input type="checkbox" data-k="s1"><span>Open the app and go through the short setup: what you wear, your city, laundry day.</span></label></li></ul>
+  <p class="expect"><span class="tag">You should see</span><br>5 short steps, and your city's temperature at the top of Today.</p>
+  <p class="report"><span class="tag">Tell me if</span><br>anything was confusing, the city wasn't found, or it got stuck.</p>
+</section>
+
+<section class="card">
+  <div class="step-h"><span class="num">2</span><h2>Take photos</h2></div>
+  <ul>
+    <li><label><input type="checkbox" data-k="s2a"><span>Go to Photos, tap Open camera, and allow the camera.</span></label></li>
+    <li><label><input type="checkbox" data-k="s2b"><span>Take 5 or more photos, one piece each, filling the frame.</span></label></li>
+    <li><label><input type="checkbox" data-k="s2c"><span>Take one photo that's too dark on purpose, and try Undo.</span></label></li>
+  </ul>
+  <p class="expect"><span class="tag">You should see</span><br>A dashed guide frame, your photos appearing in the list, and a warning with Undo for the dark photo.</p>
+  <p class="report"><span class="tag">Tell me if</span><br>the camera won't open, the screen is black, photos go missing, or warnings were wrong.</p>
+</section>
+
+<section class="card">
+  <div class="step-h"><span class="num">3</span><h2>Smart photos</h2></div>
+  <ul>
+    <li><label><input type="checkbox" data-k="s3a"><span>On Wi-Fi, tap <b>Turn on</b> on the "clean up your photos" card in Photos. The first time it downloads a lot, so wait.</span></label></li>
+    <li><label><input type="checkbox" data-k="s3b"><span>Watch the progress. It should name each step and show a timer.</span></label></li>
+    <li><label><input type="checkbox" data-k="s3c"><span>When it finishes, open a photo and check the name, color and category. Fix any that are wrong.</span></label></li>
+  </ul>
+  <p class="expect"><span class="tag">You should see</span><br><b>Android:</b> backgrounds removed and names like "Navy hoodie". <b>iPhone:</b> plain backgrounds removed and colors detected. Type recognition is off by default on iPhone.</p>
+  <p class="report"><span class="tag">Tell me if</span><br>it's stuck for more than 3 minutes, the page reloads or crashes, or the names and colors are often wrong. Copy the report right away.</p>
+</section>
+
+<section class="card">
+  <div class="step-h"><span class="num">4</span><h2>Today's outfit</h2></div>
+  <ul>
+    <li><label><input type="checkbox" data-k="s4a"><span>Tap a piece to swap it, then tap Shuffle a few times.</span></label></li>
+    <li><label><input type="checkbox" data-k="s4b"><span>Open Style it, pick an event and a feeling, and see if the outfit changes sensibly.</span></label></li>
+    <li><label><input type="checkbox" data-k="s4c"><span>Tap Love it on one outfit and Skip it on another.</span></label></li>
+    <li><label><input type="checkbox" data-k="s4d"><span>Tap Share image and send the picture to yourself.</span></label></li>
+  </ul>
+  <p class="expect"><span class="tag">You should see</span><br>A labeled outfit board, a style tip, and an image you can share.</p>
+  <p class="report"><span class="tag">Tell me if</span><br>outfits clash, pieces repeat too much, or the tips don't make sense.</p>
+</section>
+
+<section class="card">
+  <div class="step-h"><span class="num">5</span><h2>Log what you wore</h2></div>
+  <ul>
+    <li><label><input type="checkbox" data-k="s5a"><span>Tap "I'm wearing this today".</span></label></li>
+    <li><label><input type="checkbox" data-k="s5b"><span>Tap "Log a missed day" and add yesterday's outfit.</span></label></li>
+  </ul>
+  <p class="expect"><span class="tag">You should see</span><br>Both days under "Last two weeks", each with an Edit button.</p>
+</section>
+
+<section class="card">
+  <div class="step-h"><span class="num">6</span><h2>Week and laundry</h2></div>
+  <ul>
+    <li><label><input type="checkbox" data-k="s6a"><span>Open Week. Lock one day and tap Replan.</span></label></li>
+    <li><label><input type="checkbox" data-k="s6b"><span>Open Laundry and look at the hamper and "days left".</span></label></li>
+  </ul>
+  <p class="expect"><span class="tag">You should see</span><br>Seven planned days that respect your laundry day, and counts that match what you logged.</p>
+  <p class="report"><span class="tag">Tell me if</span><br>the numbers look wrong.</p>
+</section>
+
+<section class="card">
+  <div class="step-h"><span class="num">7</span><h2>Packing list</h2></div>
+  <ul>
+    <li><label><input type="checkbox" data-k="s7a"><span>More, then Packing list. Pick 4 days, a destination city and Forecast, then Build.</span></label></li>
+    <li><label><input type="checkbox" data-k="s7b"><span>Check off a piece and tap Share list.</span></label></li>
+  </ul>
+  <p class="expect"><span class="tag">You should see</span><br>Pieces grouped by type that suit the weather.</p>
+</section>
+
+<section class="card">
+  <div class="step-h"><span class="num">8</span><h2>Backup</h2></div>
+  <ul>
+    <li><label><input type="checkbox" data-k="s8a"><span>More, then Backup, then Save backup file (or Share backup).</span></label></li>
+  </ul>
+  <p class="expect"><span class="tag">You should see</span><br>A file saved or the share sheet opening.</p>
+  <p class="report"><span class="tag">Tell me if</span><br>nothing downloads or it says the storage is full.</p>
+</section>
+
+<section class="card">
+  <div class="step-h"><span class="num">9</span><h2>Morning reminder and look</h2></div>
+  <ul>
+    <li><label><input type="checkbox" data-k="s9a"><span>Set up the morning reminder from the card on Today or in More.</span></label></li>
+    <li><label><input type="checkbox" data-k="s9b"><span>More, then Look: try a different look and accent color. Is everything still easy to read?</span></label></li>
+  </ul>
+</section>
+
+<section class="card soft">
+  <h2>Last questions</h2>
+  <ul>
+    <li><label><input type="checkbox" data-k="q1"><span>What did you like most?</span></label></li>
+    <li><label><input type="checkbox" data-k="q2"><span>What was confusing or slow?</span></label></li>
+    <li><label><input type="checkbox" data-k="q3"><span>Would you use it every day for a week? What's missing?</span></label></li>
+  </ul>
+  <p class="muted">Send your answers along with any reports. Thank you for testing!</p>
+</section>
+</main>
+<script>
+const boxes = [...document.querySelectorAll('input[type=checkbox]')];
+const key = (k) => 'tg-' + k;
+function save(k, v) { try { localStorage.setItem(key(k), v ? '1' : ''); } catch {} }
+function load(k) { try { return localStorage.getItem(key(k)) === '1'; } catch { return false; } }
+function update() { const done = boxes.filter(b => b.checked).length; document.getElementById('progressText').textContent = done + ' of ' + boxes.length + ' done'; document.getElementById('bar').style.width = (100 * done / boxes.length) + '%'; }
+boxes.forEach(b => { b.checked = load(b.dataset.k); b.addEventListener('change', () => { save(b.dataset.k, b.checked); update(); }); });
+update();
+</script></body></html>
