@@ -50,6 +50,18 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 .tmr .th img { width: 56px; height: 74px; object-fit: cover; border-radius: 10px; border: 2px solid var(--fg); flex: none; }
 .tmr .th img[data-cut] { object-fit: contain; background: var(--surface); }
 .topr { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.guidebar { background: var(--surface); border: 3px solid var(--fg); border-radius: 20px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.guidebar .gb { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.guidebar .gbtns { display: flex; gap: 6px; flex-wrap: wrap; }
+.rulerow { border: 2px solid var(--line, #ddd); border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.rulerow .pair { display: flex; gap: 8px; align-items: center; font-size: 14px; font-weight: 600; }
+.rulerow img { width: 40px; height: 52px; object-fit: cover; border-radius: 8px; border: 2px solid var(--fg); flex: none; }
+.rulerow img[data-cut] { object-fit: contain; background: var(--surface); }
+.verdict { border-radius: 18px; padding: 14px; border: 3px solid var(--fg); }
+.verdict.great { background: #1b7f4b; color: #fff; } .verdict.ok { background: var(--soft, #eef); } .verdict.hard { background: #c62828; color: #fff; }
+.verdict h3 { margin: 0 0 4px; font-family: var(--font-display); font-size: 22px; }
+.tryout { display: flex; gap: 6px; align-items: center; } .tryout img { width: 52px; height: 68px; object-fit: cover; border-radius: 10px; border: 2px solid var(--fg); }
+.tryout img[data-cut] { object-fit: contain; background: var(--surface); }
 .logbanner { border-radius: 16px; padding: 10px 14px; font-size: 14px; border: 2px solid var(--fg); }
 .logbanner.ok { background: var(--accent); color: var(--accent-fg); }
 .logbanner.warn { background: var(--surface); border-color: #c62828; }
@@ -262,6 +274,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <div id="moodBody" class="stack" style="gap:10px"></div>
     </details>
     <div class="actions" id="rateRow">
+      <button class="btn" id="rulesBtn">Pair rules</button>
       <button class="btn" id="skipBtn">Skip it</button>
       <button class="btn" id="loveBtn">Love it</button>
       <button class="btn" id="shareLook">Share image</button>
@@ -277,8 +290,11 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 
   <div id="viewCapture" class="stack" hidden>
     <div class="cats catscroll" id="cats" role="group" aria-label="Category"></div>
+    <div id="guideDone"></div>
+    <button class="btn" id="guideStart" style="flex:none">Guided session: I'll walk you through it</button>
     <button class="shutter" id="camOpen"><span id="shutterText">Open camera<small>Photos save inside this app, not in your gallery.</small></span></button>
     <div id="camLive" class="stack" hidden>
+      <div class="guidebar" id="guideBar" hidden></div>
       <div class="camwrap"><video id="vid" playsinline muted autoplay></video><div class="guide"></div><div class="hintbar" id="camHint">Lay it flat on a plain surface. Fill the frame.</div><div class="flash" id="flash"></div></div>
       <div class="camtools"><button class="chip sm" id="camTorch" hidden aria-pressed="false">Light</button><label class="zoomrow" id="camZoomWrap" hidden>Zoom<input type="range" id="camZoom" min="1" max="3" step="0.1" value="1"></label><button class="chip sm" id="camAuto" aria-pressed="false">Auto-snap</button><span class="camcount" id="camCount"></span></div>
       <div class="camrow"><button class="snap" id="snap">Snap</button><button class="closecam" id="camClose">Done</button></div>
@@ -287,6 +303,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
     <div id="smartPrompt"></div>
     <div id="cutNag"></div>
     <div id="recNag"></div>
+    <button class="btn" id="tryOpen" style="flex:none">Would it go with my closet? Try before you buy</button>
     <div class="shutter second pick">
       <span>Or pick existing photos<small style="opacity:.7">Optional. They get shrunk and saved in the app too.</small></span>
       <input id="lib" type="file" accept="image/*" multiple aria-label="Choose photos">
@@ -306,6 +323,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 
   <section id="viewMore" class="stack" hidden>
     <button class="btn primary" data-tab="pack" style="flex:none">Packing list for a trip</button>
+    <button class="btn primary" id="tryOpen2" style="flex:none">Try before you buy: would it go with my closet?</button>
     <button class="btn primary" data-tab="stats" style="flex:none">Closet stats: most worn, donate list, cost per wear</button>
     <div class="card">
       <h2 class="cat-title">Look</h2>
@@ -375,6 +393,11 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <label class="formrow" style="gap:10px"><input type="checkbox" id="cutShow" style="width:22px;height:22px;accent-color:var(--accent)"><span>Show cleaned photos (turn off to see originals)</span></label>
     </div>
     <div class="card">
+      <h2 class="cat-title">Pair rules</h2>
+      <p class="tip">Pairings you told me to never or always wear together. Add them from Today with the Pair rules button.</p>
+      <div id="rulesList" class="stack" style="gap:8px"></div>
+    </div>
+    <div class="card">
       <h2 class="cat-title">What I wear</h2>
       <p class="tip">Turn off anything you don't wear. Hidden categories are left out of outfits and the camera list. Photos you've already taken are kept.</p>
       <div class="cats" id="catUse"></div>
@@ -441,6 +464,8 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
   <p class="tip">Google Calendar: tap Save, then make sure the event has a notification. iPhone and other calendars: open the downloaded file and tap Add.</p>
   <button class="btn" id="remClose2">Done</button>
 </div></div>
+<div class="sheet" id="trySheet" hidden><div class="panel" id="tryPanel" role="dialog" aria-label="Try before you buy"></div></div>
+<div class="sheet" id="rulesSheet" hidden><div class="panel" id="rulesPanel" role="dialog" aria-label="Pair rules"></div></div>
 <div class="sheet" id="swapSheet" hidden><div class="panel" id="swapPanel" role="dialog" aria-label="Swap a piece"></div></div>
 <div class="sheet" id="pickSheet" hidden><div class="panel" id="pickPanel" role="dialog" aria-label="Pick pieces"></div></div>
 <div class="sheet" id="onboard" hidden><div class="panel ob" id="obPanel" role="dialog" aria-label="Welcome"></div></div>
@@ -905,6 +930,139 @@ function camTick() {
   const hb = $("camHint"); if (hb.textContent !== hint) hb.textContent = hint; hb.className = "hintbar " + cls;
   if (autoSnap && !dark && !bright && !moving && camSt.moved && camSt.steady >= 1250) { camSt.moved = false; camSt.steady = 0; snap(); }
 }
+/* ---------- Try before you buy ---------- */
+const tryPool = () => { const r = items.filter(i => !i.demo && i.id !== "__try"); return r.length >= 3 ? r : items.filter(i => i.id !== "__try"); };
+const tryState = { url: "", color: "", pattern: "solid", lum: null, type: "", name: "", busy: "", result: null };
+function tryTypeOptions(sel) {
+  const groups = { tops: "Shirts & tees", layers: "Sweaters", bottoms: "Bottoms", outerwear: "Jackets & coats", shoes: "Shoes", accessories: "Accessories", onepiece: "Dresses & sets" };
+  return '<option value="">What is it?</option>' + Object.entries(groups).map(([c, l]) => `<optgroup label="${l}">${TYPES.filter(t => t[1] === c).map(t => `<option value="${t[0]}" ${sel === t[0] ? "selected" : ""}>${t[2]}</option>`).join("")}</optgroup>`).join("");
+}
+function openTry() { Object.assign(tryState, { url: "", color: "", pattern: "solid", lum: null, type: "", name: "", busy: "", result: null }); renderTry(); $("trySheet").hidden = false; }
+function renderTry() {
+  const P = $("tryPanel"), st = tryState, real = tryPool().length;
+  if (st.result) { P.innerHTML = tryResultHTML(st.result); return; }
+  P.innerHTML = `<h2 class="cat-title" style="margin:0">Try before you buy</h2>`
+    + `<p class="tip" style="margin:0">Photograph something in a store or an online cart. I'll tell you how it works with what you already own. The photo isn't saved.</p>`
+    + (real < 3 ? `<div class="note bad">Add at least 3 or 4 of your own pieces first, so there's something to compare with.</div>` : "")
+    + `<label class="shutter second pick" style="padding:14px;font-size:16px"><span>${st.url ? "Choose a different photo" : "Take or pick a photo"}</span><input id="tryFile" type="file" accept="image/*" aria-label="Photo of the item"></label>`
+    + (st.url ? `<img src="${st.url}" alt="" style="width:120px;aspect-ratio:3/4;object-fit:cover;border-radius:14px;border:3px solid var(--fg);align-self:center">` : "")
+    + (st.busy ? `<div class="tip">${esc(st.busy)}</div>` : "")
+    + `<label>Type<select id="tryType">${tryTypeOptions(st.type)}</select></label>`
+    + `<label>Color<select id="tryColor"><option value="">Not set</option>${COLORS.map(c => `<option ${st.color === c ? "selected" : ""}>${c}</option>`).join("")}</select></label>`
+    + `<label>Pattern<select id="tryPattern"><option value="solid" ${st.pattern === "solid" ? "selected" : ""}>Solid</option><option value="patterned" ${st.pattern === "patterned" ? "selected" : ""}>Patterned or graphic</option></select></label>`
+    + `<button class="btn primary" id="tryGo" ${st.type && st.color && real >= 3 ? "" : "disabled"}>Check it</button><button class="btn" id="tryClose">Close</button>`;
+}
+async function tryPhoto(file) {
+  tryState.url = URL.createObjectURL(file); tryState.busy = "Reading the photo..."; renderTry();
+  try { const r = await analyzeLook({ url: tryState.url }); if (r) { tryState.color = r.color; tryState.pattern = r.pattern; tryState.lum = r.lum; } } catch {}
+  if (smart.ai && !platformInfo().ios) {
+    tryState.busy = "Working out what it is..."; renderTry();
+    try { const r = await Promise.race([recognizeOne({ url: tryState.url }), new Promise((_, rej) => setTimeout(() => rej(new Error("slow")), 20000))]); if (r && r.score >= 0.2) tryState.type = r.label; } catch {}
+  }
+  tryState.busy = tryState.type ? "" : "Pick what it is below."; renderTry();
+}
+const pairFit = (a, b) => colorScore([a, b]).m * typeScore([a, b]).m;
+function tryAnalyze() {
+  const st = tryState, T = TYPES.find(t => t[0] === st.type); if (!T) return null;
+  const real = tryPool().filter(i => i.season === season && isActiveCat(i.category) && i.category !== "unsorted");
+  const saveOutfit = outfit.slice();
+  const fake = { id: "__try", season, category: T[1], typeLabel: st.type, color: st.color, pattern: st.pattern, lum: st.lum, name: ((st.color ? st.color + " " : "") + T[2]).toLowerCase().replace(/^./, c => c.toUpperCase()), tags: T[3], auto: { name: false }, url: st.url, demo: false };
+  const med = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
+  const sample = (locked) => { const out = [], seen = new Set(); for (let n = 0; n < 160; n++) { const sl = buildCandidate(locked); if (!sl.length) continue; const key = sl.map(x => x.id).sort().join(); if (seen.has(key)) continue; seen.add(key); out.push({ sl, m: scoreOutfit(sl.map(x => byId(x.id))).m }); } return out; };
+  let base = [], withIt = [];
+  try {
+    base = sample([]);
+    items.push(fake);
+    withIt = sample([{ cat: fake.category, id: fake.id, locked: true }]);
+    const others = real.filter(i => i.category !== fake.category && i.category !== "accessories");
+    const fits = others.map(o => ({ it: o, f: pairFit(fake, o) })).sort((a, b) => b.f - a.f);
+    const goes = fits.filter(x => x.f >= 0.9), same = real.filter(i => typeOf(i) === st.type), dup = same.filter(i => i.color === st.color);
+    const baseMed = base.length ? med(base.map(x => x.m)) : 1, share = withIt.length ? withIt.filter(x => x.m >= baseMed).length / withIt.length : 0;
+    const best = withIt.slice().sort((a, b) => b.m - a.m).slice(0, 3).map(x => ({ items: x.sl.map(y => ({ ...byId(y.id) })), notes: whyNotes(scoreOutfit(x.sl.map(y => byId(y.id))).notes) }));
+    return { fake: { ...fake }, others: others.length, goes: goes.length, fits, share, dup, same, best, verdict: dup.length >= 1 ? "dup" : share >= 0.5 && goes.length / Math.max(1, others.length) >= 0.6 ? "great" : share >= 0.35 ? "ok" : "hard" };
+  } finally { const k = items.indexOf(fake); if (k >= 0) items.splice(k, 1); outfit = saveOutfit; }
+}
+function tryResultHTML(r) {
+  const v = { great: ["great", "Great buy", "It works with most of what you own."], ok: ["ok", "Works, with some care", "It goes with your closet, but some combinations are better than others."], hard: ["hard", "Hard to wear", "Few of your outfits work well with it."], dup: ["hard", "You already have this", "You own pieces that are nearly the same."] }[r.verdict];
+  const nm = (i) => esc(i.name || i.color || LABEL[i.category]);
+  const goodList = r.fits.slice(0, 3).filter(x => x.f >= 0.9).map(x => nm(x.it)).join(", "), badList = r.fits.slice(-2).filter(x => x.f < 0.8).map(x => nm(x.it)).join(", ");
+  return `<div class="verdict ${v[0]}"><h3>${v[1]}</h3><div>${v[2]}</div></div>`
+    + `<p style="margin:0"><b>Goes with ${r.goes} of ${r.others}</b> of your other pieces. It fits well in about ${Math.round(r.share * 100)} of 100 sample outfits.</p>`
+    + (goodList ? `<p class="tip" style="margin:0">Works best with: ${goodList}.</p>` : "") + (badList ? `<p class="tip" style="margin:0">Fights with: ${badList}.</p>` : "")
+    + (r.same.length >= 3 ? `<p class="tip" style="margin:0">You already own ${r.same.length} similar ${esc(r.fake.typeLabel)}s.</p>` : "")
+    + (r.dup.length ? `<div class="note bad">Very similar to: ${r.dup.slice(0, 3).map(nm).join(", ")}.</div>` : "")
+    + (r.best.length ? `<h3 class="subh">Best outfits with it</h3>` + r.best.map(b => `<div class="rulerow"><div class="tryout">${b.items.map(i => `<img src="${picT(i)}" ${ca(i)} alt="">`).join("")}</div><div class="tip" style="margin:0">${esc(b.items.map(i => i.name || i.color || LABEL[i.category]).join(" + "))}</div>${b.notes[0] ? `<div class="tip" style="margin:0">${esc(b.notes[0].t)}</div>` : ""}</div>`).join("") : "")
+    + `<div class="actions"><button class="btn" id="tryAgain">Try another</button><button class="btn primary" id="tryClose">Close</button></div>`;
+}
+document.addEventListener("change", (e) => {
+  if (e.target.id === "tryFile" && e.target.files[0]) { const f = e.target.files[0]; e.target.value = ""; tryPhoto(f); }
+  else if (e.target.id === "tryType") { tryState.type = e.target.value; renderTry(); }
+  else if (e.target.id === "tryColor") { tryState.color = e.target.value; renderTry(); }
+  else if (e.target.id === "tryPattern") { tryState.pattern = e.target.value; }
+});
+document.addEventListener("click", (e) => {
+  const id = e.target.id; if (!id) return;
+  if (id === "tryOpen" || id === "tryOpen2") openTry();
+  else if (id === "tryGo") { tryState.result = tryAnalyze(); renderTry(); const P = $("tryPanel"); P.scrollTop = 0; }
+  else if (id === "tryAgain") openTry();
+  else if (id === "tryClose") $("trySheet").hidden = true;
+});
+$("trySheet").addEventListener("click", (e) => { if (e.target.id === "trySheet") $("trySheet").hidden = true; });
+/* ---------- Guided photo session ---------- */
+const guide = { on: false, steps: [], i: 0, taken: 0 };
+const GUIDE_DEFAULT = { tops: 5, bottoms: 4, layers: 3, shoes: 3, outerwear: 2, accessories: 2 };
+const GUIDE_TIP = { tops: "Lay each tee or shirt flat on a plain sheet. Fill the frame.", bottoms: "Lay pants flat and straight, front facing up.", layers: "Smooth out sweaters and hoodies so the shape shows.", outerwear: "Zip or button jackets so they keep their shape.", shoes: "Photograph one shoe from the side, or the pair together.", accessories: "One accessory per photo, on a plain background." };
+function startGuide() {
+  const steps = [];
+  for (const c of ["tops", "bottoms", "layers", "shoes", "outerwear", "accessories"]) {
+    if (!isActiveCat(c)) continue;
+    const have = items.filter(i => !i.demo && i.season === season && i.category === c).length;
+    steps.push({ cat: c, n: Math.max(1, GUIDE_DEFAULT[c] - have), done: 0 });
+  }
+  if (!steps.length) { toast("Turn on at least one category in More first."); return; }
+  Object.assign(guide, { on: true, steps, i: 0, taken: 0 }); cat = steps[0].cat; $("guideDone").innerHTML = "";
+  render(); openCam().then(renderGuide);
+}
+function renderGuide() {
+  const bar = $("guideBar"); if (!bar) return;
+  bar.hidden = !guide.on; if (!guide.on) return;
+  const st = guide.steps[guide.i], label = (CATS.find(c => c.id === st.cat) || {}).label || st.cat;
+  const all = guide.steps.reduce((a, x) => a + x.n, 0), done = guide.steps.reduce((a, x) => a + Math.min(x.done, x.n), 0);
+  bar.innerHTML = `<div class="gb"><b>Step ${guide.i + 1} of ${guide.steps.length}: ${esc(label)}</b><span class="tip" style="margin:0">${Math.min(st.done, st.n)} of ${st.n}</span></div>`
+    + `<div class="bar"><i style="width:${Math.round(100 * done / all)}%"></i></div><p class="tip" style="margin:0">${esc(GUIDE_TIP[st.cat] || "")}</p>`
+    + `<div class="gbtns"><button class="chip sm" id="guideMore">+1 more here</button><button class="chip sm" id="guideSkip">${st.done >= st.n ? "Next step" : "Skip this step"}</button><button class="chip sm" id="guideFinish">Finish</button></div>`;
+}
+function guideNextStep() {
+  guide.i++;
+  if (guide.i >= guide.steps.length) { finishGuide(); return; }
+  const st = guide.steps[guide.i]; cat = st.cat; render();
+  toast("Next: " + ((CATS.find(c => c.id === st.cat) || {}).label || st.cat)); renderGuide();
+}
+function guideAfterSnap() {
+  if (!guide.on) return; guide.taken++;
+  const st = guide.steps[guide.i]; st.done++;
+  if (st.done === st.n) { if (navigator.vibrate) navigator.vibrate([20, 40, 20]); if (guide.i < guide.steps.length - 1) { setTimeout(guideNextStep, 700); renderGuide(); return; } setTimeout(finishGuide, 700); }
+  renderGuide();
+}
+function finishGuide() {
+  const n = guide.taken; guide.on = false; stopCam(); renderGuide();
+  const ready = items.filter(i => !i.demo && i.url && !i.cutUrl).length, auto = cutPrefs.auto;
+  $("guideDone").innerHTML = n ? `<div class="install"><b>Nice work: ${n} ${n === 1 ? "photo" : "photos"} added.</b><p>${auto ? "They're being cleaned up and sorted in the background. Keep the app open until it's done." : "Next, let the app remove the backgrounds, read the colors and sort them."}</p><div class="actions">${auto ? "" : '<button class="btn primary" id="guideClean">Clean up and sort now</button>'}<button class="btn" id="guideToday">See today\'s outfit</button></div></div>` : "";
+  if (n && auto && ready) enqueueCut(items.filter(i => !i.demo && i.url && !i.cutUrl && !i.cutFail).map(i => i.id));
+}
+$("guideStart").addEventListener("click", startGuide);
+document.addEventListener("click", (e) => {
+  const id = e.target.id; if (!id) return;
+  if (id === "guideSkip") guideNextStep();
+  else if (id === "guideMore") { guide.steps[guide.i].n++; renderGuide(); }
+  else if (id === "guideFinish") finishGuide();
+  else if (id === "guideToday") { $("guideDone").innerHTML = ""; showTab("today"); }
+  else if (id === "guideClean") {
+    const ios = platformInfo().ios; smart.color = true; cutPrefs.auto = true; if (!ios) smart.ai = true; if (ios) cutPrefs.method = "quick";
+    lsSet("closet-smart", smart); lsSet("closet-cut", cutPrefs); $("guideDone").innerHTML = "";
+    enqueueCut(eligible().map(i => i.id)); if (!ios) enqueueRec(eligibleRec().map(i => i.id)); toast("Cleaning up and sorting. Keep the app open.");
+  }
+});
 let snapBusy = false;
 async function snap() {
   const v = $("vid"); if (!v.videoWidth || snapBusy) return; snapBusy = true;
@@ -920,7 +1078,7 @@ async function snap() {
       blob = await canvasBlob(cv, "image/jpeg", 0.9);
     }
     camShots++; $("camCount").textContent = camShots + (camShots === 1 ? " photo" : " photos") + " taken";
-    handleFiles([blob]);
+    handleFiles([blob]); guideAfterSnap();
   } finally { snapBusy = false; }
 }
 $("camTorch").addEventListener("click", async () => {
@@ -931,7 +1089,7 @@ $("camZoom").addEventListener("input", async (e) => { try { await camTrack.apply
 $("camAuto").addEventListener("click", () => { autoSnap = !autoSnap; lsSet("closet-autosnap", autoSnap); camSt.moved = true; camSt.steady = 0; renderAutoSnap(); });
 $("vid").addEventListener("dblclick", snap);
 $("camOpen").addEventListener("click", openCam);
-$("camClose").addEventListener("click", stopCam);
+$("camClose").addEventListener("click", () => { if (guide.on) finishGuide(); else stopCam(); });
 $("snap").addEventListener("click", snap);
 
 /* ---------- Item editor ---------- */
@@ -1076,6 +1234,21 @@ function ctxOf(ids) {
   const its = ids.map(byId).filter(Boolean);
   return { ids, patterned: its.some(i => i.pattern === "patterned"), accent: its.some(isAccent) };
 }
+let rules = Object.assign({ never: [], always: [] }, lsGet("closet-rules") || {});
+const saveRules = () => { rules.never = rules.never.filter(k => k.split("|").every(byId)); rules.always = rules.always.filter(k => k.split("|").every(byId)); lsSet("closet-rules", rules); };
+const usable = (it) => !!it && it.season === season && isActiveCat(it.category) && it.category !== "unsorted" && !isDirty(it);
+// Always-together: if an outfit has one of a pair, bring the other along (replacing what's in that slot).
+function applyRules(slots) {
+  for (const k of rules.always) {
+    const [a, b] = k.split("|"), ha = slots.find(x => x.id === a), hb = slots.find(x => x.id === b);
+    if (!!ha === !!hb) continue;
+    const missing = byId(ha ? b : a); if (!usable(missing)) continue;
+    const idx = slots.findIndex(x => x.cat === missing.category);
+    if (idx >= 0 && slots[idx].locked) continue;
+    if (idx >= 0) slots[idx] = { cat: missing.category, id: missing.id }; else slots.push({ cat: missing.category, id: missing.id });
+  }
+  return slots;
+}
 const FORMAL_TAG = { Lounge: 0.5, Active: 0.5, Casual: 1.5, Work: 3.5, Dressy: 4 };
 function formalityOf(i) {
   if (i.formality !== undefined && i.formality !== null && i.formality !== "") return +i.formality;
@@ -1132,6 +1305,7 @@ function weight(i, ctx) {
   if (mood.energy === "High") { if (bold) w *= 2; if (has("Dressy")) w *= 1.5; }
   w *= formalFactor(i, ctx) * harmonyFactor(i, ctx);
   const ms = mem.item[i.id] || 0; if (ms) w *= Math.exp(0.3 * ms);
+  if (ctx && ctx.ids) for (const o of ctx.ids) { const k = pairKey(i.id, o); if (rules.never.includes(k)) w *= 0.02; else if (rules.always.includes(k)) w *= 8; }
   if (ctx && ctx.ids && ctx.ids.length) { let ps = 0; for (const o of ctx.ids) ps += mem.pair[pairKey(i.id, o)] || 0; if (ps) w *= Math.exp(0.7 * Math.max(-3, Math.min(4, ps))); }
   return w;
 }
@@ -1308,6 +1482,13 @@ function scoreOutfit(its) {
   if (mood.event) for (const i of cl) { const tg = i.tags || []; if (tg.length) m *= tg.includes(mood.event) ? 1.08 : 0.75; }
   const ts = typeScore(its), cs = colorScore(its);
   m *= ts.m * cs.m; notes.push(...ts.notes, ...cs.notes);
+  // pairings you said never or always
+  for (let x = 0; x < its.length; x++) for (let y = x + 1; y < its.length; y++) {
+    const k = pairKey(its[x].id, its[y].id);
+    if (rules.never.includes(k)) { m *= 0.03; notes.push({ k: "warn", t: `You said never to wear ${its[x].name || "this"} with ${its[y].name || "that"}.`, w: 3 }); }
+    else if (rules.always.includes(k)) { m *= 1.3; notes.push({ k: "good", t: `${its[x].name || "This"} and ${its[y].name || "that"}: your always-together pair.`, w: 0.3 }); }
+  }
+  for (const k of rules.always) { const [a, b] = k.split("|"), ha = its.some(i => i.id === a), hb = its.some(i => i.id === b); if (ha !== hb && usable(byId(ha ? b : a))) m *= 0.4; }
   // what you loved or skipped before
   let ms = 0; for (const i of its) ms += mem.item[i.id] || 0;
   let ps = 0; for (let x = 0; x < its.length; x++) for (let y = x + 1; y < its.length; y++) ps += mem.pair[pairKey(its[x].id, its[y].id)] || 0;
@@ -1383,7 +1564,7 @@ function buildCandidate(locked = []) {
   if (pool("shoes").length) add("shoes");
   const accP = mood.energy === "High" || mood.feeling === "Confident" ? 0.8 : mood.energy === "Low" ? 0.25 : 0.5;
   if (pool("accessories").length && Math.random() < accP) add("accessories");
-  return slots;
+  return applyRules(slots);
 }
 function generate() {
   if (!SIM) refreshCnt();
@@ -1452,6 +1633,32 @@ function syncToday() {
   renderToday();
   if (tab === "laundry") renderLaundry();
 }
+function ruleName(id) { const i = byId(id); return i ? (i.name || i.color || LABEL[i.category]) : "?"; }
+function renderRulesList() {
+  const el = $("rulesList"); if (!el) return; saveRules();
+  const row = (k, kind) => { const [a, b] = k.split("|"); return `<div class="rulerow"><div class="pair"><img src="${picT(byId(a))}" ${ca(byId(a))} alt=""><img src="${picT(byId(b))}" ${ca(byId(b))} alt=""><span>${esc(ruleName(a))} + ${esc(ruleName(b))}</span></div><div class="actions"><span class="fit ${kind === "never" ? "bad" : "ok"}">${kind === "never" ? "Never together" : "Always together"}</span><button class="chip sm" data-ruledel="${kind}|${k}">Remove</button></div></div>`; };
+  const html = rules.never.map(k => row(k, "never")).join("") + rules.always.map(k => row(k, "always")).join("");
+  el.innerHTML = html || '<div class="empty">No rules yet.</div>';
+}
+function openRules() {
+  if (!outfit.length) return; saveRules();
+  const its = outfit.map(s => byId(s.id)).filter(Boolean), pairs = [];
+  for (let x = 0; x < its.length; x++) for (let y = x + 1; y < its.length; y++) pairs.push([its[x], its[y]]);
+  const body = pairs.map(([a, b]) => { const k = pairKey(a.id, b.id), nv = rules.never.includes(k), al = rules.always.includes(k); return `<div class="rulerow"><div class="pair"><img src="${picT(a)}" ${ca(a)} alt=""><img src="${picT(b)}" ${ca(b)} alt=""><span>${esc(a.name || LABEL[a.category])} + ${esc(b.name || LABEL[b.category])}</span></div><div class="actions"><button class="chip sm" data-rule="never|${a.id}|${b.id}" aria-pressed="${nv}">Never together</button><button class="chip sm" data-rule="always|${a.id}|${b.id}" aria-pressed="${al}">Always together</button></div></div>`; }).join("");
+  $("rulesPanel").innerHTML = `<h2 class="cat-title" style="margin:0">Pair rules</h2><p class="tip" style="margin:0">Pick any two pieces from today's outfit. I'll follow your rule from now on.</p>${body || '<div class="empty">Add a second piece first.</div>'}<button class="btn" id="rulesClose">Done</button>`;
+  $("rulesSheet").hidden = false;
+}
+function setRule(kind, a, b) {
+  const k = pairKey(a, b), had = rules[kind].includes(k);
+  rules.never = rules.never.filter(x => x !== k); rules.always = rules.always.filter(x => x !== k);
+  if (!had) rules[kind].push(k);
+  saveRules(); touchOutfit();
+  if (!had && kind === "never") {   // swap one of the two for the best alternative right away
+    const idx = outfit.findIndex(x => x.id === b), alt = idx >= 0 && swapOptions(idx).find(o => o.it.id !== b && !rules.never.includes(pairKey(o.it.id, a)));
+    if (alt) { outfit[idx].id = alt.it.id; outfitFrom = ""; toast("Got it. I swapped one so they're not together."); } else toast("Got it. I'll avoid that pairing.");
+  } else if (!had) { applyRules(outfit); toast("Got it. They'll go together from now on."); }
+  renderToday(); renderRulesList(); openRules();
+}
 function renderMood() {
   const grp = (label, key, opts) => `<div class="moodgrp"><span class="lab2">${label}</span>${opts.map(o => `<button class="chip sm" data-mood="${key}|${o}" aria-pressed="${mood[key] === o}">${o}</button>`).join("")}</div>`;
   const tagged = items.filter(i => (i.tags || []).length).length;
@@ -1491,6 +1698,7 @@ function openSwap(idx) {
     + `<div class="actions"><button class="btn" data-swapkeep="${idx}">${s.locked ? "Release" : "Keep it"}</button><button class="btn" data-swaprand="${idx}">Surprise me</button>${optional ? `<button class="btn" data-swapoff="${idx}">Take it off</button>` : ""}</div><button class="btn" id="swapClose">Close</button>`;
   $("swapSheet").hidden = false;
 }
+$("rulesSheet").addEventListener("click", (e) => { if (e.target.id === "rulesSheet") $("rulesSheet").hidden = true; });
 $("swapSheet").addEventListener("click", (e) => { if (e.target.id === "swapSheet") $("swapSheet").hidden = true; });
 function renderSlotRow() {
   const el = $("slotRow"); if (!el) return;
@@ -2578,7 +2786,7 @@ let crashNote = "";
 /* ---------- More tab ---------- */
 function foldMore() {
   const root = $("viewMore"); if (root.dataset.folded) return; root.dataset.folded = "1";
-  const state = lsGet("closet-fold") || {}, order = [/Smart sort/i, /Photo quality/i, /Photo cleanup/i, /Reminder/i, /Share with/i, /Look/i, /What I wear/i, /Weather/i, /Setup/i, /memory/i, /Backup/i, /Report/i, /About/i];
+  const state = lsGet("closet-fold") || {}, order = [/Smart sort/i, /Photo quality/i, /Photo cleanup/i, /Reminder/i, /Share with/i, /Pair rules/i, /Look/i, /What I wear/i, /Weather/i, /Setup/i, /memory/i, /Backup/i, /Report/i, /About/i];
   const cards = [...root.children].filter(c => c.classList.contains("card") && c.querySelector("h2.cat-title"));
   const made = cards.map(card => {
     const h = card.querySelector("h2.cat-title"), title = h.textContent.trim(), det = document.createElement("details");
@@ -2592,7 +2800,7 @@ function foldMore() {
 }
 function renderMore() {
   foldMore();
-  renderCut(); renderMem(); renderRec(); renderRem(); renderStorage(); renderReport(); renderInvite();
+  renderCut(); renderMem(); renderRec(); renderRem(); renderStorage(); renderReport(); renderInvite(); renderRulesList();
   $("unitC").setAttribute("aria-pressed", !unitF); $("unitF").setAttribute("aria-pressed", unitF);
   if (place && !$("wxStatus").textContent.startsWith("Couldn't")) {
     $("wxStatus").textContent = wx ? `${place.name}: ${fmt(wx.tmin)} to ${fmt(wx.tmax)}, ${wx.rain}% chance of rain today.` : `${place.name} saved. Loading forecast...`;
@@ -2948,6 +3156,10 @@ document.addEventListener("click", async (e) => {
   } else if (t.dataset.tmrshuf) { if (navigator.vibrate) navigator.vibrate(15); reshuffleDay(tomorrowStr()); renderTomorrow();
   } else if (t.dataset.tmrlock) { const d = plan.days.find(x => x.date === tomorrowStr()); if (d) { d.locked = true; lsSet("closet-plan", plan); if (navigator.vibrate) navigator.vibrate([20, 40, 20]); toast("Tomorrow is locked in."); } renderTomorrow();
   } else if (t.dataset.tmrunlock) { const d = plan.days.find(x => x.date === tomorrowStr()); if (d) { d.locked = false; lsSet("closet-plan", plan); } renderTomorrow();
+  } else if (t.id === "rulesBtn") { openRules();
+  } else if (t.id === "rulesClose") { $("rulesSheet").hidden = true;
+  } else if (t.dataset.rule) { const [kind, a, b] = t.dataset.rule.split("|"); setRule(kind, a, b);
+  } else if (t.dataset.ruledel) { const [kind, ...k] = t.dataset.ruledel.split("|"); const key = k.join("|"); rules[kind] = rules[kind].filter(x => x !== key); saveRules(); renderRulesList(); renderToday();
   } else if (t.id === "swapClose") { $("swapSheet").hidden = true; } else if (t.id === "reroll") {
     if (outfit.length && outfit.every(x => x.locked)) { toast("Everything is kept. Release a piece to shuffle."); }
     else {
@@ -2968,7 +3180,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 31;
+const APP_VERSION = 32;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
