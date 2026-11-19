@@ -49,6 +49,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 .tmr .th { display: flex; gap: 6px; overflow-x: auto; }
 .tmr .th img { width: 56px; height: 74px; object-fit: cover; border-radius: 10px; border: 2px solid var(--fg); flex: none; }
 .tmr .th img[data-cut] { object-fit: contain; background: var(--surface); }
+.topr { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .logbanner { border-radius: 16px; padding: 10px 14px; font-size: 14px; border: 2px solid var(--fg); }
 .logbanner.ok { background: var(--accent); color: var(--accent-fg); }
 .logbanner.warn { background: var(--surface); border-color: #c62828; }
@@ -240,7 +241,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 <main>
   <div class="top">
     <h1>My Closet</h1>
-    <div class="total"><b id="total">0</b> pieces this season</div>
+    <div class="topr"><div class="total"><b id="total">0</b> pieces this season</div><button class="chip sm" id="topShare" aria-label="Share the app with a friend">Share app</button></div>
   </div>
   <div class="seasons" id="seasons" role="group" aria-label="Season"></div>
 
@@ -2543,6 +2544,7 @@ $("inviteShare").addEventListener("click", async () => {
   if (navigator.share) { try { await navigator.share({ title: "My Closet", text }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
   try { await navigator.clipboard.writeText(text); toast("Invite copied. Paste it into a message."); } catch { toast("Couldn't copy. Copy the link manually."); }
 });
+$("topShare").addEventListener("click", () => $("inviteShare").click());
 $("inviteCopy").addEventListener("click", async () => { try { await navigator.clipboard.writeText(inviteUrl()); toast("Link copied."); } catch { toast("Couldn't copy the link."); } });
 async function renderReport() {
   const ta = $("reportText"); if (!ta) return;
@@ -2966,7 +2968,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 30;
+const APP_VERSION = 31;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
