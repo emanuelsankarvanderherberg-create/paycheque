@@ -55,7 +55,7 @@ async function main() {
       } return out;
     });
     ok(r.cold.complete >= 38, "cold outfits incomplete: " + JSON.stringify(r.cold)); ok(r.cold.coat >= 32, "cold: coat in too few outfits: " + r.cold.coat + "/40");
-    ok(r.hot.complete >= 38, "hot outfits incomplete"); ok(r.hot.coat <= 8 && r.hot.layer <= 8, "hot: too many coats or sweaters: " + JSON.stringify(r.hot));
+    ok(r.hot.complete >= 38, "hot outfits incomplete"); ok(r.hot.coat <= 2 && r.hot.layer <= 2, "hot: too many coats or sweaters: " + JSON.stringify(r.hot));
     ok(!p.errors.length, p.errors.join(" | ")); await p.ctx.close();
   });
 
@@ -189,6 +189,30 @@ async function main() {
     const b = await p.evaluate(() => [...document.querySelectorAll("label.formrow")].map(e => e.getBoundingClientRect().height).filter(h => h > 0));
     ok(b.length >= 3 && b.every(x => x >= 43.5), `checkbox rows under 44px: ${b.join(",")}`);
     await p.ctx.close();
+  });
+
+  await test("outfit-board labels have a 44px tap area", async () => {
+    const p = await open({ demo: true, w: 360, h: 700 });
+    await p.evaluate(() => showTab("today")); await p.waitForTimeout(700);
+    const r = await p.evaluate(() => [...document.querySelectorAll(".lab")].map(e => {
+      const b = e.getBoundingClientRect(), cx = b.left + b.width / 2, need = Math.max(0, (44 - b.height) / 2), y = (d) => document.elementFromPoint(cx, d);
+      const up = y(b.top - need + 2), dn = y(b.bottom + need - 2);   // just inside the 44px zone above and below
+      return { h: Math.round(b.height), up: !!(up && up.closest(".lab")) || b.top - need < 0, dn: !!(dn && dn.closest(".lab")) || b.bottom + need > innerHeight };
+    }));
+    ok(r.length >= 3 && r.every(x => x.up && x.dn), "label tap area too small: " + JSON.stringify(r));
+    await p.ctx.close();
+  });
+
+  await test("backup reminder: recent backup is quiet, 5+ new pieces or a week old prompts", async () => {
+    const p = await open({ demo: true });
+    const nag = async (set) => p.evaluate((o) => { items.forEach(i => { i.demo = false; }); localStorage.removeItem("closet-bkSnooze"); for (const k in o) o[k] === null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(o[k])); renderToday(); return $("backupNag").textContent; }, set);
+    const n = await p.evaluate(() => items.length); ok(n >= 12, "need 12+ items, have " + n);
+    const now = Date.now();
+    ok(!(await nag({ "closet-lastBackup": now, "closet-lastBackupN": n })), "nagging right after a backup");
+    ok(!(await nag({ "closet-lastBackup": now, "closet-lastBackupN": null })), "nagging for an old backup with no count");
+    ok(/added \d+ pieces since/.test(await nag({ "closet-lastBackup": now, "closet-lastBackupN": n - 6 })), "no nag after 6 new pieces");
+    ok(/week since/.test(await nag({ "closet-lastBackup": now - 9 * 864e5, "closet-lastBackupN": n })), "no nag after 9 days");
+    ok(!p.errors.length, p.errors.join(" | ")); await p.ctx.close();
   });
 
   await test("filter, season and reminder chips are at least 44px tall", async () => {
