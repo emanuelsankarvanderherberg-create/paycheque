@@ -191,6 +191,16 @@ async function main() {
     await p.ctx.close();
   });
 
+  await test("filter, season and reminder chips are at least 44px tall", async () => {
+    const p = await open({ demo: true, w: 360, h: 700 });
+    for (const t of ["today", "photos"]) {
+      await p.evaluate((x) => showTab(x), t); await p.waitForTimeout(300);
+      const bad = await p.evaluate(() => [...document.querySelectorAll("button.chip")].map(e => ({ h: e.getBoundingClientRect().height, id: e.id || e.textContent.trim().slice(0, 14) })).filter(o => o.h > 0 && o.h < 43.5).map(o => o.id + ":" + Math.round(o.h)));
+      ok(!bad.length, `${t}: chips under 44px: ${bad.join(", ")}`);
+    }
+    await p.ctx.close();
+  });
+
   await browser.close(); server.close();
   const failed = results.filter(r => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
