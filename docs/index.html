@@ -66,7 +66,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 .tryout img[data-cut] { object-fit: contain; background: var(--surface); }
 .tipcard { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: min(94%, 600px); z-index: 60; background: var(--fg); color: var(--bg); border-radius: 18px; padding: 12px 14px; font-size: 14px; line-height: 1.4; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
 .tipcard[hidden] { display: none; }
-.tipbtns { display: flex; gap: 14px; } .tipbtns button { background: none; border: 0; color: inherit; font-weight: 700; text-decoration: underline; padding: 2px 0; }
+.tipbtns { display: flex; gap: 14px; } .tipbtns button { background: none; border: 0; color: inherit; font-weight: 700; text-decoration: underline; padding: 2px 0; min-height: 44px; min-width: 44px; }
 .how { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.4; }
 .logbanner { border-radius: 16px; padding: 10px 14px; font-size: 14px; border: 2px solid var(--fg); }
 .logbanner.ok { background: var(--accent); color: var(--accent-fg); }
@@ -114,7 +114,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .chip .n { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
 .chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
 .chip[aria-pressed="true"] .n { color: inherit; opacity: .85; }
-.chip.sm { padding: 5px 11px; font-size: 13px; }
+.chip.sm { padding: 5px 11px; font-size: 13px; min-height: 44px; }
 .shutter { display: flex; align-items: center; justify-content: center; background: var(--accent); color: var(--accent-fg); border-radius: var(--r); padding: 22px 16px; font-family: var(--font-display); font-weight: 800; font-size: 22px; text-align: center; border: 3px solid var(--fg); width: 100%; box-shadow: inset 0 -5px 0 rgba(0,0,0,.18); }
 .shutter small { display: block; font-family: var(--font-body); font-weight: 500; font-size: 13px; opacity: .9; }
 .shutter.second { background: var(--surface); color: var(--fg); padding: 16px; font-size: 17px; box-shadow: none; }
@@ -3482,7 +3482,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 39;
+const APP_VERSION = 40;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
