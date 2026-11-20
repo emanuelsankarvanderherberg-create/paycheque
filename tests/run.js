@@ -170,6 +170,16 @@ async function main() {
     }
   });
 
+  await test("small buttons (Share app, Shuffle, Lock, tips) are at least 44px tall", async () => {
+    const p = await open({ demo: true, w: 360, h: 700 });
+    for (const t of ["today", "week"]) {
+      await p.evaluate((t) => showTab(t), t); await p.waitForTimeout(300);
+      const bad = await p.evaluate(() => [...document.querySelectorAll(".chip.sm, #topShare")].filter(e => e.offsetParent && e.getBoundingClientRect().height > 0 && e.getBoundingClientRect().height < 43.5).map(e => e.textContent.trim()));
+      ok(!bad.length, `${t}: small buttons under 44px: ${bad.join(", ")}`);
+    }
+    await p.ctx.close();
+  });
+
   await browser.close(); server.close();
   const failed = results.filter(r => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
