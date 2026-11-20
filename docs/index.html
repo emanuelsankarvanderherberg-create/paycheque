@@ -44,7 +44,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 .seasons .chip + .chip { border-left: 3px solid var(--fg); }
 .seasons .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
 .todaybar .rate { flex: 1 0 100%; flex-wrap: nowrap; gap: 6px; }
-.todaybar .rate .btn { flex: 1; padding: 8px 6px; font-size: 14px; border-width: 2px; }
+.todaybar .rate .btn { flex: 1; min-height: 44px; padding: 8px 6px; font-size: 14px; border-width: 2px; }
 .todaybar { position: fixed; left: 50%; transform: translateX(-50%); width: min(100%, 640px); bottom: calc(80px + env(safe-area-inset-bottom, 0px)); z-index: 6; background: var(--bg); padding: 10px 16px; border-top: 3px solid var(--fg); margin: 0; }
 #viewToday { padding-bottom: 130px; }
 .subh { font-family: var(--font-display); font-size: 17px; margin: 4px 0 0; }
@@ -66,7 +66,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 .tryout img[data-cut] { object-fit: contain; background: var(--surface); }
 .tipcard { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: min(94%, 600px); z-index: 60; background: var(--fg); color: var(--bg); border-radius: 18px; padding: 12px 14px; font-size: 14px; line-height: 1.4; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
 .tipcard[hidden] { display: none; }
-.tipbtns { display: flex; gap: 14px; } .tipbtns button { background: none; border: 0; color: inherit; font-weight: 700; text-decoration: underline; padding: 2px 0; }
+.tipbtns { display: flex; gap: 14px; } .tipbtns button { background: none; border: 0; color: inherit; font-weight: 700; text-decoration: underline; padding: 2px 0; min-height: 44px; min-width: 44px; }
 .how { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.4; }
 .logbanner { border-radius: 16px; padding: 10px 14px; font-size: 14px; border: 2px solid var(--fg); }
 .logbanner.ok { background: var(--accent); color: var(--accent-fg); }
@@ -110,11 +110,11 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.chip { border: 2px solid var(--fg); background: var(--surface); border-radius: 999px; padding: 8px 14px; display: inline-flex; gap: 8px; align-items: center; font-weight: 600; }
+.chip { border: 2px solid var(--fg); background: var(--surface); border-radius: 999px; padding: 8px 14px; display: inline-flex; gap: 8px; align-items: center; font-weight: 600; min-height: 44px; }
 .chip .n { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
 .chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
 .chip[aria-pressed="true"] .n { color: inherit; opacity: .85; }
-.chip.sm { padding: 5px 11px; font-size: 13px; }
+.chip.sm { padding: 5px 11px; font-size: 13px; min-height: 44px; }
 .shutter { display: flex; align-items: center; justify-content: center; background: var(--accent); color: var(--accent-fg); border-radius: var(--r); padding: 22px 16px; font-family: var(--font-display); font-weight: 800; font-size: 22px; text-align: center; border: 3px solid var(--fg); width: 100%; box-shadow: inset 0 -5px 0 rgba(0,0,0,.18); }
 .shutter small { display: block; font-family: var(--font-body); font-weight: 500; font-size: 13px; opacity: .9; }
 .shutter.second { background: var(--surface); color: var(--fg); padding: 16px; font-size: 17px; box-shadow: none; }
@@ -135,7 +135,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .tip { color: var(--muted); font-size: 13px; margin: 2px 0 0; line-height: 1.45; }
 .stack { display: flex; flex-direction: column; gap: 14px; }
 .nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--surface); border-top: 3px solid var(--fg); border-radius: 24px 24px 0 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; padding: 8px max(10px, env(safe-area-inset-left, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)); }
-.nav button { border: 0; background: transparent; padding: 12px 0; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); border-radius: 16px; position: relative; }
+.nav button { border: 0; background: transparent; padding: 12px 0; min-height: 44px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); border-radius: 16px; position: relative; }
 .nav button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); }
 .nav .dot { position: absolute; top: 6px; right: 14px; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); border: 2px solid var(--surface); }
 .readout { display: flex; border: 3px solid var(--fg); border-radius: 22px; overflow: hidden; background: var(--surface); }
@@ -187,6 +187,7 @@ a.btn.primary { color: var(--accent-fg); }
 textarea { background: var(--surface); border: 2px solid var(--fg); border-radius: 14px; padding: 10px 12px; width: 100%; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; color: inherit; resize: vertical; }
 input[type=text], input[type=search], input[type=number], select { background: var(--surface); border: 2px solid var(--fg); border-radius: 14px; padding: 11px 12px; width: 100%; min-width: 0; }
 .formrow { display: flex; gap: 8px; align-items: center; }
+label.formrow { min-height: 44px; }
 .formrow > span { flex: 1; }
 .card { background: var(--surface); border: 3px solid var(--fg); border-radius: 22px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 details.card > summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; justify-content: space-between; gap: 8px; font-family: var(--font-display); font-size: 17px; }
@@ -3482,7 +3483,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 38;
+const APP_VERSION = 42;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */

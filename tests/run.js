@@ -162,6 +162,45 @@ async function main() {
     await p.ctx.close();
   });
 
+  await test("bottom tab buttons are at least 44px tall on small phones", async () => {
+    for (const [w, h] of [[360, 700], [390, 740]]) {
+      const p = await open({ demo: true, w, h });
+      const hs = await p.evaluate(() => [...document.querySelectorAll(".nav button")].map(b => b.getBoundingClientRect().height));
+      ok(hs.length === 5 && hs.every(x => x >= 43.5), `tab heights at ${w}px: ${hs.join(",")}`); await p.ctx.close();
+    }
+  });
+
+  await test("small buttons (Share app, Shuffle, Lock, tips) are at least 44px tall", async () => {
+    const p = await open({ demo: true, w: 360, h: 700 });
+    for (const t of ["today", "week"]) {
+      await p.evaluate((t) => showTab(t), t); await p.waitForTimeout(300);
+      const bad = await p.evaluate(() => [...document.querySelectorAll(".chip.sm, #topShare")].filter(e => e.offsetParent && e.getBoundingClientRect().height > 0 && e.getBoundingClientRect().height < 43.5).map(e => e.textContent.trim()));
+      ok(!bad.length, `${t}: small buttons under 44px: ${bad.join(", ")}`);
+    }
+    await p.ctx.close();
+  });
+
+  await test("Love it / Skip it buttons and settings checkbox rows are at least 44px tall", async () => {
+    const p = await open({ demo: true, w: 360, h: 700 });
+    await p.evaluate(() => showTab("today")); await p.waitForTimeout(300);
+    const a = await p.evaluate(() => ["skipBtn", "loveBtn"].map(id => document.getElementById(id).getBoundingClientRect().height));
+    ok(a.every(x => x >= 43.5), `rate buttons: ${a.join(",")}`);
+    await p.evaluate(() => showTab("more")); await p.waitForTimeout(300);
+    const b = await p.evaluate(() => [...document.querySelectorAll("label.formrow")].map(e => e.getBoundingClientRect().height).filter(h => h > 0));
+    ok(b.length >= 3 && b.every(x => x >= 43.5), `checkbox rows under 44px: ${b.join(",")}`);
+    await p.ctx.close();
+  });
+
+  await test("filter, season and reminder chips are at least 44px tall", async () => {
+    const p = await open({ demo: true, w: 360, h: 700 });
+    for (const t of ["today", "photos"]) {
+      await p.evaluate((x) => showTab(x), t); await p.waitForTimeout(300);
+      const bad = await p.evaluate(() => [...document.querySelectorAll("button.chip")].map(e => ({ h: e.getBoundingClientRect().height, id: e.id || e.textContent.trim().slice(0, 14) })).filter(o => o.h > 0 && o.h < 43.5).map(o => o.id + ":" + Math.round(o.h)));
+      ok(!bad.length, `${t}: chips under 44px: ${bad.join(", ")}`);
+    }
+    await p.ctx.close();
+  });
+
   await browser.close(); server.close();
   const failed = results.filter(r => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
