@@ -7,3 +7,4 @@
 2026-11-20 07:00 v41: Love it/Skip it buttons and the checkbox rows in More now at least 44px tall; added a check.
 2026-11-20 08:23 v42: season, category-filter and reminder chips now at least 44px tall (were 39-41px); added a check. IDEAS: tiny 21-35px outfit-board labels (.lab) on Today could be bigger tap targets.
 2026-11-20 09:00 no change: 14/14 checks pass on v42; the remaining idea (outfit-board .lab labels under 44px) would enlarge absolutely positioned labels over the pieces, which risks overlap and needs the owner's design decision. IDEAS: same as v42 line.
+2026-11-20 10:00 no change: 14/14 checks pass on v42, no open overnight PR; nothing new and clearly worth changing since the last run (outfit-board .lab idea still needs the owner's design decision).
