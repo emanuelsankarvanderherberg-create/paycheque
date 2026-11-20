@@ -359,6 +359,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <h2 class="cat-title">Share with friends</h2>
       <p class="tip">Send friends a link. They open it, add it to their home screen and get their own private closet. Nothing is shared between phones.</p>
       <label class="formrow" style="gap:10px"><input type="checkbox" id="inviteGuide" style="width:22px;height:22px;accent-color:var(--accent)"><span>Include the 15-minute tester guide</span></label>
+      <label class="tip">Name for this link (optional, letters and numbers)<input type="text" id="inviteRef" placeholder="e.g. sam" maxlength="30" autocapitalize="off"></label>
       <label class="tip">Where should friends send problems? (optional)<input type="text" id="fbTarget" placeholder="Email, WhatsApp number or form link"></label>
       <p class="tip" id="inviteNote"></p>
       <div class="actions"><button class="btn primary" id="inviteShare">Share invite</button><button class="btn" id="inviteCopy">Copy link</button></div>
@@ -400,6 +401,13 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
       <div class="actions"><button class="btn primary" id="cutAll">Remove backgrounds</button><button class="btn" id="cutStop" hidden>Stop</button></div>
       <label class="formrow" style="gap:10px"><input type="checkbox" id="cutAuto" style="width:22px;height:22px;accent-color:var(--accent)"><span>Clean new photos automatically</span></label>
       <label class="formrow" style="gap:10px"><input type="checkbox" id="cutShow" style="width:22px;height:22px;accent-color:var(--accent)"><span>Show cleaned photos (turn off to see originals)</span></label>
+    </div>
+    <div class="card">
+      <h2 class="cat-title">Privacy</h2>
+      <p class="tip"><b>Stays on your phone:</b> your photos, your closet, your outfits and your settings. Nothing about them is uploaded.</p>
+      <p class="tip"><b>Contacts other services:</b> the weather service gets the city you enter (Open-Meteo); the photo-reading tools download from public hosts (jsDelivr, Hugging Face, IMG.LY); fonts load from Google Fonts; and the calendar buttons open Google Calendar only if you tap them.</p>
+      <p class="tip" id="countNote"></p>
+      <label class="formrow" style="gap:10px"><input type="checkbox" id="noCount" style="width:22px;height:22px;accent-color:var(--accent)"><span>Don't count my visits</span></label>
     </div>
     <div class="card">
       <h2 class="cat-title">How outfits are chosen</h2>
@@ -515,6 +523,22 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 
 <script>
 const FEEDBACK_URL = "";
+// Visit counting (optional). Paste your GoatCounter site code here, for example "mycloset" for https://mycloset.goatcounter.com. Empty means nothing is counted.
+const GOATCOUNTER_CODE = "";
+// A link can carry ?ref=name (letters, numbers, - and _ only). It is kept on this phone so problem reports can say which invite was used.
+const REF_OK = (v) => typeof v === "string" && /^[a-z0-9_-]{1,30}$/i.test(v);
+try { const q = new URLSearchParams(location.search).get("ref"); if (q && REF_OK(q) && !localStorage.getItem("closet-ref")) localStorage.setItem("closet-ref", JSON.stringify(q)); } catch {}
+const countingOn = () => !!GOATCOUNTER_CODE && !lsGet("closet-noCount") && navigator.doNotTrack !== "1" && !navigator.globalPrivacyControl && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+function startCounting() {
+  if (!countingOn() || document.getElementById("gcScript")) return;
+  const el = document.createElement("script"); el.id = "gcScript"; el.async = true;
+  el.dataset.goatcounter = `https://${GOATCOUNTER_CODE}.goatcounter.com/count`; el.src = "https://gc.zgo.at/count.js"; document.head.appendChild(el);
+}
+// Anonymous milestones only (no names, photos or closet contents): a count that something happened once on a device.
+function countEvent(name) {
+  if (!countingOn()) return; const done = lsGet("closet-counted") || {}; if (done[name]) return; done[name] = 1; lsSet("closet-counted", done);
+  let tries = 0; const go = () => { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: "event/" + name, title: name, event: true }); else if (tries++ < 20) setTimeout(go, 500); }; go();
+}
 // Where problem reports go: set by the link a friend used to open the app (?fb=...), or by the owner in More, Share with friends.
 const FB_OK = (v) => typeof v === "string" && v.length > 3 && v.length < 200 && (/^https:\/\/[^\s]+$/.test(v) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || /^\+?[0-9][0-9 ()-]{6,18}$/.test(v));
 try { const q = new URLSearchParams(location.search).get("fb"); if (q && FB_OK(q)) localStorage.setItem("closet-fb", JSON.stringify(q)); } catch {}
@@ -556,6 +580,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
 const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+startCounting();
 
 let season = "fall-winter", cat = "tops", tab = "today";
 // a piece is in the closet for the current season if it belongs to it, or if you marked it to wear all year
@@ -851,6 +876,7 @@ async function handleFiles(files) {
       const issue = qualityIssue(await photoQuality(probe));
       const newId = await db.collection("closet").add({ season: p.season, category: p.category, blob, thumb: await makeThumb(blob), createdAt: new Date().toISOString(), fixVer: fixed });
       pending = pending.filter(x => x !== p);
+      if (items.filter(i => !i.demo).length >= 10) countEvent("closet-10-pieces");
       if (items.filter(i => !i.demo).length === 10 && !lsGet("closet-lastBackup")) toast("10 pieces! Save a backup so you never lose them: More, then Backup.");
       lastShot = { id: newId, issue }; renderShotNote(); clearTimeout(shotT); if (issue) shotT = setTimeout(() => { lastShot = null; renderShotNote(); }, 9000);
       (async () => {
@@ -2971,6 +2997,7 @@ async function buildReport() {
     `Storage: ${est && est.quota ? Math.round(est.usage / 1048576) + " MB used of about " + Math.round(est.quota / 1048576) + " MB" : "unknown"} | Protected from clearing: ${persisted === null ? "unknown" : persisted ? "yes" : "no"}`,
     `Closet: ${real.length} real pieces (${items.length - real.length} samples), ${real.filter(i => i.cutUrl).length} with cutouts, ${real.filter(i => i.recognizedAt).length} recognized, ${real.filter(i => i.thumbUrl).length} with thumbnails, ${worn.length} logged days`,
     `Accuracy so far: ${real.filter(i => i.recognizedAt).length} types read by the app, ${real.filter(i => i.typeFixed).length} corrected by the user | ${real.filter(i => i.analyzedAt).length} colors read, ${real.filter(i => i.auto && i.auto.color === false).length} corrected`,
+    `Invite link: ${lsGet("closet-ref") || "none"} | Visit counting: ${countingOn() ? "on" : (GOATCOUNTER_CODE ? "off (opted out or Do Not Track)" : "not set up")}`,
     `By category: ${CATS.map(c => c.id + "=" + items.filter(i => i.category === c.id).length).join(", ")}`,
     `Last backup: ${last ? new Date(last).toISOString() : "never"}`,
     `Settings: color detection ${smart.color}, type recognition ${smart.ai}, auto cleanup ${cutPrefs.auto}, cleanup method ${cutPrefs.method}, look ${skin}`,
@@ -2990,18 +3017,31 @@ function reportSend(text) {
 }
 $("repSend").addEventListener("click", () => reportSend($("reportText").value));
 function inviteUrl() {
-  const base = appUrl(), own = lsGet("closet-fbOwn"); return base + (FB_OK(own) ? "?fb=" + encodeURIComponent(own) : "");
+  const base = appUrl(), own = lsGet("closet-fbOwn"), ref = (lsGet("closet-inviteRef") || "").trim(), q = [];
+  if (REF_OK(ref)) q.push("ref=" + encodeURIComponent(ref));
+  if (FB_OK(own)) q.push("fb=" + encodeURIComponent(own));
+  return base + (q.length ? "?" + q.join("&") : "");
 }
 function inviteText() {
   const guide = $("inviteGuide").checked ? `\n\n15-minute tester guide: ${appUrl()}test-guide.html` : "";
   return `Try My Closet. It picks outfits from photos of your own clothes, checks the weather, and keeps everything on your phone (nothing is uploaded).\n\nOpen it: ${inviteUrl()}\n\nAndroid: open in Chrome, tap the menu, then Install app.\niPhone: open in Safari, tap Share, then Add to Home Screen.${guide}`;
 }
+function renderCount() {
+  const n = $("countNote"); if (!n) return;
+  n.textContent = !GOATCOUNTER_CODE ? "Visit counting: off. This version doesn't count visits."
+    : "Visit counting: the app tells a privacy-friendly counter (GoatCounter) that a page was opened, plus when the app is installed, a closet reaches 10 pieces, or a first outfit is logged. It uses no cookies and never includes names, photos or anything in your closet.";
+  $("noCount").checked = !!lsGet("closet-noCount"); $("noCount").disabled = !GOATCOUNTER_CODE;
+}
+$("noCount").addEventListener("change", (e) => { lsSet("closet-noCount", e.target.checked); renderCount(); toast(e.target.checked ? "Your visits won't be counted." : "Visit counting is back on."); });
 function renderInvite() {
   const el = $("fbTarget"); if (!el) return;
   if (document.activeElement !== el) el.value = lsGet("closet-fbOwn") || "";
+  const rf = $("inviteRef"); if (rf && document.activeElement !== rf) rf.value = lsGet("closet-inviteRef") || "";
   const own = lsGet("closet-fbOwn");
-  $("inviteNote").textContent = !own ? "Optional: add where friends should send problems and the link will carry it." : FB_OK(own) ? "Friends' problem reports will go to: " + own : "That doesn't look like an email, a phone number or a link starting with https://.";
+  const refv = (lsGet("closet-inviteRef") || "").trim();
+  $("inviteNote").textContent = refv && !REF_OK(refv) ? "The link name can only use letters, numbers, - and _." : !own ? "Optional: add where friends should send problems and the link will carry it." : FB_OK(own) ? "Friends' problem reports will go to: " + own : "That doesn't look like an email, a phone number or a link starting with https://.";
 }
+$("inviteRef").addEventListener("input", (e) => { const v = e.target.value.trim(); lsSet("closet-inviteRef", v); renderInvite(); });
 $("fbTarget").addEventListener("input", (e) => { const v = e.target.value.trim(); lsSet("closet-fbOwn", v); renderInvite(); renderReport(); });
 $("inviteGuide").checked = lsGet("closet-inviteGuide") !== false;
 $("inviteGuide").addEventListener("change", (e) => lsSet("closet-inviteGuide", e.target.checked));
@@ -3044,7 +3084,7 @@ let crashNote = "";
 /* ---------- More tab ---------- */
 function foldMore() {
   const root = $("viewMore"); if (root.dataset.folded) return; root.dataset.folded = "1";
-  const state = lsGet("closet-fold") || {}, order = [/Smart sort/i, /Photo quality/i, /Photo cleanup/i, /Reminder/i, /Share with/i, /How outfits/i, /Pair rules/i, /Look/i, /What I wear/i, /Weather/i, /Setup/i, /memory/i, /Backup/i, /Report/i, /About/i];
+  const state = lsGet("closet-fold") || {}, order = [/Smart sort/i, /Photo quality/i, /Photo cleanup/i, /Reminder/i, /Share with/i, /Privacy/i, /How outfits/i, /Pair rules/i, /Look/i, /What I wear/i, /Weather/i, /Setup/i, /memory/i, /Backup/i, /Report/i, /About/i];
   const cards = [...root.children].filter(c => c.classList.contains("card") && c.querySelector("h2.cat-title"));
   const made = cards.map(card => {
     const h = card.querySelector("h2.cat-title"), title = h.textContent.trim(), det = document.createElement("details");
@@ -3058,7 +3098,7 @@ function foldMore() {
 }
 function renderMore() {
   foldMore();
-  renderCut(); renderMem(); renderRec(); renderRem(); renderStorage(); renderReport(); renderInvite(); renderRulesList();
+  renderCut(); renderMem(); renderRec(); renderRem(); renderStorage(); renderReport(); renderInvite(); renderCount(); renderRulesList();
   $("unitC").setAttribute("aria-pressed", !unitF); $("unitF").setAttribute("aria-pressed", unitF);
   if (place && !$("wxStatus").textContent.startsWith("Couldn't")) {
     $("wxStatus").textContent = wx ? `${place.name}: ${fmt(wx.tmin)} to ${fmt(wx.tmax)}, ${wx.rain}% chance of rain today.` : `${place.name} saved. Loading forecast...`;
@@ -3096,7 +3136,7 @@ function renderInstall() {
   el.innerHTML = `<div class="install"><b>Use it as an app</b>${body}</div>`;
 }
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredPrompt = e; renderInstall(); });
-window.addEventListener("appinstalled", () => { lsSet("closet-installed", true); deferredPrompt = null; renderInstall(); renderRemPrompt(); });
+window.addEventListener("appinstalled", () => { countEvent("installed"); lsSet("closet-installed", true); deferredPrompt = null; renderInstall(); renderRemPrompt(); });
 
 /* ---------- Thumbnails (small copies for lists, so big closets stay fast) ---------- */
 async function makeThumb(blob, max = 240) {
@@ -3434,13 +3474,14 @@ document.addEventListener("click", async (e) => {
       await db.collection("worn").doc(todayStr()).set({ date: todayStr(), season, itemIds: outfit.map(s => s.id), createdAt: new Date().toISOString() });
       if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
       const st = $("stage"); st.classList.remove("pulse"); void st.offsetWidth; st.classList.add("pulse");
+      countEvent("first-outfit-logged");
       const n = streakDays(); toast(n > 1 ? `Locked in! ${n} days in a row.` : "Locked in for today. Have a great day!");
     } catch { setMsg("Couldn't save today's outfit.", true); }
     renderToday();
   }
 });
 
-const APP_VERSION = 35;
+const APP_VERSION = 36;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
