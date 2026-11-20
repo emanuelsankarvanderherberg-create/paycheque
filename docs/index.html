@@ -135,7 +135,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .tip { color: var(--muted); font-size: 13px; margin: 2px 0 0; line-height: 1.45; }
 .stack { display: flex; flex-direction: column; gap: 14px; }
 .nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--surface); border-top: 3px solid var(--fg); border-radius: 24px 24px 0 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; padding: 8px max(10px, env(safe-area-inset-left, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)); }
-.nav button { border: 0; background: transparent; padding: 12px 0; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); border-radius: 16px; position: relative; }
+.nav button { border: 0; background: transparent; padding: 12px 0; min-height: 44px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); border-radius: 16px; position: relative; }
 .nav button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); }
 .nav .dot { position: absolute; top: 6px; right: 14px; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); border: 2px solid var(--surface); }
 .readout { display: flex; border: 3px solid var(--fg); border-radius: 22px; overflow: hidden; background: var(--surface); }
@@ -3482,7 +3482,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 38;
+const APP_VERSION = 39;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
