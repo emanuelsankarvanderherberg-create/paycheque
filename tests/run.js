@@ -162,6 +162,14 @@ async function main() {
     await p.ctx.close();
   });
 
+  await test("bottom tab buttons are at least 44px tall on small phones", async () => {
+    for (const [w, h] of [[360, 700], [390, 740]]) {
+      const p = await open({ demo: true, w, h });
+      const hs = await p.evaluate(() => [...document.querySelectorAll(".nav button")].map(b => b.getBoundingClientRect().height));
+      ok(hs.length === 5 && hs.every(x => x >= 43.5), `tab heights at ${w}px: ${hs.join(",")}`); await p.ctx.close();
+    }
+  });
+
   await browser.close(); server.close();
   const failed = results.filter(r => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
