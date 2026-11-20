@@ -98,6 +98,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 .catscroll .chip { flex: none; }
 .selbar { position: fixed; left: 0; right: 0; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 15; display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; background: var(--bg); border-top: 3px solid var(--fg); padding: 10px 16px; }
 .selbar[hidden] { display: none; }
+.selecting .toast { bottom: calc(230px + env(safe-area-inset-bottom, 0px)); }
 .selbar select { width: auto; padding: 8px 10px; }
 .selbar .btn { padding: 8px 14px; flex: none; }
 .tile.sel { outline: 4px solid var(--accent); outline-offset: -4px; }
@@ -755,7 +756,7 @@ function renderLaundry() {
 let selMode = false, selDelArm = false; const sel = new Set();
 function renderSelBar() {
   let bar = $("selbar"); if (!bar) { bar = document.createElement("div"); bar.id = "selbar"; bar.className = "selbar"; document.body.appendChild(bar); }
-  bar.hidden = !selMode || tab !== "capture";
+  bar.hidden = !selMode || tab !== "capture"; document.body.classList.toggle("selecting", !bar.hidden);
   $("selMode").setAttribute("aria-pressed", selMode); $("selMode").textContent = selMode ? "Cancel" : "Select";
   if (bar.hidden) return;
   bar.innerHTML = `<b>${sel.size} selected</b><select id="selMove" aria-label="Move to category"><option value="">Move to...</option>${CATS.map(c => `<option value="${c.id}">${c.id === "unsorted" ? "Unsorted" : esc(c.label)}</option>`).join("")}</select><select id="selSeason" aria-label="Season"><option value="">Season...</option><option value="all">Wear all year</option><option value="fall-winter">Fall / Winter only</option><option value="spring-summer">Spring / Summer only</option></select><button class="btn" id="selClean">Clean up</button><button class="btn" id="selDel">${selDelArm ? "Tap again to delete" : "Delete"}</button>`;
@@ -1959,7 +1960,7 @@ function fitStage() {
   const h = st.offsetHeight, w = sw.clientWidth; if (!h || !w) return;
   const top = st.getBoundingClientRect().top + scrollY;
   const room = (innerHeight - bar.getBoundingClientRect().height - (parseFloat(getComputedStyle(bar).bottom) || 0)) - top - 10;
-  if (h > room && room > 150) { sw.style.width = Math.max(230, Math.floor(w * room / h)) + "px"; sw.style.alignSelf = "center"; }
+  if (h > room && room > 150) { sw.style.width = Math.max(190, Math.floor(w * room / h)) + "px"; sw.style.alignSelf = "center"; }
 }
 addEventListener("resize", () => requestAnimationFrame(fitStage));
 function showBoard() { const r = $("stage").getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight - 150) window.scrollTo({ top: Math.max(0, scrollY + r.top - 70), behavior: "smooth" }); }
@@ -3481,7 +3482,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 37;
+const APP_VERSION = 38;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
