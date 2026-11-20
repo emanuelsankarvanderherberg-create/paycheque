@@ -524,7 +524,7 @@ img[data-cut] { object-fit: contain !important; padding: 5%; }
 <script>
 const FEEDBACK_URL = "";
 // Visit counting (optional). Paste your GoatCounter site code here, for example "mycloset" for https://mycloset.goatcounter.com. Empty means nothing is counted.
-const GOATCOUNTER_CODE = "";
+const GOATCOUNTER_CODE = "mycloset";
 // A link can carry ?ref=name (letters, numbers, - and _ only). It is kept on this phone so problem reports can say which invite was used.
 const REF_OK = (v) => typeof v === "string" && /^[a-z0-9_-]{1,30}$/i.test(v);
 try { const q = new URLSearchParams(location.search).get("ref"); if (q && REF_OK(q) && !localStorage.getItem("closet-ref")) localStorage.setItem("closet-ref", JSON.stringify(q)); } catch {}
@@ -3481,7 +3481,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 36;
+const APP_VERSION = 37;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */
