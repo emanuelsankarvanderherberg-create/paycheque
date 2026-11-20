@@ -23,6 +23,14 @@ Unattended sessions improve the app while the owner sleeps. This file is the rul
 11. After the merge, fetch `main`, run `node tests/run.js` on it once more. If it fails, immediately revert your merge commit (a new pull request that reverts it, merged the same way), append `HALT: <what failed>` to the log in that revert, and stop. A HALT stops all later runs from changing code.
 12. Finish with a short message: what you tested, what you changed (or why nothing), the new version number.
 
+## Token budget (keep each run small)
+Follow the `low-token-dev` skill (`.claude/skills/low-token-dev/SKILL.md`). In short:
+- Never read all of `docs/index.html`. Use `node tests/codemap.js` and `node tests/codemap.js <word>`, then read at most 80 lines at a time.
+- Use `node tests/run.js --quiet` (and `--only=<name>` while iterating). Full suite only before merging and once after.
+- At most 3 screenshots per run, each viewed once. Prefer assertions.
+- No web searches, no sub-agents. If nothing is clearly worth changing after a quick pass, log `no change: <why>` and stop.
+- Final message: 3 to 5 sentences.
+
 ## Notes for the owner
 - Baseline: the commit on `main` titled "Closet v38 ..." is the last version a person reviewed. To undo the whole night, revert everything after it.
 - Every overnight change is one squash commit, so any single change can be reverted on its own.
