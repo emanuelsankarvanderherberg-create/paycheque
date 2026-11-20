@@ -1,5 +1,6 @@
 // Regression and "use it like a person" checks for My Closet (docs/index.html).
 // Run from the repo root:  node tests/run.js        (needs Playwright; Chromium is preinstalled in the cloud sessions)
+// Options: --quiet (only failures and the total)   --only=<part of a check name> (run just matching checks)
 // Exits with code 1 if anything fails. Network is blocked inside the tests, so they never touch real services.
 const http = require("http"), fs = require("fs"), path = require("path");
 const { chromium } = require("playwright");
@@ -11,6 +12,7 @@ const server = http.createServer((req, res) => {
   if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end(); }
   res.writeHead(200, { "content-type": TYPES[path.extname(f)] || "application/octet-stream" }); fs.createReadStream(f).pipe(res);
 });
+const args = process.argv.slice(2), QUIET = args.includes("--quiet"), ONLY = (args.find(a => a.startsWith("--only=")) || "").slice(7).toLowerCase();
 const results = []; let browser, base;
 async function open(opts = {}) {
   const ctx = await browser.newContext({ viewport: { width: opts.w || 412, height: opts.h || 880 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true, permissions: ["camera", "clipboard-read", "clipboard-write"] });
@@ -24,9 +26,10 @@ async function open(opts = {}) {
   return page;
 }
 async function test(name, fn) {
+  if (ONLY && !name.toLowerCase().includes(ONLY)) return;
   const t0 = Date.now();
-  try { await fn(); results.push({ name, ok: true, ms: Date.now() - t0 }); console.log("PASS", name); }
-  catch (e) { results.push({ name, ok: false, msg: e.message }); console.log("FAIL", name, "-", e.message); }
+  try { await fn(); results.push({ name, ok: true, ms: Date.now() - t0 }); if (!QUIET) console.log("PASS", name); }
+  catch (e) { results.push({ name, ok: false, msg: String(e.message).split("\n")[0].slice(0, 300) }); console.log("FAIL", name, "-", String(e.message).split("\n")[0].slice(0, 300)); }
 }
 const ok = (c, msg) => { if (!c) throw new Error(msg); };
 
