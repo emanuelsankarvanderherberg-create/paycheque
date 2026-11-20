@@ -44,7 +44,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 30px; margin
 .seasons .chip + .chip { border-left: 3px solid var(--fg); }
 .seasons .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
 .todaybar .rate { flex: 1 0 100%; flex-wrap: nowrap; gap: 6px; }
-.todaybar .rate .btn { flex: 1; padding: 8px 6px; font-size: 14px; border-width: 2px; }
+.todaybar .rate .btn { flex: 1; min-height: 44px; padding: 8px 6px; font-size: 14px; border-width: 2px; }
 .todaybar { position: fixed; left: 50%; transform: translateX(-50%); width: min(100%, 640px); bottom: calc(80px + env(safe-area-inset-bottom, 0px)); z-index: 6; background: var(--bg); padding: 10px 16px; border-top: 3px solid var(--fg); margin: 0; }
 #viewToday { padding-bottom: 130px; }
 .subh { font-family: var(--font-display); font-size: 17px; margin: 4px 0 0; }
@@ -187,6 +187,7 @@ a.btn.primary { color: var(--accent-fg); }
 textarea { background: var(--surface); border: 2px solid var(--fg); border-radius: 14px; padding: 10px 12px; width: 100%; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; color: inherit; resize: vertical; }
 input[type=text], input[type=search], input[type=number], select { background: var(--surface); border: 2px solid var(--fg); border-radius: 14px; padding: 11px 12px; width: 100%; min-width: 0; }
 .formrow { display: flex; gap: 8px; align-items: center; }
+label.formrow { min-height: 44px; }
 .formrow > span { flex: 1; }
 .card { background: var(--surface); border: 3px solid var(--fg); border-radius: 22px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 details.card > summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; justify-content: space-between; gap: 8px; font-family: var(--font-display); font-size: 17px; }
@@ -3482,7 +3483,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-const APP_VERSION = 40;
+const APP_VERSION = 41;
 $("appVer").textContent = "Version " + APP_VERSION;
 
 /* ---------- Start ---------- */

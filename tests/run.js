@@ -180,6 +180,17 @@ async function main() {
     await p.ctx.close();
   });
 
+  await test("Love it / Skip it buttons and settings checkbox rows are at least 44px tall", async () => {
+    const p = await open({ demo: true, w: 360, h: 700 });
+    await p.evaluate(() => showTab("today")); await p.waitForTimeout(300);
+    const a = await p.evaluate(() => ["skipBtn", "loveBtn"].map(id => document.getElementById(id).getBoundingClientRect().height));
+    ok(a.every(x => x >= 43.5), `rate buttons: ${a.join(",")}`);
+    await p.evaluate(() => showTab("more")); await p.waitForTimeout(300);
+    const b = await p.evaluate(() => [...document.querySelectorAll("label.formrow")].map(e => e.getBoundingClientRect().height).filter(h => h > 0));
+    ok(b.length >= 3 && b.every(x => x >= 43.5), `checkbox rows under 44px: ${b.join(",")}`);
+    await p.ctx.close();
+  });
+
   await browser.close(); server.close();
   const failed = results.filter(r => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
